@@ -17,6 +17,12 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
+    ignore:
+      # workbox-build (used by vite-plugin-pwa to generate the service
+      # worker) requires Babel ^7.0.0-0 and breaks the production build
+      # under Babel 8. Revisit once workbox-build supports Babel 8.
+      - dependency-name: '@babel/core'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'pip'
     directory: '/'
