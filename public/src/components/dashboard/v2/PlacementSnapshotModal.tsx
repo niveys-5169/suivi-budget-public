@@ -111,7 +111,7 @@ export const PlacementSnapshotModal: React.FC<Props> = ({
   // Check for duplicates within the session
   const getRowKey = (row: SnapshotRow): string => {
     const selected = getSelectedPlacement(row);
-    let assetId = '';
+    let assetId: string;
     if (row.mode === 'existing' && selected) {
       const owner = selected.owner || 'Commun';
       if (selected.type === 'savings') {
@@ -158,7 +158,7 @@ export const PlacementSnapshotModal: React.FC<Props> = ({
 
       validRows.forEach((row) => {
         const selected = getSelectedPlacement(row);
-        let assetId = '';
+        let assetId: string;
 
         const type = row.mode === 'existing' && selected ? selected.type : row.manualType;
         const owner =
