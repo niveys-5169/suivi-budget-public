@@ -100,7 +100,10 @@ export const MPositionsChart: React.FC<Props> = ({ placementHistory, period }) =
             }}
             formatter={(value, name) => [fmt(Number(value)), name]}
             labelFormatter={(ts) =>
-              new Date(ts).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+              new Date(ts as string | number).toLocaleDateString('fr-FR', {
+                month: 'short',
+                year: 'numeric',
+              })
             }
           />
           {SERIES.map((s) =>
