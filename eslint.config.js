@@ -85,6 +85,17 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
 
+      // eslint-plugin-react-hooks v7 adds "React Compiler" readiness rules
+      // (this project doesn't use the compiler). They flag many established,
+      // intentional patterns codebase-wide — downgrade to warn rather than
+      // rewrite them under a dependency bump.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/incompatible-library': 'warn',
+      'react-hooks/static-components': 'warn',
+
       // a11y baseline (full audit comes in Sprint 2.1).
       'jsx-a11y/label-has-associated-control': 'warn',
       'jsx-a11y/no-autofocus': 'warn',
