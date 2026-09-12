@@ -155,7 +155,7 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
             }}
             labelStyle={{ color: '#a1a1aa', fontWeight: 700 }}
             labelFormatter={(ts) =>
-              new Date(ts).toLocaleDateString('fr-FR', {
+              new Date(ts as string | number).toLocaleDateString('fr-FR', {
                 day: '2-digit',
                 month: 'long',
                 year: 'numeric',
