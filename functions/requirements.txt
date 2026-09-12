@@ -11,7 +11,7 @@ functions-framework>=3.10.2
 # id %28default%29" — double encodage de l'ID de base). À déplafonner seulement
 # après vérification qu'un correctif amont existe.
 google-api-core==2.36.0
-google-cloud-core==2.6.1
+google-cloud-core==2.7.0
 google-cloud-firestore==2.30.0
 cloudevents>=1.11.0
 pytest>=9.0.3
