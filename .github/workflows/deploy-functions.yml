@@ -63,7 +63,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_CREDENTIALS }}
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Résoudre l'identité de déploiement et l'URL du handler Gmail Watch
         # Calculés ici, AVANT le déploiement, pour pouvoir les injecter comme
