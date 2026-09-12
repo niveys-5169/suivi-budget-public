@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Maskable: keep critical content in the 40% safe zone (centered 204x204). -->
+  <rect width="512" height="512" fill="#0B0B14"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="#D4AF37" stroke-width="3" opacity="0.4"/>
+  <text x="50%" y="50%" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-weight="700" fill="#D4AF37" text-anchor="middle" dominant-baseline="central" letter-spacing="6">AU</text>
+</svg>

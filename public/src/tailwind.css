@@ -1,0 +1,216 @@
+@import 'tailwindcss';
+@import './ui/tokens.css';
+@source "./**/*.{tsx,ts,jsx,js}";
+
+/* Activer le dark mode via data-theme="dark" */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* ============================================================================
+ * Les tokens vivent dans ./ui/tokens.css — ne rien redéclarer ici.
+ * Ce fichier ne contient plus que les styles de base et les utilitaires.
+ * ========================================================================== */
+
+@layer base {
+  /* Prevent white flash on iOS PWA safe-area zones and overscroll areas */
+  html {
+    background-color: #0b0b14;
+  }
+
+  body {
+    @apply bg-bg text-label font-inter;
+    background-attachment: fixed;
+    /* Prevent native iOS rubber-band from conflicting with our custom pull-to-refresh */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Number stabilization */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Échelle z-index sémantique — les valeurs ad-hoc z-[…] sont bannies */
+@utility z-nav {
+  z-index: 40;
+}
+
+@utility z-sticky {
+  z-index: 50;
+}
+
+@utility z-overlay {
+  z-index: 80;
+}
+
+@utility z-modal {
+  z-index: 100;
+}
+
+/* ----------------------------------------------------------------------------
+ * Surfaces
+ *
+ * `glass-panel` est conservé le temps de la migration mais ne produit plus de
+ * glassmorphisme : surface opaque + filet 1 px, conformément au niveau 2 du
+ * système d'élévation. Supprimé en vague 6.
+ * -------------------------------------------------------------------------- */
+@utility glass-panel {
+  @apply bg-surface border border-separator;
+}
+
+@utility premium-container {
+  @apply max-w-7xl mx-auto px-4 md:px-6;
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* ----------------------------------------------------------------------------
+ * Safe areas
+ *
+ * Les variantes `+md` / `+lg` existent pour couvrir les 20 paddings arbitraires
+ * du type `pt-[calc(env(safe-area-inset-top)+1.5rem)]` répartis dans le code.
+ * -------------------------------------------------------------------------- */
+@utility pb-nav-safe {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility pb-safe-md {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+@utility pb-safe-lg {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility pt-safe-md {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+}
+
+@utility pt-safe-lg {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1.5rem);
+}
+
+@utility -mt-safe {
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+}
+
+@utility mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility top-below-header {
+  top: calc(env(safe-area-inset-top, 0px) + 56px);
+}
+
+/* ----------------------------------------------------------------------------
+ * Chargement
+ * -------------------------------------------------------------------------- */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@utility animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2.2s linear infinite;
+}
+
+@utility animate-shimmer-gold {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(212, 175, 55, 0.1),
+    rgba(255, 255, 255, 0.02)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+ * Mode densité
+ *
+ * Les composants s'y abonnent via une classe `density-*`. Quand l'utilisateur
+ * active le mode compact (Réglages), <html data-density="compact"> déclenche
+ * les règles ci-dessous.
+ *
+ * Deux règles pour ce bloc :
+ *
+ *   1. Le padding HORIZONTAL n'est jamais touché — seuls la hauteur, le
+ *      padding vertical et les gaps internes le sont. Rogner la marge
+ *      horizontale d'une ligne la désaligne de son fond de swipe et de son
+ *      en-tête collant, qui ne portent pas la classe, sans rien gagner
+ *      d'utile : ce qu'on veut, c'est plus de lignes à l'écran.
+ *   2. Rien ne descend sous 44 px sur une cible tactile (`--spacing-control`,
+ *      cible Apple HIG). `.density-nav` fait exception : la sidebar est
+ *      `md:flex`, donc pointée à la souris.
+ *
+ * Les valeurs suivent la grille de 8 px, avec le sous-pas de 4 px déjà admis
+ * par le système (voir DESIGN_SYSTEM.md § Espacement).
+ * -------------------------------------------------------------------------- */
+html[data-density='compact'] .density-row {
+  min-height: 44px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  gap: 8px;
+}
+
+html[data-density='compact'] .density-row .density-row-icon {
+  width: 28px;
+  height: 28px;
+}
+
+/* Sidebar desktop — pointée à la souris, d'où les 40 px. */
+html[data-density='compact'] .density-nav {
+  min-height: 40px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* Barre de titre d'écran : 56 → 48. */
+html[data-density='compact'] .density-navbar {
+  min-height: 48px;
+}
+
+/* Bandeau de filtres sous la NavBar. */
+html[data-density='compact'] .density-toolbar {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/*
+ * Rythme vertical de l'écran. C'est le gain principal : 24 px entre chaque
+ * bloc sur une page qui en compte huit coûtent plus que la hauteur des lignes.
+ */
+html[data-density='compact'] .density-screen {
+  gap: 16px;
+  padding-top: 8px;
+}
+
+html[data-density='compact'] .density-card {
+  padding: 12px;
+}
+
+/* En-tête de groupe de dates, répété toutes les 3-4 lignes dans les flux. */
+html[data-density='compact'] .density-group-header {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}

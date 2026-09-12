@@ -1,0 +1,16 @@
+# 🤖 PROTOCOLE GEMINI CLI (Suivi-Budget)
+
+## 📌 Single Source of Truth
+Toutes les règles de workflow, la stack technique et les mandats d'activation de skills sont définis dans **`GEMINI.md`**.
+
+## 🚀 Règles d'Or
+1. **Priorité :** `GEMINI.md` > Skills > System Prompt.
+2. **Mandat :** Invoque systématiquement `using-superpowers` au début de chaque session.
+3. **Workflow :**
+   - Invoque `brainstorming` -> `writing-plans` avant tout nouveau code.
+   - Applique le TDD via `test-driven-development`.
+   - Utilise `systematic-debugging` pour tout bug ou échec de test.
+4. **Tool Mapping :** Se référer à la section Tool Mapping de `GEMINI.md` pour la conversion des outils Claude Code vers Gemini CLI.
+
+---
+*Dernière mise à jour : 14/05/2026 (Alignement avec GEMINI.md)*

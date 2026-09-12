@@ -1,0 +1,181 @@
+/* ============================================================================
+ * AURUM v3 — Tokens
+ *
+ * SOURCE UNIQUE de vérité pour les couleurs, rayons, typographie, ombres et
+ * z-index. Remplace les quatre sources historiques (@theme de tailwind.css,
+ * :root de style.css, mobile/tokens.css, new-ui/theme.ts).
+ *
+ * Deux règles pour ce fichier :
+ *   1. Aucun écran ne redéfinit une valeur qui vit ici.
+ *   2. Les échelles Tailwind par défaut (rounded-*, text-*, zinc-*) sont
+ *      volontairement REDÉFINIES pour que le code non encore migré tombe
+ *      automatiquement dans le système au lieu de le contredire.
+ *
+ * Le miroir TypeScript est dans ./tokens.ts (charts, styles inline, canvas).
+ * ========================================================================== */
+
+@theme {
+  /* --------------------------------------------------------------------
+   * Polices
+   * ------------------------------------------------------------------ */
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Playfair Display est la police réellement embarquée (public/fonts/).
+     L'ancien token nommait 'Fraunces', jamais chargée — le rendu ne tenait
+     que grâce à un !important dans style.css, désormais supprimé. */
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+
+  /* --------------------------------------------------------------------
+   * Couleurs — fond et surfaces
+   * ------------------------------------------------------------------ */
+  --color-bg: #0b0b14;
+  --color-surface: #15151f;
+  --color-raised: #1d1d2a;
+  --color-separator: rgba(255, 255, 255, 0.08);
+
+  /* Texte — hiérarchie par opacité (modèle iOS) plutôt que gris arbitraires */
+  --color-label: #f5f5f7;
+  --color-label-secondary: rgba(245, 245, 247, 0.6);
+  --color-label-tertiary: rgba(245, 245, 247, 0.38);
+
+  /* Or — ACCENT DE MARQUE uniquement : CTA, sélection, focus, icône active.
+     Ne porte plus la valeur des montants (voir positive/negative). */
+  --color-gold: #d4af37;
+  --color-gold-light: #e5c158;
+  --color-gold-subtle: rgba(212, 175, 55, 0.1);
+
+  /* Sémantique financière */
+  --color-positive: #4ade80;
+  --color-negative: #f87171;
+  --color-warning: #f59e0b;
+  --color-positive-subtle: rgba(74, 222, 128, 0.12);
+  --color-negative-subtle: rgba(248, 113, 113, 0.12);
+  --color-warning-subtle: rgba(245, 158, 11, 0.12);
+
+  /* --------------------------------------------------------------------
+   * Rayons — 8 / 10 / 12 / 16, plafond absolu à 16 px.
+   *
+   * L'échelle Tailwind par défaut est écrasée : les ~500 `rounded-lg/xl/2xl/
+   * 3xl` encore présents dans le code non migré retombent automatiquement
+   * dans le système. Aucun coin ne peut plus dépasser 16 px nulle part.
+   * ------------------------------------------------------------------ */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 16px;
+
+  /* --------------------------------------------------------------------
+   * Typographie — échelle iOS.
+   *
+   * L'échelle Tailwind par défaut est également remappée, pour la même
+   * raison : `text-2xl` dans un écran non migré vaut désormais title1.
+   * ------------------------------------------------------------------ */
+  --text-display: 34px;
+  --text-display--line-height: 40px;
+  --text-display--font-weight: 600;
+
+  --text-title1: 28px;
+  --text-title1--line-height: 34px;
+  --text-title2: 22px;
+  --text-title2--line-height: 28px;
+  --text-title3: 20px;
+  --text-title3--line-height: 26px;
+
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-headline--font-weight: 600;
+
+  --text-body: 17px;
+  --text-body--line-height: 22px;
+  --text-callout: 16px;
+  --text-callout--line-height: 22px;
+  --text-subhead: 15px;
+  --text-subhead--line-height: 20px;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+
+  /* Seule variante en majuscules, seul letter-spacing élargi du système. */
+  --text-overline: 12px;
+  --text-overline--line-height: 16px;
+  --text-overline--letter-spacing: 0.06em;
+  --text-overline--font-weight: 600;
+
+  /* Remappage de l'échelle Tailwind par défaut sur la même rampe */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 17px;
+  --text-base--line-height: 22px;
+  --text-lg: 20px;
+  --text-lg--line-height: 26px;
+  --text-xl: 22px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 28px;
+  --text-2xl--line-height: 34px;
+  --text-3xl: 34px;
+  --text-3xl--line-height: 40px;
+  --text-4xl: 34px;
+  --text-4xl--line-height: 40px;
+  --text-5xl: 34px;
+  --text-5xl--line-height: 40px;
+  --text-6xl: 34px;
+  --text-6xl--line-height: 40px;
+  --text-7xl: 34px;
+  --text-7xl--line-height: 40px;
+
+  /* --------------------------------------------------------------------
+   * Gris Tailwind remappés sur la hiérarchie de labels.
+   *
+   * `text-zinc-500` (267 usages) et consorts deviennent des niveaux du
+   * système au lieu d'un dégradé parallèle.
+   * ------------------------------------------------------------------ */
+  --color-zinc-200: #f5f5f7;
+  --color-zinc-300: rgba(245, 245, 247, 0.78);
+  --color-zinc-400: rgba(245, 245, 247, 0.6);
+  --color-zinc-500: rgba(245, 245, 247, 0.38);
+  --color-zinc-600: rgba(245, 245, 247, 0.28);
+  --color-zinc-700: rgba(245, 245, 247, 0.18);
+  --color-zinc-800: rgba(255, 255, 255, 0.08);
+  --color-zinc-900: #15151f;
+
+  /* --------------------------------------------------------------------
+   * Élévation — plate. Trois niveaux seulement.
+   * Les anciennes ombres (0 32px 64px) sont neutralisées.
+   * ------------------------------------------------------------------ */
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-floating: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-card: none;
+  --shadow-card-hover: none;
+  --shadow-gold-glow: none;
+  --shadow-gold-dot: 0 0 8px rgba(212, 175, 55, 0.6);
+
+  /* L'échelle Tailwind par défaut est écrasée elle aussi : les `shadow-2xl` et
+     `shadow-xl` du code non migré (surtout sur des cartes, où le système
+     n'admet aucune ombre) retombent sur l'ombre de flottement, réservée aux
+     modales et aux sheets. Plus aucun `0 32px 64px` nulle part. */
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-2xl: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* --------------------------------------------------------------------
+   * Divers
+   * ------------------------------------------------------------------ */
+  --breakpoint-xs: 360px;
+
+  /* Hauteurs canoniques — toutes multiples de 8 */
+  --spacing-navbar: 56px;
+  --spacing-tabbar: 56px;
+  --spacing-row: 56px;
+  --spacing-row-compact: 44px;
+  --spacing-control: 44px;
+}

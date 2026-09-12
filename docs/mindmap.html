@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AURUM — Mind Map Projet Suivi-Budget</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+      :root {
+        --ink-deep: #0b0b14;
+        --ink-surface: #121622;
+        --ink-light: #1c2130;
+        --ink-border: #2a3050;
+        --gold: #d4af37;
+        --gold-muted: rgba(212, 175, 55, 0.15);
+        --gold-soft: rgba(212, 175, 55, 0.08);
+        --platinum: #ededed;
+        --platinum-60: rgba(237, 237, 237, 0.6);
+        --platinum-30: rgba(237, 237, 237, 0.3);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--ink-deep);
+        color: var(--platinum);
+        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        min-height: 100vh;
+      }
+
+      header {
+        background: linear-gradient(135deg, var(--ink-surface) 0%, var(--ink-light) 100%);
+        border-bottom: 1px solid var(--ink-border);
+        padding: 2rem 3rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .logo-mark {
+        width: 48px;
+        height: 48px;
+        background: conic-gradient(from 135deg, var(--gold) 0%, #b8932c 50%, var(--gold) 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        font-weight: 900;
+        color: var(--ink-deep);
+        letter-spacing: -1px;
+        flex-shrink: 0;
+      }
+
+      .header-text h1 {
+        font-size: 1.5rem;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        color: var(--platinum);
+      }
+
+      .header-text p {
+        font-size: 0.75rem;
+        color: var(--gold);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        font-weight: 600;
+        margin-top: 2px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 0.5rem;
+        padding: 1.5rem 3rem 0;
+        background: var(--ink-surface);
+        border-bottom: 1px solid var(--ink-border);
+      }
+
+      .tab {
+        padding: 0.6rem 1.4rem;
+        border-radius: 8px 8px 0 0;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-bottom: none;
+        transition: all 0.2s;
+        color: var(--platinum-60);
+        background: transparent;
+      }
+
+      .tab:hover {
+        color: var(--platinum);
+        background: var(--gold-soft);
+      }
+
+      .tab.active {
+        color: var(--gold);
+        background: var(--ink-deep);
+        border-color: var(--ink-border);
+      }
+
+      .panel {
+        display: none;
+        padding: 2rem 3rem 3rem;
+      }
+      .panel.active {
+        display: block;
+      }
+
+      /* ─── MERMAID PANELS ─── */
+      .mermaid-wrapper {
+        background: var(--ink-surface);
+        border: 1px solid var(--ink-border);
+        border-radius: 1.5rem;
+        padding: 2rem;
+        overflow: auto;
+        min-height: 500px;
+      }
+
+      .mermaid {
+        display: flex;
+        justify-content: center;
+      }
+
+      /* ─── JSON PANEL ─── */
+      .json-controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 0.5rem 1.2rem;
+        border-radius: 8px;
+        border: 1px solid var(--gold);
+        background: var(--gold-soft);
+        color: var(--gold);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .btn:hover {
+        background: var(--gold-muted);
+      }
+
+      .json-block {
+        background: var(--ink-surface);
+        border: 1px solid var(--ink-border);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        overflow: auto;
+        max-height: 70vh;
+        font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+        font-size: 0.8rem;
+        line-height: 1.7;
+        color: var(--platinum-60);
+        white-space: pre;
+      }
+
+      /* ─── LEGEND ─── */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--platinum-60);
+      }
+
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .section-title {
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin-bottom: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo-mark">AU</div>
+      <div class="header-text">
+        <h1>AURUM — Suivi-Budget</h1>
+        <p>Mind Map Architecture Projet · 2026</p>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('overview')">Vue Globale</button>
+      <button class="tab" onclick="switchTab('frontend')">Frontend React</button>
+      <button class="tab" onclick="switchTab('data')">Données & API</button>
+      <button class="tab" onclick="switchTab('design')">Design System</button>
+      <button class="tab" onclick="switchTab('json')">JSON IA</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+     TAB 1 : VUE GLOBALE
+══════════════════════════════════════════════════════════ -->
+    <div id="panel-overview" class="panel active">
+      <p class="section-title">Architecture globale du projet</p>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #d4af37"></div>
+          Core / Racine
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #6c8ebf"></div>
+          Frontend React
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #82b366"></div>
+          Backend / Cloud
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #9c5b9e"></div>
+          Config & DevOps
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: #d6956b"></div>
+          Documentation
+        </div>
+      </div>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+          mindmap root((AURUM<br />Suivi-Budget)) Frontend["🖥️ Frontend"] React["React 18 +
+          TypeScript"] Vite["Vite 5"] Tailwind["Tailwind CSS 4"] Recharts["Recharts"] Pages["6 Pages
+          Principales"] Dashboard Transactions Budgets Patrimoine Analyse IA / QA Components["150+
+          Composants"] Hooks["20+ Custom Hooks"] Backend["☁️ Backend"] Firebase["Firebase"]
+          Firestore Auth Hosting Functions Python["Cloud Functions Python"] GCP["Google Cloud
+          Platform"] DataSources["📊 Sources de Données"] Bankin["API Bankin"]
+          BankinMapper["mapBankinToInternal"] Tronity["Tronity - Véhicule"] Email["Import Email"]
+          Config["⚙️ Config"] TypeScript ESLint Vitest Pytest Docs["📚 Docs"] GEMINI_md["GEMINI.md
+          (source vérité)"] ARCH_STATE["ARCH_STATE.md"] DESIGN_SYSTEM["DESIGN_SYSTEM.md"] Plans["26
+          Plans Techniques"]
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+     TAB 2 : FRONTEND REACT
+══════════════════════════════════════════════════════════ -->
+    <div id="panel-frontend" class="panel">
+      <p class="section-title">Architecture Frontend React/TypeScript</p>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+          mindmap root((Frontend<br />React/TS)) EntryPoints["🚪 Points d'Entrée"]
+          MainApp["MainApp.tsx<br />Router + Providers"] AurumEntry["aurum-entry.jsx"]
+          IndexHtml["public/index.html"] Providers["🏗️ Provider Stack"]
+          AppStateContext["AppStateContext"] GlobalDataContext["GlobalDataContext"]
+          TransactionContext["TransactionContext"] BudgetContext["BudgetContext"] Routing["🗺️
+          Routes"] Root["/ → Dashboard"] TransRoute["/transactions"] BudgetRoute["/budgets/*"]
+          PatrimoineRoute["/patrimoine"] AnalyseRoute["/analyse"] QARoute["/qa"]
+          AdvancedRoute["/advanced/*"] Components["🧩 Composants"] DashboardV2["dashboard/v2/"]
+          AurumDashboard["AurumDashboard"] AurumBalanceHero["AurumBalanceHero"]
+          AurumTransactions["AurumTransactionsPage"] AurumBudget["AurumBudgetPage"]
+          AurumWealth["AurumWealthPage"] AurumAI["AurumAIPage"] BudgetsV2["budgets-v2/"]
+          BudgetManagerPanel["BudgetManagerPanel"] RAVEditor["RAVEditor"]
+          BudgetTrendChart["BudgetTrendChart"] Analyse["analyse/"] AnalyseDonutCard["DonutCard"]
+          DrillDowns["Drilldowns x4"] Shared["shared/"] BottomNav PageHeader MonthNavigator
+          DonutChart AreaSparkline Hooks["🪝 Custom Hooks"] useAuth["useAuth — Firebase Auth"]
+          useBudget["useBudget — CRUD Budget"] useTransactions["useTransactions"]
+          usePatrimoine["usePatrimoine — Patrimoine"] useBalances["useBalances — Historique"]
+          useDashboard["useDashboard — Data Dashboard"] usePortfolio["usePortfolio — Portefeuille"]
+          useFinanceQA["useFinanceQA — IA"] useRules["useRules — Règles auto"] Types["📐 Types
+          TypeScript"] BankingTypes["banking.types.ts"] Account Transaction Budget BalancePoint
+          BalancesTypes["balances.ts"] PatrimoineTypes["patrimoine.ts"] Services["🔌 Services"]
+          Firebase["firebase.ts"] FirebaseAPI["firebase-api.ts"] AIEngine["aiEngine.ts —
+          Gemini/OpenAI"] FirestoreMigrations["firestoreMigrations.ts"] Utils["🛠️ Utilitaires"]
+          Formatters["formatters.ts"] DateUtils["date.ts"] Maths["maths.ts"]
+          BudgetHelpers["budgetHelpers.ts"] CategoryUtils["categoryUtils.ts"]
+          DuplicateDetect["duplicates.ts"] Lib["📦 Lib"] Colors["colors.ts"]
+          FeatureFlags["featureFlags.ts"] MockData["mockData.ts"] BankinMapper["bankin/mappers/"]
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+     TAB 3 : DONNÉES & API
+══════════════════════════════════════════════════════════ -->
+    <div id="panel-data" class="panel">
+      <p class="section-title">Couche données, API & backend</p>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+          mindmap root((Données<br />& API)) Firestore["🔥 Firestore (NoSQL)"]
+          Collections["Collections Principales"] accounts["accounts"] transactions["transactions"]
+          budgets["budgets"] balances["balances"] patrimoine["patrimoine"] placements["placements"]
+          rules["rules"] preferences["preferences"] Security["firestore.rules"]
+          Indexes["firestore.indexes.json"] ExternalAPIs["🌐 APIs Externes"] Bankin["Bankin Open
+          Banking"] AccountSync["Sync comptes bancaires"] TransactionSync["Sync transactions"]
+          MapperLayer["mapBankinToInternal.ts"] Tronity["Tronity API"] VehicleData["Données
+          véhicule"] Mileage["Kilométrage"] GoogleAppsScript["Google Apps Script"]
+          EmailImport["Import depuis Gmail"] CloudFunctions["☁️ Cloud Functions"]
+          PythonFunctions["functions/ Python"] SyncEndpoint["Sync Bankin → Firestore"]
+          CategorizationAI["Auto-catégorisation IA"] ReconcileEndpoint["Réconciliation"]
+          FirebaseHosting["Firebase Hosting"] SPA["dist/ → CDN global"] AILayer["🤖 Couche IA"]
+          GeminiAPI["Gemini API"] FinanceQA["Questions financières"] AutoCategorize["Catégorisation
+          auto"] OpenAI["OpenAI (fallback)"] aiEngine["aiEngine.ts"] ContextLayer["⚡ État Global
+          React"] GlobalDataContext["GlobalDataContext"] AccountsState["accounts"]
+          TransactionsState["transactions"] BudgetsState["budgets"] BalancesState["balances"]
+          BudgetContext["BudgetContext"] InlineEdit["Inline editing"] RAVState["RAV state"]
+          AppStateContext["AppStateContext"] CurrentMonth["mois courant"]
+          SelectedOwner["propriétaire sélectionné"] MigrationStatus["🔄 État Migration"]
+          Migrated["✅ Migré React"] DashboardV2["AurumDashboard"] BudgetsV2["BudgetsPage V2"]
+          TransactionsV2["AurumTransactionsPage"] WealthV2["AurumWealthPage"] InProgress["🟡 En
+          cours"] AssetScopeTabs["AssetScopeTabs"] ChartOptim["Perf Charts"] Legacy["🔴 Legacy JS (à
+          supprimer)"] BudgetJS["budget.js"] PatrimoineJS["patrimoine.js"]
+          TransactionsJS["transactions.js"]
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+     TAB 4 : DESIGN SYSTEM
+══════════════════════════════════════════════════════════ -->
+    <div id="panel-design" class="panel">
+      <p class="section-title">Design System AURUM — Gold/Ink Theme</p>
+      <div class="mermaid-wrapper">
+        <div class="mermaid">
+          mindmap root((Design<br />System<br />AURUM)) Colors["🎨 Couleurs"] Ink["Ink (Fonds)"]
+          InkDeep["#0B0B14 — fond profond"] InkSurface["#121622 — surface card"] InkLight["#1C2130 —
+          surface claire"] InkBorder["#2A3050 — bordures"] Gold["Aurum / Gold (Brand)"]
+          GoldPrimary["#D4AF37 — accent principal"] GoldMuted["rgba(212,175,55,0.15)"]
+          GoldSoft["rgba(212,175,55,0.08)"] Platinum["Platinum (Texte)"] PlatPrimary["#EDEDED —
+          texte primaire"] Plat60["rgba(237,237,237,0.6)"] Plat30["rgba(237,237,237,0.3)"]
+          Categories["Couleurs Catégories"] Housing["#6C8EBF — logement"] Transport["#D6956B —
+          transport"] Food["#82B366 — alimentation"] Health["#E06C75 — santé"]
+          Entertainment["#9C5B9E — loisirs"] Shopping["#D4AF37 — shopping"] Typography["✍️
+          Typographie"] Hero["Hero / Chiffres clés"] HeroFont["font-serif text-5xl-7xl
+          font-semibold"] Headings["Titres de section"] H2Style["text-2xl font-black
+          tracking-tighter"] Labels["Labels"] LabelStyle["text-[10px] font-bold uppercase
+          tracking-[0.2em]"] Numbers["Nombres financiers"] TabularNums["font-variant-numeric:
+          tabular-nums"] Layout["📐 Layout"] Cards["Cartes — Glass Panel"] GlassPanel["glass-panel
+          rounded-[2rem] p-6"] Glassmorphism["glassmorphism effect"] Spacing["Espacement"]
+          SectionGap["space-y-8 entre sections"] GridGap["gap-6 dans les grilles"] PageWrapper["Page
+          Wrapper"] Container["premium-container pb-24"] Navigation["Navigation"] Sidebar["Sidebar
+          fixe — desktop"] BottomNav["BottomNav — mobile"] Components["🧱 Composants UI"]
+          DataCards["Cartes de données"] BalanceHero["BalanceHero — solde principal"] KPICards["KPI
+          Cards — indicateurs"] TrendBadge["TrendBadge — variation"] Charts["Graphiques Recharts"]
+          AreaChart["AreaSparkline"] DonutChart["DonutChart — catégories"] BarChart["BarChart —
+          budgets"] LineChart["LineChart — évolution"] Forms["Formulaires"] InlineEdit["Édition
+          inline budget"] SliderInput["Slider RAV"] MonthNavigator["Navigation mensuelle"]
+          Modals["Modales"] GlassModal["glass-modal rounded-3xl"]
+          BalanceModal["BalanceHistoryModal"] BudgetModal["BudgetDetailModal"] Inspiration["💎
+          Inspiration"] RevolutMetal["Revolut Metal"] N26Metal["N26 Metal"] PremiumBanking["Premium
+          Banking Aesthetic"]
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+     TAB 5 : JSON IA
+══════════════════════════════════════════════════════════ -->
+    <div id="panel-json" class="panel">
+      <p class="section-title">Représentation JSON pour les IA — project-mindmap.json</p>
+      <div class="json-controls">
+        <button class="btn" onclick="copyJSON()">Copier le JSON</button>
+        <button class="btn" onclick="downloadJSON()">Télécharger JSON</button>
+        <span style="font-size: 0.75rem; color: var(--platinum-30)">
+          Charge ce fichier dans ton contexte IA pour lui donner une carte complète du projet.
+        </span>
+      </div>
+      <div class="json-block" id="json-display"></div>
+    </div>
+
+    <script>
+      // ─── JSON DATA ───────────────────────────────────────────────────────────────
+      const PROJECT_JSON = {
+        project: {
+          name: 'AURUM — Suivi-Budget',
+          description:
+            'Dashboard premium de gestion financière personnelle. Style banking (Revolut Metal / N26 Metal). Migration en cours de legacy HTML/JS vers React 18 + TypeScript + Firebase.',
+          version: '2.0',
+          lastUpdated: '2026-05-13',
+          status: 'active-migration',
+          language: 'TypeScript + Python',
+          theme: 'Gold/Ink — AURUM Design System',
+        },
+        techStack: {
+          frontend: {
+            framework: 'React 18',
+            language: 'TypeScript',
+            bundler: 'Vite 5',
+            styling: 'Tailwind CSS 4',
+            charts: 'Recharts',
+            routing: 'React Router v6',
+            stateManagement: 'React Context API',
+            testing: 'Vitest + React Testing Library',
+          },
+          backend: {
+            platform: 'Google Firebase',
+            database: 'Firestore (NoSQL)',
+            auth: 'Firebase Auth',
+            hosting: 'Firebase Hosting',
+            functions: 'Cloud Functions Python',
+            cloud: 'Google Cloud Platform',
+          },
+          externalAPIs: [
+            {
+              name: 'Bankin',
+              purpose: 'Open Banking — sync comptes et transactions bancaires',
+              mapper: 'public/src/lib/bankin/mappers/mapBankinToInternal.ts',
+            },
+            {
+              name: 'Tronity',
+              purpose: 'Données véhicule — kilométrage, état',
+              route: '/tronity',
+            },
+            {
+              name: 'Gemini API',
+              purpose: 'IA financière — questions/réponses, auto-catégorisation',
+              file: 'public/src/services/aiEngine.ts',
+            },
+            {
+              name: 'Google Apps Script',
+              purpose: 'Import transactions depuis Gmail',
+              config: 'appsscript.json',
+            },
+          ],
+        },
+        architecture: {
+          pattern: 'Component-Driven + Custom Hooks',
+          entryPoints: [
+            { file: 'public/index.html', root: 'public/src/MainApp.tsx', role: 'SPA principale' },
+            {
+              file: 'public/aurum.html',
+              root: 'public/src/aurum-entry.jsx',
+              role: 'Entrée AURUM alternative',
+            },
+          ],
+          providerStack: [
+            'AppStateContext — état global (mois, owner)',
+            'GlobalDataContext — données partagées (comptes, transactions, budgets)',
+            'TransactionContext — état transactions',
+            'BudgetContext — état budgets + inline editing',
+          ],
+          routing: {
+            '/': 'DashboardSection → AurumDashboard',
+            '/transactions': 'TransactionsSection → AurumTransactionsPage',
+            '/budgets/*': 'BudgetsV2Section → BudgetsPage',
+            '/patrimoine': 'PatrimoineSection → AurumWealthPage',
+            '/qa': 'FinanceQASection → AurumAIPage',
+            '/advanced/*': 'AdvancedSettings + sous-routes',
+            '/tronity': 'TronityPage',
+            '/mappings': 'MappingsPage',
+            '/fusion': 'FusionPage',
+            '/rav-config': 'RAVConfigPage',
+            '/reparse': 'ReparsePage',
+            '/excluded-emails': 'ExcludedEmailsPage',
+            '/rules': 'RulesPage',
+          },
+        },
+        codeStructure: {
+          root: '/home/user/Suivi-Budget',
+          mainSource: 'public/src/',
+          directories: {
+            'public/src/components/': '150+ composants UI React',
+            'public/src/hooks/': '20+ custom hooks (logique métier)',
+            'public/src/context/': '4 providers React Context',
+            'public/src/types/': 'Types TypeScript centralisés',
+            'public/src/services/': 'Firebase, AI, migrations',
+            'public/src/utils/': '20+ modules utilitaires',
+            'public/src/lib/': 'Couleurs, feature flags, mock data, mappers',
+            'public/src/constants/': 'Catégories, métadonnées',
+            'functions/': 'Cloud Functions Python',
+            'docs/': 'Documentation technique extensive',
+            'tests/': 'Suite de tests',
+            'scripts/': 'Scripts build/utilitaires',
+            'archive/': 'Fichiers legacy archivés',
+          },
+        },
+        keyFiles: {
+          singleSourceOfTruth: 'GEMINI.md',
+          architectureState: 'docs/ARCH_STATE.md',
+          designSystem: 'DESIGN_SYSTEM.md',
+          types: 'public/src/types/banking.types.ts',
+          mainApp: 'public/src/MainApp.tsx',
+          budgetContext: 'public/src/context/BudgetContext.tsx',
+          globalDataContext: 'public/src/context/GlobalDataContext.tsx',
+          firebaseService: 'public/src/services/firebase.ts',
+          firebaseAPI: 'public/src/services/firebase-api.ts',
+          aiEngine: 'public/src/services/aiEngine.ts',
+          featureFlags: 'public/src/lib/featureFlags.ts',
+          tailwindConfig: 'tailwind.config.js',
+          viteConfig: 'vite.config.js',
+        },
+        components: {
+          dashboard: {
+            path: 'public/src/components/dashboard/v2/',
+            key: [
+              { file: 'AurumDashboard.tsx', role: 'Orchestrateur principal dashboard' },
+              { file: 'AurumBalanceHero.tsx', role: 'Solde total + variation 30j' },
+              { file: 'AurumTransactionsPage.tsx', role: 'Liste transactions complète + filtres' },
+              { file: 'AurumBudgetPage.tsx', role: 'Vue budgets dans dashboard' },
+              { file: 'AurumWealthPage.tsx', role: 'Patrimoine agrégé' },
+              { file: 'AurumAIPage.tsx', role: 'Assistant IA financier' },
+              { file: 'AurumAccountDetailPage.tsx', role: 'Détail compte bancaire' },
+              { file: 'AurumWealthEvolution.tsx', role: 'Graphique historique patrimoine' },
+              { file: 'AurumPortfolioDailyChart.tsx', role: 'Graphique portfolio quotidien' },
+              { file: 'HistoryManagementModal.tsx', role: 'Gestion snapshots historiques' },
+              { file: 'PlacementSnapshotModal.tsx', role: 'Snapshot placements' },
+            ],
+          },
+          budgets: {
+            path: 'public/src/components/budgets-v2/',
+            key: [
+              { file: 'BudgetsPage.tsx', role: 'Page principale budgets' },
+              {
+                file: 'BudgetManagerPanel.tsx',
+                role: 'Création/édition inline budgets mensuel/annuel',
+              },
+              { file: 'RAVEditor.tsx', role: 'Édition Reste à Vivre — NEW 2026-04-28' },
+              { file: 'BudgetDetailModal.tsx', role: 'Modale détail budget' },
+              { file: 'BudgetTrendChart.tsx', role: 'Tendance dépenses (Recharts)' },
+              { file: 'BudgetCategoryList.tsx', role: 'Liste catégories budget' },
+            ],
+          },
+          analyse: {
+            path: 'public/src/components/analyse/',
+            key: [
+              { file: 'AnalyseSection.tsx', role: 'Section analyse principale' },
+              { file: 'AnalyseTabs.tsx', role: 'Onglets analyse' },
+              { file: 'AnalyseDonutCard.tsx', role: 'Donut chart interactif catégories' },
+              { file: 'AnalyseRecurrencesPanel.tsx', role: 'Panel dépenses récurrentes' },
+              { file: 'drilldowns/CategoryDrillDown.tsx', role: 'Détail catégorie → transactions' },
+              { file: 'drilldowns/AccountsDrillDown.tsx', role: 'Détail par compte' },
+              { file: 'drilldowns/RecurringDrillDown.tsx', role: 'Détail récurrences' },
+            ],
+          },
+          shared: {
+            path: 'public/src/components/shared/',
+            key: [
+              { file: 'BottomNav.tsx', role: 'Navigation mobile' },
+              { file: 'Sidebar.tsx', role: 'Navigation desktop' },
+              { file: 'PageHeader.tsx', role: 'En-tête de page' },
+              { file: 'MonthNavigator.tsx', role: 'Navigation mois' },
+              { file: 'DonutChart.tsx', role: 'Graphique donut réutilisable' },
+              { file: 'AreaSparkline.tsx', role: 'Graphique sparkline' },
+            ],
+          },
+        },
+        hooks: {
+          path: 'public/src/hooks/',
+          list: [
+            { file: 'useAuth.tsx', role: 'Authentification Firebase' },
+            { file: 'useBudget.tsx', role: 'CRUD budgets + calculs' },
+            { file: 'useTransactions.tsx', role: 'Gestion transactions' },
+            { file: 'usePatrimoine.tsx', role: 'Agrégation patrimoine/actifs' },
+            { file: 'useBalances.tsx', role: 'Historique soldes + réconciliation' },
+            { file: 'useDashboard.tsx', role: 'Orchestration données dashboard' },
+            { file: 'usePortfolio.tsx', role: 'Calculs portefeuille' },
+            { file: 'usePlacements.tsx', role: 'Placements investissements' },
+            { file: 'useWealthAggregates.tsx', role: 'Agrégation patrimoine' },
+            { file: 'useReconciliationMetrics.tsx', role: 'Métriques réconciliation' },
+            { file: 'useSyncTransactions.ts', role: 'Sync avec backend' },
+            { file: 'useAutoCategorization.tsx', role: 'Auto-catégorisation IA' },
+            { file: 'useBudgetProjection.tsx', role: 'Prévisions budget' },
+            { file: 'useAdvancedSettings.ts', role: 'Gestion paramètres avancés' },
+            { file: 'useRules.tsx', role: 'Règles de catégorisation automatique' },
+            { file: 'usePreferences.tsx', role: 'Préférences utilisateur' },
+            { file: 'useFinanceQA.ts', role: 'Intégration IA assistant financier' },
+          ],
+        },
+        types: {
+          path: 'public/src/types/',
+          core: {
+            file: 'banking.types.ts',
+            types: [
+              "Currency = 'EUR' | 'USD' | 'GBP' | 'CHF' | 'JPY'",
+              "AccountType = 'CHECKING' | 'SAVINGS' | 'INVESTMENT' | 'CRYPTO'",
+              'Account { id, name, type, balance, currency, iban, lastFourDigits, status, colorGradient, owner }',
+              'Transaction { id, accountId, merchantName, amount, currency, category, date, status, isReconciled, commentaire }',
+              'Budget { category, label, spent, limit, currency }',
+              'BalancePoint { date, amount }',
+            ],
+          },
+          others: [
+            { file: 'balances.ts', role: 'Types historique soldes' },
+            { file: 'patrimoine.ts', role: 'Types patrimoine/actifs' },
+          ],
+        },
+        designSystem: {
+          theme: 'AURUM — Gold/Ink',
+          inspiration: ['Revolut Metal', 'N26 Metal', 'Premium Banking'],
+          colors: {
+            ink: {
+              deep: '#0B0B14',
+              surface: '#121622',
+              light: '#1C2130',
+              border: '#2A3050',
+            },
+            gold: {
+              primary: '#D4AF37',
+              muted: 'rgba(212,175,55,0.15)',
+              soft: 'rgba(212,175,55,0.08)',
+            },
+            platinum: {
+              primary: '#EDEDED',
+              60: 'rgba(237,237,237,0.6)',
+              30: 'rgba(237,237,237,0.3)',
+            },
+            categories: {
+              housing: '#6C8EBF',
+              transport: '#D6956B',
+              food: '#82B366',
+              health: '#E06C75',
+              entertainment: '#9C5B9E',
+              shopping: '#D4AF37',
+            },
+          },
+          typography: {
+            hero: 'font-serif text-5xl-7xl font-semibold — grands chiffres',
+            heading: 'text-2xl font-black tracking-tighter — titres section',
+            label: 'text-[10px] font-bold uppercase tracking-[0.2em] — labels',
+            numbers: 'font-variant-numeric: tabular-nums — chiffres financiers',
+          },
+          components: {
+            card: 'glass-panel rounded-[2rem] p-6 — glassmorphism',
+            modal: 'glass-modal rounded-3xl',
+            pageWrapper: 'premium-container pb-24',
+            spacingSection: 'space-y-8',
+            spacingGrid: 'gap-6',
+          },
+        },
+        migrationStatus: {
+          migrated: [
+            'AurumDashboard (dashboard/v2)',
+            'AurumTransactionsPage',
+            'AurumBudgetPage + BudgetManagerPanel + RAVEditor',
+            'AurumWealthPage',
+            'AurumSettingsPage',
+            'AnalyseSection + Drilldowns',
+          ],
+          inProgress: [
+            'AssetScopeTabs — filtrage multi-propriétaire',
+            'Optimisation performances graphiques',
+          ],
+          legacyToRemove: [
+            'public/src/budget.js',
+            'public/src/patrimoine.js',
+            'public/src/transactions.js',
+            'Legacy HTML panels (sauf index.html et aurum.html)',
+          ],
+        },
+        documentation: {
+          path: 'docs/',
+          keyFiles: {
+            'GEMINI.md': 'Source de vérité unique — règles, workflow, tech stack',
+            'docs/ARCH_STATE.md': 'État architecture — migré vs legacy',
+            'DESIGN_SYSTEM.md': 'Tokens design + patterns AURUM',
+            'CLAUDE.md': 'Instructions Claude AI',
+            'AGENTS.md': 'Workflows agents IA',
+          },
+          plans: 'docs/plans/ — 26 plans techniques détaillés',
+          superpowers: 'docs/superpowers/ — specs et plans avancés',
+          history: 'docs/history/ — rapports corrections bugs',
+          adr: 'docs/adr/ — Architecture Decision Records',
+          notes: 'docs/notes/ — notes techniques',
+        },
+        commands: {
+          install: 'npm install',
+          dev: 'npm run dev',
+          build: 'npm run build',
+          test: 'npm test',
+          lint: 'npm run lint',
+          testBackend: 'pytest',
+          firebaseDeploy: 'firebase deploy',
+        },
+        rules: {
+          types: 'Toujours utiliser public/src/types/banking.types.ts',
+          logic: 'Logique métier dans hooks/, UI dans components/',
+          naming: 'Français pour labels métier, anglais pour code technique',
+          typescript: 'Zero Warning TypeScript + ESLint',
+          design: 'Suivre DESIGN_SYSTEM.md strictement',
+          workflow:
+            '1. Lire GEMINI.md + ARCH_STATE.md → 2. Proposer plan → 3. Implémenter → 4. Tester',
+        },
+      };
+
+      // ─── RENDER JSON ─────────────────────────────────────────────────────────────
+      document.getElementById('json-display').textContent = JSON.stringify(PROJECT_JSON, null, 2);
+
+      // ─── TAB SWITCHING ───────────────────────────────────────────────────────────
+      function switchTab(id) {
+        document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+        document.getElementById('panel-' + id).classList.add('active');
+        event.target.classList.add('active');
+      }
+
+      // ─── JSON ACTIONS ────────────────────────────────────────────────────────────
+      function copyJSON() {
+        navigator.clipboard.writeText(JSON.stringify(PROJECT_JSON, null, 2)).then(() => {
+          const btn = event.target;
+          btn.textContent = 'Copié !';
+          setTimeout(() => {
+            btn.textContent = 'Copier le JSON';
+          }, 2000);
+        });
+      }
+
+      function downloadJSON() {
+        const blob = new Blob([JSON.stringify(PROJECT_JSON, null, 2)], {
+          type: 'application/json',
+        });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'project-mindmap.json';
+        a.click();
+      }
+
+      // ─── MERMAID INIT ────────────────────────────────────────────────────────────
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#1C2130',
+          primaryTextColor: '#EDEDED',
+          primaryBorderColor: '#2A3050',
+          lineColor: '#D4AF37',
+          secondaryColor: '#121622',
+          tertiaryColor: '#0B0B14',
+          nodeBorder: '#D4AF37',
+          clusterBkg: '#121622',
+          titleColor: '#D4AF37',
+          edgeLabelBackground: '#0B0B14',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: '13px',
+        },
+        mindmap: {
+          padding: 20,
+          useMaxWidth: false,
+        },
+      });
+    </script>
+  </body>
+</html>

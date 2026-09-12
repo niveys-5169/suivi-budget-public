@@ -1,0 +1,414 @@
+{
+  "project": {
+    "name": "AURUM — Suivi-Budget",
+    "description": "Dashboard premium de gestion financière personnelle. Style banking (Revolut Metal / N26 Metal). Migration en cours de legacy HTML/JS vers React 18 + TypeScript + Firebase.",
+    "version": "2.0",
+    "lastUpdated": "2026-05-13",
+    "status": "active-migration",
+    "language": "TypeScript + Python",
+    "theme": "Gold/Ink — AURUM Design System",
+    "repository": "niveys-5169/suivi-budget"
+  },
+  "techStack": {
+    "frontend": {
+      "framework": "React 18",
+      "language": "TypeScript",
+      "bundler": "Vite 5",
+      "styling": "Tailwind CSS 4",
+      "charts": "Recharts",
+      "routing": "React Router v6",
+      "stateManagement": "React Context API",
+      "testing": "Vitest + React Testing Library"
+    },
+    "backend": {
+      "platform": "Google Firebase",
+      "database": "Firestore (NoSQL)",
+      "auth": "Firebase Auth",
+      "hosting": "Firebase Hosting",
+      "functions": "Cloud Functions Python",
+      "cloud": "Google Cloud Platform"
+    },
+    "externalAPIs": [
+      {
+        "name": "Bankin",
+        "purpose": "Open Banking — sync comptes et transactions bancaires",
+        "mapper": "public/src/lib/bankin/mappers/mapBankinToInternal.ts"
+      },
+      {
+        "name": "Tronity",
+        "purpose": "Données véhicule — kilométrage, état",
+        "route": "/tronity"
+      },
+      {
+        "name": "Gemini API",
+        "purpose": "IA financière — questions/réponses, auto-catégorisation",
+        "file": "public/src/services/aiEngine.ts"
+      },
+      {
+        "name": "Google Apps Script",
+        "purpose": "Import transactions depuis Gmail",
+        "config": "appsscript.json"
+      }
+    ]
+  },
+  "architecture": {
+    "pattern": "Component-Driven + Custom Hooks",
+    "sourceRoot": "public/src/",
+    "entryPoints": [
+      {
+        "html": "public/index.html",
+        "root": "public/src/MainApp.tsx",
+        "role": "SPA principale"
+      },
+      {
+        "html": "public/aurum.html",
+        "root": "public/src/aurum-entry.jsx",
+        "role": "Entrée AURUM alternative"
+      }
+    ],
+    "providerStack": [
+      "AppStateContext — état global (mois courant, owner sélectionné)",
+      "GlobalDataContext — données partagées (comptes, transactions, budgets, soldes)",
+      "TransactionContext — état et filtres transactions",
+      "BudgetContext — état budgets + inline editing + RAV"
+    ],
+    "routing": {
+      "/": "DashboardSection → AurumDashboard",
+      "/transactions": "TransactionsSection → AurumTransactionsPage",
+      "/budgets/*": "BudgetsV2Section → BudgetsPage",
+      "/patrimoine": "PatrimoineSection → AurumWealthPage",
+      "/qa": "FinanceQASection → AurumAIPage",
+      "/advanced/*": "AdvancedSettings + sous-routes config",
+      "/tronity": "TronityPage — suivi véhicule",
+      "/mappings": "MappingsPage — mapping comptes",
+      "/fusion": "FusionPage — fusion données",
+      "/rav-config": "RAVConfigPage — config dépenses courantes",
+      "/reparse": "ReparsePage — re-catégorisation transactions",
+      "/excluded-emails": "ExcludedEmailsPage",
+      "/rules": "RulesPage — règles catégorisation auto"
+    }
+  },
+  "codeStructure": {
+    "root": "/home/user/Suivi-Budget",
+    "directories": {
+      "public/src/components/": {
+        "description": "150+ composants UI React",
+        "subdirs": [
+          "dashboard/v2/ — AURUM V2 (React, nouveau)",
+          "budgets-v2/ — Système budget (nouveau)",
+          "analyse/ — Analyse & catégorisation",
+          "home/ — Page d'accueil",
+          "shared/ — Composants réutilisables",
+          "layout/ — Sidebar, navigation",
+          "transactions/ — Filtres, listes",
+          "advanced/ — Config avancée"
+        ]
+      },
+      "public/src/hooks/": "20+ custom hooks — logique métier",
+      "public/src/context/": "4 providers React Context",
+      "public/src/types/": "Types TypeScript centralisés",
+      "public/src/services/": "Firebase, AI engine, migrations Firestore",
+      "public/src/utils/": "20+ modules utilitaires financiers",
+      "public/src/lib/": "Couleurs, feature flags, mock data, mappers Bankin",
+      "public/src/constants/": "Catégories transactions, métadonnées",
+      "public/src/api/": "budgets.js, consumption.js",
+      "functions/": "Cloud Functions Python backend",
+      "docs/": "Documentation technique extensive (26 plans, ADR, specs)",
+      "tests/": "Suite de tests",
+      "scripts/": "Scripts build et utilitaires",
+      "archive/": "Fichiers legacy archivés"
+    }
+  },
+  "keyFiles": {
+    "singleSourceOfTruth": "GEMINI.md",
+    "architectureState": "docs/ARCH_STATE.md",
+    "designSystem": "DESIGN_SYSTEM.md",
+    "claudeInstructions": "CLAUDE.md",
+    "agentWorkflows": "AGENTS.md",
+    "types": "public/src/types/banking.types.ts",
+    "mainApp": "public/src/MainApp.tsx",
+    "budgetContext": "public/src/context/BudgetContext.tsx",
+    "globalDataContext": "public/src/context/GlobalDataContext.tsx",
+    "appStateContext": "public/src/context/AppStateContext.tsx",
+    "transactionContext": "public/src/context/TransactionContext.tsx",
+    "firebaseService": "public/src/services/firebase.ts",
+    "firebaseAPI": "public/src/services/firebase-api.ts",
+    "aiEngine": "public/src/services/aiEngine.ts",
+    "featureFlags": "public/src/lib/featureFlags.ts",
+    "tailwindConfig": "tailwind.config.js",
+    "viteConfig": "vite.config.js",
+    "firestoreRules": "firestore.rules",
+    "firestoreIndexes": "firestore.indexes.json",
+    "firebaseConfig": "firebase.json"
+  },
+  "components": {
+    "dashboard": {
+      "path": "public/src/components/dashboard/v2/",
+      "status": "migrated",
+      "components": [
+        {
+          "file": "AurumDashboard.tsx",
+          "role": "Orchestrateur principal dashboard — héro balance, KPIs, résumé transactions"
+        },
+        { "file": "AurumBalanceHero.tsx", "role": "Solde total + variation 30j" },
+        { "file": "AurumTransactionsPage.tsx", "role": "Liste transactions complète avec filtres" },
+        { "file": "AurumBudgetPage.tsx", "role": "Vue budgets dans dashboard" },
+        { "file": "AurumWealthPage.tsx", "role": "Patrimoine agrégé" },
+        { "file": "AurumAIPage.tsx", "role": "Assistant IA financier" },
+        { "file": "AurumSettingsPage.tsx", "role": "Paramètres dashboard" },
+        { "file": "AurumAccountDetailPage.tsx", "role": "Détail compte bancaire" },
+        { "file": "AurumAccountsList.tsx", "role": "Liste des comptes" },
+        { "file": "AurumWealthEvolution.tsx", "role": "Graphique historique patrimoine" },
+        { "file": "AurumWealthAssets.tsx", "role": "Détail actifs patrimoine" },
+        { "file": "AurumPortfolioDailyChart.tsx", "role": "Graphique portfolio quotidien" },
+        { "file": "HistoryManagementModal.tsx", "role": "Gestion snapshots historiques" },
+        { "file": "PlacementSnapshotModal.tsx", "role": "Snapshot placements" }
+      ]
+    },
+    "budgets": {
+      "path": "public/src/components/budgets-v2/",
+      "status": "migrated",
+      "recentFeature": "2026-04-28 — Budget Management System (inline editing, RAV, add/remove categories)",
+      "components": [
+        { "file": "BudgetsPage.tsx", "role": "Page principale budgets" },
+        {
+          "file": "BudgetManagerPanel.tsx",
+          "role": "Création/édition inline budgets mensuel/annuel"
+        },
+        { "file": "RAVEditor.tsx", "role": "Éditeur Reste à Vivre — NEW 2026-04-28" },
+        { "file": "BudgetDetailModal.tsx", "role": "Modale détail budget" },
+        { "file": "BudgetFormModal.tsx", "role": "Formulaire création budget" },
+        { "file": "BudgetTrendChart.tsx", "role": "Tendance dépenses (Recharts)" },
+        { "file": "BudgetCategoryList.tsx", "role": "Liste catégories budget" },
+        { "file": "bankin/BankinBudgetsContainer.tsx", "role": "Container budgets Bankin" },
+        { "file": "bankin/BankinBudgetMain.tsx", "role": "Composant principal budget Bankin" }
+      ]
+    },
+    "analyse": {
+      "path": "public/src/components/analyse/",
+      "status": "migrated",
+      "components": [
+        { "file": "AnalyseSection.tsx", "role": "Section analyse principale" },
+        { "file": "AnalyseTabs.tsx", "role": "Onglets analyse (aperçu, catégories, récurrences)" },
+        { "file": "AnalyseDonutCard.tsx", "role": "Donut chart interactif catégories" },
+        { "file": "AnalyseOverviewTab.tsx", "role": "Vue d'ensemble analyse" },
+        { "file": "AnalyseRecurrencesPanel.tsx", "role": "Panel dépenses récurrentes" },
+        {
+          "file": "drilldowns/CategoryDrillDown.tsx",
+          "role": "Détail catégorie → liste transactions"
+        },
+        { "file": "drilldowns/AccountsDrillDown.tsx", "role": "Détail par compte bancaire" },
+        { "file": "drilldowns/BucketDrillDown.tsx", "role": "Détail par bucket/groupe" },
+        { "file": "drilldowns/RecurringDrillDown.tsx", "role": "Détail dépenses récurrentes" }
+      ]
+    },
+    "shared": {
+      "path": "public/src/components/shared/",
+      "components": [
+        { "file": "BottomNav.tsx", "role": "Navigation mobile bas de page" },
+        { "file": "PageHeader.tsx", "role": "En-tête de section avec titre et actions" },
+        { "file": "MonthNavigator.tsx", "role": "Navigation entre mois" },
+        { "file": "DonutChart.tsx", "role": "Graphique donut réutilisable" },
+        { "file": "AreaSparkline.tsx", "role": "Graphique sparkline area" }
+      ]
+    },
+    "layout": {
+      "path": "public/src/components/layout/",
+      "components": [{ "file": "Sidebar.tsx", "role": "Navigation latérale desktop fixe" }]
+    }
+  },
+  "hooks": {
+    "path": "public/src/hooks/",
+    "list": [
+      { "file": "useAuth.tsx", "role": "Authentification Firebase — login/logout/state" },
+      { "file": "useBudget.tsx", "role": "CRUD budgets + calculs dépenses/limites" },
+      { "file": "useTransactions.tsx", "role": "Gestion et filtrage transactions" },
+      { "file": "usePatrimoine.tsx", "role": "Agrégation patrimoine et actifs" },
+      { "file": "useBalances.tsx", "role": "Historique soldes + réconciliation" },
+      { "file": "useDashboard.tsx", "role": "Orchestration données dashboard principal" },
+      { "file": "usePortfolio.tsx", "role": "Calculs et suivi portefeuille" },
+      { "file": "usePlacements.tsx", "role": "Gestion placements et investissements" },
+      { "file": "useWealthAggregates.tsx", "role": "Agrégation globale patrimoine" },
+      { "file": "useReconciliationMetrics.tsx", "role": "Métriques et logique réconciliation" },
+      { "file": "useSyncTransactions.ts", "role": "Synchronisation avec backend Bankin" },
+      { "file": "useAutoCategorization.tsx", "role": "Auto-catégorisation IA des transactions" },
+      { "file": "useBudgetProjection.tsx", "role": "Prévisions et projections budget" },
+      { "file": "useAdvancedSettings.ts", "role": "Paramètres avancés utilisateur" },
+      { "file": "useRules.tsx", "role": "Règles automatiques de catégorisation" },
+      { "file": "usePreferences.tsx", "role": "Préférences et profil utilisateur" },
+      { "file": "useFinanceQA.ts", "role": "Intégration IA — questions/réponses financières" }
+    ]
+  },
+  "types": {
+    "path": "public/src/types/",
+    "rule": "Toujours utiliser banking.types.ts pour toute structure de données",
+    "banking.types.ts": {
+      "enums": [
+        "Currency = 'EUR' | 'USD' | 'GBP' | 'CHF' | 'JPY'",
+        "AccountType = 'CHECKING' | 'SAVINGS' | 'INVESTMENT' | 'CRYPTO'"
+      ],
+      "interfaces": [
+        "Account { id, name, type: AccountType, balance: number, currency: Currency, iban?: string, lastFourDigits?: string, status: 'active'|'closed', colorGradient: string, owner: string }",
+        "Transaction { id, accountId, merchantName: string, amount: number, currency: Currency, category: string, date: string, status: 'completed'|'pending', isReconciled: boolean, commentaire?: string }",
+        "Budget { category: string, label: string, spent: number, limit: number, currency: Currency }",
+        "BalancePoint { date: string, amount: number }"
+      ]
+    },
+    "balances.ts": "Types historique et courbes de soldes",
+    "patrimoine.ts": "Types patrimoine, actifs, placements"
+  },
+  "designSystem": {
+    "file": "DESIGN_SYSTEM.md",
+    "theme": "AURUM — Gold/Ink",
+    "inspiration": ["Revolut Metal", "N26 Metal", "Premium Private Banking"],
+    "colors": {
+      "ink": {
+        "description": "Fonds sombres",
+        "deep": "#0B0B14",
+        "surface": "#121622",
+        "light": "#1C2130",
+        "border": "#2A3050"
+      },
+      "gold": {
+        "description": "Couleur de marque / accent",
+        "primary": "#D4AF37",
+        "muted": "rgba(212,175,55,0.15)",
+        "soft": "rgba(212,175,55,0.08)"
+      },
+      "platinum": {
+        "description": "Textes",
+        "primary": "#EDEDED",
+        "60": "rgba(237,237,237,0.6)",
+        "30": "rgba(237,237,237,0.3)"
+      },
+      "categories": {
+        "housing": "#6C8EBF",
+        "transport": "#D6956B",
+        "food": "#82B366",
+        "health": "#E06C75",
+        "entertainment": "#9C5B9E",
+        "shopping": "#D4AF37",
+        "utilities": "#5DADE2",
+        "other": "#AAB7B8"
+      }
+    },
+    "typography": {
+      "hero": "font-serif text-5xl to text-7xl font-semibold — grands chiffres financiers",
+      "sectionHeading": "text-2xl font-black tracking-tighter — titres de section",
+      "label": "text-[10px] font-bold uppercase tracking-[0.2em] — labels et tags",
+      "numbers": "[font-variant-numeric:tabular-nums] — OBLIGATOIRE pour tout chiffre financier"
+    },
+    "components": {
+      "card": "glass-panel rounded-[2rem] p-6 — glassmorphism effect",
+      "modal": "glass-modal rounded-3xl",
+      "pageWrapper": "premium-container pb-24",
+      "sectionSpacing": "space-y-8",
+      "gridGap": "gap-6"
+    }
+  },
+  "firestoreCollections": {
+    "accounts": "Comptes bancaires de l'utilisateur",
+    "transactions": "Transactions bancaires",
+    "budgets": "Budgets par catégorie",
+    "balances": "Historique des soldes",
+    "patrimoine": "Actifs et patrimoine",
+    "placements": "Investissements et placements",
+    "rules": "Règles de catégorisation automatique",
+    "preferences": "Préférences utilisateur"
+  },
+  "migrationStatus": {
+    "fullyMigrated": [
+      "AurumDashboard (dashboard/v2) — orchestrateur principal",
+      "AurumTransactionsPage — liste et filtres",
+      "AurumBudgetPage + BudgetManagerPanel + RAVEditor — gestion budgets",
+      "AurumWealthPage — patrimoine agrégé",
+      "AurumSettingsPage — paramètres",
+      "AnalyseSection + 4 Drilldowns — analyse catégories"
+    ],
+    "inProgress": [
+      "AssetScopeTabs — filtrage multi-propriétaire actifs",
+      "Optimisation performances graphiques Recharts"
+    ],
+    "legacyToRemove": [
+      "public/src/budget.js — ancien système budget JS",
+      "public/src/patrimoine.js — ancien patrimoine JS",
+      "public/src/transactions.js — ancien transactions JS",
+      "public/src/main.js — ancien point d'entrée",
+      "public/src/store.js — ancien store Redux-like",
+      "Legacy HTML panels (sauf index.html et aurum.html)"
+    ]
+  },
+  "documentation": {
+    "root": "docs/",
+    "singleSourceOfTruth": "GEMINI.md — règles projet, workflow, tech stack",
+    "keyDocs": {
+      "GEMINI.md": "Source de vérité unique pour toutes les règles",
+      "docs/ARCH_STATE.md": "État architecture — distingue migré vs legacy",
+      "DESIGN_SYSTEM.md": "Tokens design + patterns AURUM Gold/Ink",
+      "CLAUDE.md": "Instructions spécifiques Claude AI",
+      "AGENTS.md": "Workflows pour agents IA",
+      "docs/BUDGET_MANAGEMENT_API.md": "Référence API système budget (2026-04-28)",
+      "docs/FEATURE_FLAGS.md": "Documentation flags de fonctionnalités",
+      "docs/IMPLEMENTATION_CHECKLIST.md": "Checklist implémentation features"
+    },
+    "plans": {
+      "path": "docs/plans/",
+      "count": 26,
+      "recent": [
+        "2026-05-20-implement-asset-scope-tabs.md",
+        "2026-05-11-historical-snapshot-management.md",
+        "2026-05-10-legacy-cleanup-react-migration.md",
+        "2026-05-10-flux-dashboard-design.md",
+        "2026-04-28-budget-editing-rav-management.md",
+        "2026-04-26-aurum-dashboard-v2-design.md"
+      ]
+    },
+    "superpowers": "docs/superpowers/ — plans et specs avancées (21 plans, 17 specs)",
+    "adr": "docs/adr/ — Architecture Decision Records",
+    "history": "docs/history/ — rapports de correction de bugs",
+    "notes": "docs/notes/ — notes techniques"
+  },
+  "commands": {
+    "install": "npm install",
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "test": "npm test",
+    "lint": "npm run lint",
+    "testBackend": "pytest",
+    "deploy": "firebase deploy"
+  },
+  "codingRules": {
+    "types": "Toujours utiliser public/src/types/banking.types.ts pour toute structure",
+    "separation": "Logique métier dans hooks/, UI dans components/",
+    "naming": "Français pour labels métier et noms Firestore, anglais pour code et variables",
+    "typescript": "Zero Warning TypeScript + ESLint — obligatoire",
+    "comments": "Aucun commentaire sauf si le POURQUOI est non-évident",
+    "fileSize": "< 150 lignes par fichier",
+    "design": "Suivre DESIGN_SYSTEM.md strictement — aucun style inventé",
+    "noNewAbstractions": "Ne pas ajouter d'abstractions non requises par la tâche",
+    "noExtraErrorHandling": "Pas de gestion d'erreur pour des cas impossibles",
+    "workflow": [
+      "1. Lire GEMINI.md et docs/ARCH_STATE.md",
+      "2. Proposer un plan avant implémentation",
+      "3. Zéro warning TypeScript et ESLint",
+      "4. Vérifier avec les tests"
+    ]
+  },
+  "featureFlags": {
+    "file": "public/src/lib/featureFlags.ts",
+    "purpose": "Contrôler le rollout des fonctionnalités en cours de migration",
+    "reference": "docs/FEATURE_FLAGS.md"
+  },
+  "aiContext": {
+    "purpose": "Ce fichier est la carte complète du projet AURUM pour les assistants IA",
+    "usage": "Charger ce JSON dans le contexte pour obtenir une connaissance complète de l'architecture",
+    "version": "1.0",
+    "generatedDate": "2026-05-13",
+    "complementaryFiles": [
+      "GEMINI.md — règles et workflow détaillés",
+      "docs/ARCH_STATE.md — état migration précis",
+      "DESIGN_SYSTEM.md — tokens design complets",
+      "public/src/types/banking.types.ts — tous les types TypeScript"
+    ]
+  }
+}

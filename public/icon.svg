@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0B0B14"/>
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#D4AF37" stroke-width="4" opacity="0.3"/>
+  <text x="50%" y="50%" font-family="Georgia, 'Times New Roman', serif" font-size="120" font-weight="700" fill="#D4AF37" text-anchor="middle" dominant-baseline="central" letter-spacing="8">AU</text>
+</svg>

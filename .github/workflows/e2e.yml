@@ -1,0 +1,83 @@
+name: E2E Smoke
+
+on:
+  schedule:
+    # Weekly at 03:30 UTC on Sunday — runs on the latest main.
+    - cron: '30 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or commit to test'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # CI_RUNNER: variable de dépôt (Settings → Secrets and variables → Actions →
+  # Variables). Vide/absente = comportement inchangé (repli GitHub-hosted).
+  # Voir docs/self-hosted-runner.md.
+  smoke:
+    name: Playwright smoke
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+      # The smoke suite validates the unauthenticated shell. It must not depend
+      # on Firebase credentials or an external Auth callback to become ready.
+      VITE_E2E: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Cache node_modules
+        id: cache-node-modules
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install dependencies
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        shell: bash
+        run: npm ci --legacy-peer-deps
+
+      - name: Cache Playwright browsers
+        id: cache-playwright
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .pw-browsers
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        shell: bash
+        run: npx playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }} chromium webkit
+
+      - name: Run smoke tests
+        shell: bash
+        run: npm run e2e
+        env:
+          CI: '1'
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

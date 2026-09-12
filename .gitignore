@@ -1,0 +1,75 @@
+credentials.json
+client_secret*.json
+client_secret_*.apps.googleusercontent.com
+serviceAccountKey*.json
+*-credentials.json
+*.pem
+*.p12
+*.key
+token.json
+processed_ids.json
+leaks.json
+*.pyc
+__pycache__/
+.env
+.env.*
+# .env.premium est un fichier de flags publics (VITE_*), sans secret,
+# volontairement suivi par git malgré le pattern .env.* ci-dessus.
+!.env.premium
+!.env.local.example
+dist/
+node_modules/
+.venv/
+
+# Firebase
+.firebase/
+
+# Test/Lint Reports
+eslint_*.json
+eslint_report.json
+eslint_target.json
+coverage/
+playwright-report/
+test-results/
+.pytest_cache/
+
+# IDE & Agent local settings
+.claude/settings.local.json
+.cline/settings.local.json
+.vscode/
+.idea/
+
+# Git worktrees locaux (checkouts d'autres branches, ex. Hermes)
+.worktrees/
+
+# Build artefacts from new tooling
+dev-dist/
+storybook-static/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+.playwright-mcp/
+Suivi-Budget-mirror/
+fetch-mcp/
+playwright-mcp-server/
+github-mcp-server/
+bfg.jar
+bfg-report/
+suivi-placements-credentials.json
+suivi-budget-credentials.json
+test_count.py
+test_creds.py
+
+# Artefacts d'outils MCP / agents (logs, captures, binaires, état de session)
+*.exe
+.pw-browsers/
+.superpowers/**/state/
+
+# Exports locaux de données
+transactions-export-*.xlsx
+*.csv

@@ -1,0 +1,82 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/src/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'public/src/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # CI_RUNNER: variable de dépôt (Settings → Secrets and variables → Actions →
+  # Variables). Vide/absente = comportement inchangé (repli sur le runner
+  # GitHub-hosted ci-dessous). Définie (ex. "laptop-win") = bascule vers le
+  # runner self-hosted correspondant. Voir docs/self-hosted-runner.md.
+  # Sécurité dépôt public : un runner self-hosted ne doit JAMAIS exécuter le
+  # code d'une PR issue d'un fork (exécution arbitraire sur la machine du
+  # runner). Les PR de forks retombent donc toujours sur GitHub-hosted.
+  quality:
+    name: ✨ Quality
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && vars.CI_RUNNER || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        check: [lint, format, typecheck, test, design]
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          # Sur le runner self-hosted (CI_RUNNER défini), la machine est
+          # persistante : son cache npm local survit déjà entre les runs.
+          # Le cache actions/setup-node re-télécharge ~600 Mo depuis le
+          # stockage GitHub Actions à chaque job, sur la connexion internet
+          # de la machine (quelques Mo/s) — 4 à 6 min perdues par job pour
+          # écraser un cache local déjà chaud. On ne l'active donc que sur
+          # le repli GitHub-hosted, où le disque est neuf à chaque run.
+          #
+          # Attention à l'ordre d'évaluation : `a && '' || b` retombe TOUJOURS
+          # sur b, car '' est falsy et se fait écraser par le || suivant.
+          # On teste donc directement la valeur de CI_RUNNER.
+          cache: ${{ vars.CI_RUNNER == '' && 'npm' || '' }}
+
+      - name: Install dependencies
+        shell: bash
+        # npm fourni avec Node 22 (npm 10) : aucune dépendance n'est plus une
+        # URL de tarball distante depuis la migration xlsx → @e965/xlsx, donc
+        # plus besoin de `npm install -g npm@latest` (npm 12 pour `--allow-remote`).
+        # Retirer cette montée de version évite aussi la corruption du npm global
+        # partagé entre les 5 jobs matriciels sur le runner self-hosted.
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Check
+        shell: bash
+        run: |
+          if [ "${{ matrix.check }}" == "lint" ]; then npm run lint; fi
+          if [ "${{ matrix.check }}" == "format" ]; then npm run format:check; fi
+          if [ "${{ matrix.check }}" == "typecheck" ]; then npm run typecheck; fi
+          if [ "${{ matrix.check }}" == "test" ]; then npm test -- --run --reporter=default; fi
+          if [ "${{ matrix.check }}" == "design" ]; then npm run check:design; fi
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'

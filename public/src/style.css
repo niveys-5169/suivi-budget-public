@@ -1,0 +1,123 @@
+/*
+  Résidus legacy — en voie d'extinction.
+
+  Ce fichier hébergeait un second jeu de tokens `:root` qui entrait en conflit
+  avec `ui/tokens.css` (notamment `--muted`, déclaré à deux valeurs
+  différentes), deux resets `*` dupliqués, quatre `!important` de police qui
+  neutralisaient le token `--font-serif`, une media query qui réécrivait les
+  rayons à 1.1rem sur mobile, et deux `z-index: 9999` hors de l'échelle
+  sémantique. Tout cela est supprimé.
+
+  Ne subsistent que les classes encore référencées par du code non migré :
+    .spinner                        → utils/loader.ts, BalanceHistoryModal
+    .modal-overlay / .modal-card    → BalanceHistoryModal (modale maison,
+                                      migrée vers <Modal /> en vague 4)
+    .btn                            → BalanceHistoryModal
+
+  Ce fichier disparaît quand BalanceHistoryModal passe sur les primitives.
+
+  ────────────────────────────────────────────────────────────────────────────
+  TOUT ce fichier DOIT vivre dans un `@layer`.
+
+  Tailwind v4 émet l'intégralité de son CSS dans `@layer theme, base,
+  components, utilities`. Or dans la cascade, une déclaration NON layerisée
+  l'emporte sur n'importe quelle layer, quelle que soit la spécificité. Une
+  simple règle `* { padding: 0 }` posée ici écrasait donc `px-4`, `p-8`,
+  `mx-auto`, `space-y-*`… sur toute l'application, écrans et modales compris :
+  textes collés au bord de l'écran et montants rognés sur iPhone. Sous
+  Tailwind v3 (sans layers) la spécificité tranchait et l'utilitaire gagnait —
+  d'où une régression invisible au moment de la migration, et invisible aussi
+  en test : jsdom ne calcule pas la cascade.
+
+  `scripts/check-design-system.mjs` échoue si une règle repasse hors layer.
+  ────────────────────────────────────────────────────────────────────────────
+*/
+
+@layer base {
+  /* --- Reset minimal ---
+     `margin` / `padding` ne sont PAS remis à zéro ici : le preflight Tailwind
+     le fait déjà sur `*, ::before, ::after`. Les redéclarer n'ajoutait rien
+     et suffisait à casser toute l'échelle d'espacement. */
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    overflow-x: hidden;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* --- Prévention du zoom Safari sur les champs --- */
+  @media (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+@layer components {
+  /* --- Loader global --- */
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid rgba(212, 175, 55, 0.1);
+    border-top-color: var(--color-gold);
+    border-radius: 9999px;
+    animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  /* --- Modale legacy (BalanceHistoryModal) --- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open {
+    display: flex;
+  }
+
+  .modal-card {
+    background: var(--color-surface);
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid var(--color-separator);
+    width: 90%;
+    max-width: 400px;
+    color: var(--color-label);
+  }
+
+  .btn {
+    min-height: 44px;
+    padding: 0 24px;
+    border-radius: 10px;
+    border: none;
+    background: var(--color-raised);
+    color: var(--color-label);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* `@keyframes` n'est pas une règle de style : il reste hors layer, la cascade
+   ne s'y applique pas. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

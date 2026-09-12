@@ -1,0 +1,358 @@
+name: Deploy → Firebase Cloud Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'functions/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-functions-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege : le déploiement s'authentifie à GCP via
+# google-github-actions/auth (secret credentials_json), pas via le
+# GITHUB_TOKEN ; seul checkout a besoin d'un accès en lecture au dépôt.
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'functions/requirements.txt'
+
+      - name: Cache Python virtualenv
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: functions/venv
+          key: venv-${{ runner.os }}-${{ hashFiles('functions/requirements.txt') }}
+
+      - name: Create Python virtualenv for Cloud Functions
+        run: |
+          cd functions
+          if [ ! -d "venv" ]; then
+            python -m venv venv
+            venv/bin/pip install --upgrade pip
+            venv/bin/pip install -r requirements.txt
+          fi
+
+      - name: Install Firebase CLI + gcloud
+        run: npm install -g firebase-tools --legacy-peer-deps
+
+      - name: Authenticate gcloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_CREDENTIALS }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+
+      - name: Résoudre l'identité de déploiement et l'URL du handler Gmail Watch
+        # Calculés ici, AVANT le déploiement, pour pouvoir les injecter comme
+        # variables d'environnement de la fonction elle-même : gmail_watch_handler
+        # vérifie à chaque requête un jeton OIDC Pub/Sub émis pour ce compte de
+        # service et cette audience (cf. _verify_pubsub_push, functions/main.py).
+        # L'URL Cloud Run du service existant est stable d'un déploiement à
+        # l'autre (elle ne change pas en redéployant le même service), donc la
+        # résoudre maintenant plutôt qu'après le déploiement ne pose pas de
+        # problème d'œuf-et-poule pour ce dépôt (le service existe déjà).
+        run: |
+          # `|| true` obligatoire : les steps GitHub tournent en `bash -e`, et
+          # l'échec d'une substitution de commande dans une affectation tue le
+          # job. Sans ça, un service absent ferait tomber tout le déploiement
+          # au lieu d'emprunter la branche de repli ci-dessous.
+          DEPLOY_SA=$(gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null) || true
+          echo "DEPLOY_SA=$DEPLOY_SA" >> "$GITHUB_ENV"
+
+          HANDLER_URL=$(gcloud run services describe gmail-watch-handler \
+            --region="europe-west1" --project="suivi-budget-ab888" \
+            --format='value(status.url)' 2>/dev/null) || true
+          if [ -z "$HANDLER_URL" ]; then
+            # Premier déploiement seulement : le service n'existe pas encore,
+            # donc pas d'URL à lire ici. GMAIL_PUSH_AUDIENCE restera absent pour
+            # CE déploiement — le handler refuse tout par défaut (fail-closed)
+            # jusqu'au déploiement suivant, qui trouvera le service désormais
+            # créé et injectera l'audience dès le départ.
+            echo "⚠ Service gmail-watch-handler introuvable (premier déploiement ?) — GMAIL_PUSH_AUDIENCE non renseigné pour ce run."
+          fi
+          echo "HANDLER_URL=$HANDLER_URL" >> "$GITHUB_ENV"
+
+      - name: Inject GMAIL_TOKEN as Cloud Functions env var
+        env:
+          GOOGLE_TOKEN: ${{ secrets.GOOGLE_TOKEN }}
+        run: |
+          # Write the Gmail OAuth token into the project-specific .env file so
+          # Firebase Functions picks it up as a plain environment variable.
+          # (Cloud Run encrypts env vars at rest; Secret Manager is not used because
+          # the firebase-adminsdk SA lacks secretmanager.secrets.create permission.)
+          # Base64-encode the JSON token so it is a single, dotenv-safe line
+          # (raw JSON contains newlines and special chars that break dotenv parsers).
+          GMAIL_TOKEN_B64=$(printf '%s' "$GOOGLE_TOKEN" | base64 -w 0)
+          printf 'GMAIL_TOKEN=%s\n' "$GMAIL_TOKEN_B64" > functions/.env.suivi-budget-ab888
+
+      - name: Inject GITHUB_DISPATCH_TOKEN as Cloud Functions env var
+        env:
+          GITHUB_DISPATCH_TOKEN: ${{ secrets.PAT_GITHUB_SECRET }}
+        run: |
+          # PAT (repo scope) used server-side by dispatch_github_workflow to
+          # trigger repository_dispatch events (cf. 448393f, security fix that
+          # moved this token out of the browser). Missing here means every
+          # sync/import call fails with FAILED_PRECONDITION.
+          printf 'GITHUB_DISPATCH_TOKEN=%s\n' "$GITHUB_DISPATCH_TOKEN" >> functions/.env.suivi-budget-ab888
+
+      - name: Inject Gmail Pub/Sub push authentication as Cloud Functions env vars
+        run: |
+          # gmail_watch_handler est un endpoint Cloud Run public (allUsers/
+          # run.invoker, requis pour les Firebase Callables du même
+          # déploiement) : sans ces deux variables, n'importe qui connaissant
+          # l'URL pourrait forger une notification et déclencher un import
+          # Gmail à volonté. Absentes, le handler refuse tout par défaut.
+          # Les DEUX doivent être non vides : injecter GMAIL_PUSH_SERVICE_ACCOUNT=
+          # (vide) suffirait à faire refuser toutes les requêtes légitimes.
+          if [ -n "$HANDLER_URL" ] && [ -n "$DEPLOY_SA" ]; then
+            printf 'GMAIL_PUSH_SERVICE_ACCOUNT=%s\n' "$DEPLOY_SA" >> functions/.env.suivi-budget-ab888
+            printf 'GMAIL_PUSH_AUDIENCE=%s\n' "$HANDLER_URL" >> functions/.env.suivi-budget-ab888
+          else
+            echo "⚠ HANDLER_URL et/ou DEPLOY_SA vides — GMAIL_PUSH_SERVICE_ACCOUNT/GMAIL_PUSH_AUDIENCE non injectés (le handler refusera les requêtes Pub/Sub jusqu'au prochain déploiement)."
+          fi
+
+      - name: Provision Gmail Pub/Sub (topic + push subscription authentifiée)
+        # Le topic DOIT vivre dans le projet de l'app OAuth Gmail : l'API Gmail
+        # rejette tout autre topicName ("Invalid topicName does not match
+        # projects/moonlit-app-455605-k7/topics/*"). La livraison cross-project
+        # vers Cloud Run passe donc par une push subscription HTTP.
+        #
+        # Étape volontairement bloquante (pas de continue-on-error) : elle a
+        # échoué silencieusement pendant plusieurs déploiements verts, laissant
+        # le topic et la subscription inexistants — donc Gmail Push mort.
+        #
+        # Elle tourne AVANT le déploiement (elle tournait après jusqu'ici) :
+        # depuis que gmail_watch_handler exige un jeton OIDC valide et refuse
+        # tout par défaut, déployer d'abord puis échouer ici laisserait une
+        # fonction qui exige le jeton face à une subscription qui n'en envoie
+        # pas — Gmail Push mort à coup sûr. En échouant avant le déploiement,
+        # l'ancienne version reste en place et l'import continue de tourner.
+        run: |
+          # Pas de `set -e` : on tente toutes les opérations pour diagnostiquer
+          # d'un coup, et on décide du sort du job à la fin.
+          set -uo pipefail
+
+          OAUTH_PROJECT="moonlit-app-455605-k7"
+          TOPIC="gmail-linxo-notifications"
+          FIREBASE_PROJECT="suivi-budget-ab888"
+          REGION="europe-west1"
+          SUBSCRIPTION="gmail-linxo-push-to-cloudrun"
+          FAILED=0
+
+          # 0. Identité de push : sans elle, impossible de configurer
+          #    l'authentification OIDC, et la fonction (fail-closed) refuserait
+          #    toutes les notifications une fois déployée.
+          if [ -z "$DEPLOY_SA" ]; then
+            echo "✗ DEPLOY_SA vide : l'authentification gcloud n'a pas abouti."
+            FAILED=1
+          fi
+
+          # 1. Topic dans le projet OAuth
+          if gcloud pubsub topics describe "$TOPIC" --project="$OAUTH_PROJECT" >/dev/null 2>&1; then
+            echo "✓ Topic présent : projects/$OAUTH_PROJECT/topics/$TOPIC"
+          else
+            echo "→ Création du topic projects/$OAUTH_PROJECT/topics/$TOPIC"
+            gcloud pubsub topics create "$TOPIC" --project="$OAUTH_PROJECT" || FAILED=1
+          fi
+
+          # 2. Droit de publication pour Gmail
+          echo "→ roles/pubsub.publisher pour gmail-api-push@system.gserviceaccount.com"
+          gcloud pubsub topics add-iam-policy-binding "$TOPIC" \
+            --project="$OAUTH_PROJECT" \
+            --member="serviceAccount:gmail-api-push@system.gserviceaccount.com" \
+            --role="roles/pubsub.publisher" \
+            --quiet >/dev/null || FAILED=1
+
+          # 3. Droit pour Pub/Sub de forger un jeton OIDC au nom de $DEPLOY_SA.
+          #    Le binding est CROSS-PROJET : l'agent de service Pub/Sub du projet
+          #    OAuth (qui héberge la subscription) doit avoir
+          #    roles/iam.serviceAccountTokenCreator sur le compte de service, qui
+          #    lui vit dans le projet Firebase. Sans ce binding, la création/mise
+          #    à jour de la subscription authentifiée échoue.
+          if [ -n "$DEPLOY_SA" ]; then
+            OAUTH_PROJECT_NUMBER=$(gcloud projects describe "$OAUTH_PROJECT" \
+              --format='value(projectNumber)' 2>/dev/null) || true
+            if [ -n "$OAUTH_PROJECT_NUMBER" ]; then
+              PUBSUB_AGENT="service-${OAUTH_PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
+              echo "→ roles/iam.serviceAccountTokenCreator pour $PUBSUB_AGENT sur $DEPLOY_SA"
+              gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
+                --project="$FIREBASE_PROJECT" \
+                --member="serviceAccount:$PUBSUB_AGENT" \
+                --role="roles/iam.serviceAccountTokenCreator" \
+                --quiet >/dev/null || FAILED=1
+            else
+              echo "✗ Numéro du projet $OAUTH_PROJECT illisible — binding tokenCreator impossible."
+              FAILED=1
+            fi
+          fi
+
+          # 4. Push subscription cross-project → endpoint HTTP du handler.
+          #    `update` et non pas un simple "existe déjà" : si l'URL du handler
+          #    ou l'ack deadline changent, la subscription doit suivre.
+          #    Ack deadline > timeout de la fonction (60 s par défaut) : à 60 s
+          #    des deux côtés, Pub/Sub redélivre pendant que l'import tourne
+          #    encore et en lance un second en parallèle.
+          #
+          #    MAIS le topic d'une subscription est IMMUABLE : `update` ne sait
+          #    pas le corriger. Une subscription héritée de l'époque où le topic
+          #    vivait dans le projet Firebase resterait donc branchée sur un
+          #    topic que Gmail n'alimente plus, pendant que cette étape reste
+          #    verte — exactement le mode de panne déjà rencontré ici
+          #    (déploiement vert, Gmail Push mort). On vérifie donc le topic, et
+          #    on recrée la subscription s'il ne correspond pas.
+          #
+          #    HANDLER_URL vide = tout premier déploiement, le service Cloud Run
+          #    n'existe pas encore : on laisse le déploiement créer le service et
+          #    on réarme au run suivant (la fonction, elle, refuse tout en
+          #    attendant — fail-closed).
+          if [ -z "$HANDLER_URL" ]; then
+            echo "⚠ HANDLER_URL vide (premier déploiement ?) — subscription non configurée."
+            echo "  Relancer ce workflow une fois le service gmail-watch-handler créé."
+          elif [ -n "$DEPLOY_SA" ]; then
+            EXPECTED_TOPIC="projects/$OAUTH_PROJECT/topics/$TOPIC"
+            CURRENT_TOPIC=$(gcloud pubsub subscriptions describe "$SUBSCRIPTION" \
+              --project="$OAUTH_PROJECT" --format='value(topic)' 2>/dev/null) || true
+
+            if [ -n "$CURRENT_TOPIC" ] && [ "$CURRENT_TOPIC" != "$EXPECTED_TOPIC" ]; then
+              echo "→ Subscription branchée sur $CURRENT_TOPIC au lieu de $EXPECTED_TOPIC — recréation"
+              gcloud pubsub subscriptions delete "$SUBSCRIPTION" \
+                --project="$OAUTH_PROJECT" --quiet >/dev/null || FAILED=1
+              CURRENT_TOPIC=""
+            fi
+
+            # L'authentification OIDC (--push-auth-service-account /
+            # --push-auth-token-audience) fait signer chaque requête push par
+            # Pub/Sub, et le handler revérifie ce jeton côté fonction
+            # (_verify_pubsub_push, functions/main.py) : sans ça, l'endpoint
+            # public accepterait n'importe quelle requête forgée.
+            if [ -n "$CURRENT_TOPIC" ]; then
+              echo "→ Mise à jour de la push subscription $SUBSCRIPTION → $HANDLER_URL"
+              gcloud pubsub subscriptions update "$SUBSCRIPTION" \
+                --project="$OAUTH_PROJECT" \
+                --push-endpoint="$HANDLER_URL" \
+                --push-auth-service-account="$DEPLOY_SA" \
+                --push-auth-token-audience="$HANDLER_URL" \
+                --ack-deadline=600 >/dev/null || FAILED=1
+            else
+              echo "→ Création de la push subscription $SUBSCRIPTION → $HANDLER_URL"
+              gcloud pubsub subscriptions create "$SUBSCRIPTION" \
+                --project="$OAUTH_PROJECT" \
+                --topic="$TOPIC" \
+                --push-endpoint="$HANDLER_URL" \
+                --push-auth-service-account="$DEPLOY_SA" \
+                --push-auth-token-audience="$HANDLER_URL" \
+                --ack-deadline=600 >/dev/null || FAILED=1
+            fi
+
+            # 5. État final : le log du job doit être une preuve, pas une promesse.
+            #    Les déploiements verts précédents ne disaient rien de la chaîne
+            #    réellement en place ; ces lignes se relisent après coup.
+            echo '→ Chaîne effectivement en place :'
+            gcloud pubsub subscriptions describe "$SUBSCRIPTION" \
+              --project="$OAUTH_PROJECT" \
+              --format='flattened(topic, pushConfig.pushEndpoint, pushConfig.oidcToken.serviceAccountEmail, pushConfig.oidcToken.audience, ackDeadlineSeconds)' || FAILED=1
+          fi
+
+          if [ "$FAILED" -ne 0 ]; then
+            # DEPLOY_SA déjà résolu par l'étape "Résoudre l'identité de
+            # déploiement…" en tout début de job.
+            echo ''
+            echo '════════════════════════════════════════════════════════════════'
+            echo 'Gmail Push est INOPÉRANT : le provisionnement Pub/Sub a échoué.'
+            echo 'Le déploiement est interrompu AVANT de publier les fonctions :'
+            echo "l'ancienne version reste en place et l'import continue."
+            echo '════════════════════════════════════════════════════════════════'
+            echo ''
+            echo "Le compte de service de déploiement ($DEPLOY_SA) a besoin de"
+            echo "droits sur le projet OAuth $OAUTH_PROJECT, qui héberge le topic,"
+            echo 'et Pub/Sub doit pouvoir forger un jeton en son nom.'
+            echo ''
+            echo 'Correctif (une seule fois, par un Owner du projet OAuth) :'
+            echo ''
+            echo "  gcloud services enable pubsub.googleapis.com --project=$OAUTH_PROJECT"
+            echo ''
+            echo "  gcloud projects add-iam-policy-binding $OAUTH_PROJECT \\"
+            echo "    --member=\"serviceAccount:$DEPLOY_SA\" \\"
+            echo '    --role="roles/pubsub.admin"'
+            echo ''
+            echo 'Puis, pour autoriser Pub/Sub à signer les requêtes push'
+            echo "(par un Owner du projet $FIREBASE_PROJECT) :"
+            echo ''
+            echo "  OAUTH_PROJECT_NUMBER=\$(gcloud projects describe $OAUTH_PROJECT --format='value(projectNumber)')"
+            echo "  gcloud iam service-accounts add-iam-policy-binding $DEPLOY_SA \\"
+            echo "    --project=$FIREBASE_PROJECT \\"
+            echo "    --member=\"serviceAccount:service-\${OAUTH_PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com\" \\"
+            echo '    --role="roles/iam.serviceAccountTokenCreator"'
+            echo ''
+            echo 'Puis relancer ce workflow. Détails et procédure 100% manuelle :'
+            echo 'docs/GMAIL_PUBSUB_SETUP.md'
+            echo '════════════════════════════════════════════════════════════════'
+            exit 1
+          fi
+
+          echo "✓ Gmail Pub/Sub provisionné. Reste à cliquer « Activer Gmail Watch » dans Maintenance."
+
+      - name: Deploy Cloud Functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > /tmp/sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
+
+          # Activate the python virtual environment so firebase-tools finds the SDK
+          source functions/venv/bin/activate
+
+          # Add --force to allow deletion of functions that don't exist in local source code
+          # (Fixes "Aborting because deletion cannot proceed in non-interactive mode")
+          firebase deploy --only functions --project suivi-budget-ab888 --non-interactive --force
+
+      - name: Allow unauthenticated invocations (requis pour Firebase Callable)
+        run: |
+          set -euo pipefail
+
+          PROJECT="suivi-budget-ab888"
+          REGION="europe-west1"
+          SERVICES=(
+            "import-linxo-transactions"
+            "validate-balance-mismatch"
+            "get-latest-email-balances"
+            "gmail-watch-handler"
+          )
+
+          for SERVICE in "${SERVICES[@]}"; do
+            if gcloud run services describe "$SERVICE" \
+              --region="$REGION" \
+              --project="$PROJECT" >/dev/null 2>&1; then
+              echo "IAM binding → $SERVICE"
+              gcloud run services add-iam-policy-binding "$SERVICE" \
+                --region="$REGION" \
+                --member="allUsers" \
+                --role="roles/run.invoker" \
+                --project="$PROJECT"
+            else
+              echo "Service absent, IAM binding ignoré: $SERVICE"
+            fi
+          done

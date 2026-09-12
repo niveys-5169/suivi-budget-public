@@ -1,0 +1,23 @@
+# Ignore patterns for Gemini CLI to reduce token usage
+
+# Legacy/Archive folders
+docs/history/
+old_*/
+*_old.js
+*_bridge.js
+*.bak
+
+# Build/Environment
+node_modules/
+dist/
+.firebase/
+.venv/
+functions/venv/
+.pytest_cache/
+
+# Random script outputs/logs
+*.log
+CATEGORY_VERIFICATION_REPORT.md
+GCP_CREDENTIALS_SETUP_FIX.md
+PATRIMOINE_FIX_CHECKLIST.md
+PATRIMOINE_FIX_REPORT.md

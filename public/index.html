@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1"
+    />
+    <meta name="theme-color" content="#0B0B14" />
+    <meta name="description" content="AURUM — finance personnelle premium." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AURUM" />
+    <title>AURUM — Suivi Budget</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="180x180" href="/icons/icon-180.png" />
+
+    <!-- Apple Touch Icons — iOS requires PNG, not SVG -->
+    <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-120.png" />
+    <link rel="apple-touch-icon" sizes="87x87" href="/icons/icon-87.png" />
+    <link rel="apple-touch-icon" sizes="80x80" href="/icons/icon-80.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="/icons/icon-76.png" />
+    <link rel="apple-touch-icon" sizes="60x60" href="/icons/icon-60.png" />
+
+    <!-- iOS Splash Screens (apple-touch-startup-image) -->
+    <!-- iPhone SE 1st gen -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"
+      href="/icons/splash-640x1136.png"
+    />
+    <!-- iPhone SE 2nd/3rd gen, iPhone 8 -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+      href="/icons/splash-750x1334.png"
+    />
+    <!-- iPhone 8 Plus -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1080x1920.png"
+    />
+    <!-- iPhone X, XS, 11 Pro -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1125x2436.png"
+    />
+    <!-- iPhone XR, 11 -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)"
+      href="/icons/splash-828x1792.png"
+    />
+    <!-- iPhone XS Max, 11 Pro Max -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1242x2688.png"
+    />
+    <!-- iPhone 12, 13, 14 -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1170x2532.png"
+    />
+    <!-- iPhone 12/13/14 Pro Max -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1284x2778.png"
+    />
+    <!-- iPhone 14 Pro -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1179x2556.png"
+    />
+    <!-- iPhone 14 Pro Max -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1290x2796.png"
+    />
+    <!-- iPhone 15 Pro Max -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1290x2796.png"
+    />
+    <!-- iPhone 16 Pro / 17 Pro -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1206x2622.png"
+    />
+    <!-- iPhone 16 Pro Max / 17 Pro Max -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3)"
+      href="/icons/splash-1320x2868.png"
+    />
+    <!-- iPad -->
+    <link
+      rel="apple-touch-startup-image"
+      media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)"
+      href="/icons/splash-768x1024.png"
+    />
+
+    <!-- Self-hosted fonts — no external dependency, works fully offline -->
+    <link
+      rel="preload"
+      href="/fonts/inter-400-normal-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/inter-700-normal-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/inter-900-normal-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/playfair-display-600-normal-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+  </head>
+  <body class="bg-bg text-label font-inter overflow-x-hidden">
+    <a
+      href="#app-root"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-modal focus:p-4 focus:bg-surface focus:text-gold"
+      >Aller au contenu principal</a
+    >
+    <div class="fixed inset-0 bg-bg -z-20"></div>
+
+    <!-- Authentication Screen -->
+    <div
+      id="login-screen"
+      class="hidden fixed inset-0 z-modal bg-bg flex items-center justify-center p-6"
+    >
+      <div class="glass-panel rounded-xl p-8 max-w-sm w-full text-center space-y-8 relative">
+        <div class="space-y-4">
+          <h2 class="font-serif text-3xl font-semibold text-gold">AURUM</h2>
+          <p class="text-label-secondary text-footnote">
+            Authentification biométrique ou Google Requise pour accéder au registre privé.
+          </p>
+        </div>
+        <div id="login-button-root"></div>
+      </div>
+    </div>
+
+    <div id="app-wrapper" class="min-h-screen">
+      <div
+        id="loader"
+        class="flex flex-col items-center justify-center py-16 text-label-tertiary gap-4"
+      >
+        <div class="w-8 h-8 border-2 border-gold/20 border-t-gold rounded-full animate-spin"></div>
+        <span class="text-caption text-label-tertiary">Interrogation Firestore...</span>
+      </div>
+      <div id="error-box" class="premium-container hidden"></div>
+
+      <!-- Main Root for React Router SPA -->
+      <div id="app-root"></div>
+    </div>
+
+    <!-- Unified Modals container for React -->
+    <div id="modal-root"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

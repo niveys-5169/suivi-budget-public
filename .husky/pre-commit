@@ -1,0 +1,6 @@
+npx lint-staged
+
+# Garde-fou du Design System : le cliquet ne doit jamais se desserrer.
+# Vérifié ici en plus de la CI, pour que la dérive soit bloquée avant le commit
+# plutôt que découverte sur la PR.
+npm run check:design
