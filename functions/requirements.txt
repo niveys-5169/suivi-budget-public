@@ -12,7 +12,7 @@ functions-framework>=3.10.2
 # après vérification qu'un correctif amont existe.
 google-api-core==2.34.0
 google-cloud-core==2.6.1
-google-cloud-firestore==2.28.1
+google-cloud-firestore==2.30.0
 cloudevents>=1.11.0
 pytest>=9.0.3
 pytest-mock>=3.10.0
