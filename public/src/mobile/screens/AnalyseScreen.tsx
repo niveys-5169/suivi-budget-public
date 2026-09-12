@@ -119,7 +119,7 @@ export const AnalyseScreen: React.FC = () => {
   // Get transactions for drilldown
   const drillDownTransactions = useMemo(() => {
     if (!drillDownCategory) return [];
-    let targetTxs = monthTransactions;
+    let targetTxs: typeof monthTransactions;
     if (mode === 'entrees') {
       targetTxs = monthTransactions.filter((t) => (t.montant || 0) > 0);
     } else if (mode === 'sorties') {

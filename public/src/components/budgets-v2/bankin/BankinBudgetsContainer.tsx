@@ -195,7 +195,7 @@ export const BankinBudgetsContainer: React.FC = () => {
 
       // Base Sparkline generation function
       const generateSparkline = (isForIncome: boolean) => {
-        let sparklineData = [];
+        let sparklineData: { day: number; amount: number }[];
         if (viewMode === 'monthly') {
           const dayMap: Record<number, number> = {};
           catTx.forEach((tx) => {
@@ -268,7 +268,7 @@ export const BankinBudgetsContainer: React.FC = () => {
     const netBalance = totalReceived - totalSpent;
 
     // 5. Chart data total (Basé sur le Net)
-    let totalChartData = [];
+    let totalChartData: { day: number; amount: number }[];
     if (viewMode === 'monthly') {
       const totalDayMap: Record<number, number> = {};
       monthTx.forEach((tx) => {
