@@ -13,7 +13,7 @@ functions-framework>=3.10.2
 google-api-core==2.36.0
 google-cloud-core==2.6.1
 google-cloud-firestore==2.30.0
-cloudevents>=1.11.0
+cloudevents>=1.13.0
 pytest>=9.0.3
 pytest-mock>=3.10.0
 cryptography==50.0.1
