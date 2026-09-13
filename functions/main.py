@@ -73,10 +73,12 @@ GMAIL_SEARCH_MAX = int(os.environ.get("GMAIL_SEARCH_MAX", "100"))
 # traité qu'après persistance de ses transactions ET de son solde.
 MAX_EMAILS_PER_RUN = int(os.environ.get("MAX_EMAILS_PER_RUN", "25"))
 
-# Dépôt cible du repository_dispatch GitHub (cf. dispatch_github_workflow) —
-# mêmes valeurs par défaut que celles historiquement codées côté client.
+# Dépôt cible du repository_dispatch GitHub (cf. dispatch_github_workflow),
+# c'est-à-dire celui qui exécute les imports déclenchés depuis le dashboard.
+# Pointait vers le dépôt privé Suivi-Budget jusqu'au 13/09/2026 ; celui-ci ne
+# déploie ni n'importe plus rien, tout étant passé sur suivi-budget-public.
 GITHUB_REPO_OWNER = os.environ.get("GITHUB_REPO_OWNER", "niveys-5169")
-GITHUB_REPO_NAME = os.environ.get("GITHUB_REPO_NAME", "Suivi-Budget")
+GITHUB_REPO_NAME = os.environ.get("GITHUB_REPO_NAME", "suivi-budget-public")
 GITHUB_DISPATCH_TIMEOUT_S = 20
 
 
