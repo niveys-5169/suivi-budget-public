@@ -10,7 +10,7 @@ firebase-admin==7.4.0
 # après vérification qu'un correctif amont existe.
 google-api-core==2.36.0
 google-cloud-core==2.7.0
-google-cloud-firestore==2.28.1
+google-cloud-firestore==2.30.0
 cryptography==50.0.1
 requests==2.34.2
 # urllib3 est une dépendance transitive — épinglé pour contrôler les montées de
