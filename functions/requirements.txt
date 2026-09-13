@@ -1,6 +1,6 @@
 firebase-functions>=0.6.0
 firebase-admin==7.4.0
-google-api-python-client==2.197.0
+google-api-python-client==2.200.0
 google-auth==2.57.1
 google-auth-oauthlib==1.4.1
 google-auth-httplib2==0.4.2
