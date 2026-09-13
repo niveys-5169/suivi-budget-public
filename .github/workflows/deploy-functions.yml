@@ -82,13 +82,11 @@ jobs:
           DEPLOY_SA=$(gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null) || true
           echo "DEPLOY_SA=$DEPLOY_SA" >> "$GITHUB_ENV"
 
-          # Compte de service qui signe les requêtes push. Il vit dans le projet
-          # OAuth, comme la subscription : la contrainte d'organisation
-          # iam.disableCrossProjectServiceAccountUsage — appliquée par défaut aux
-          # projets sans organisation, et non désactivable sur ceux-ci — interdit
-          # d'attacher à une subscription un compte de service d'un autre projet.
-          # DEPLOY_SA (projet Firebase) a donc été refusé ici jusqu'au 13/09/2026.
-          echo "PUSH_SA=gmail-push-invoker@moonlit-app-455605-k7.iam.gserviceaccount.com" >> "$GITHUB_ENV"
+          # Compte de service qui signe les requêtes push, distinct de DEPLOY_SA :
+          # l'agent Pub/Sub reçoit roles/iam.serviceAccountTokenCreator dessus, ce
+          # qui permet aussi de forger des jetons d'ACCÈS. Sur le compte admin
+          # Firebase, ce serait lui donner bien trop de pouvoir.
+          echo "PUSH_SA=gmail-push-invoker@suivi-budget-ab888.iam.gserviceaccount.com" >> "$GITHUB_ENV"
 
           HANDLER_URL=$(gcloud run services describe gmail-watch-handler \
             --region="europe-west1" --project="suivi-budget-ab888" \
@@ -146,8 +144,8 @@ jobs:
       - name: Provision Gmail Pub/Sub (topic + push subscription authentifiée)
         # Le topic DOIT vivre dans le projet de l'app OAuth Gmail : l'API Gmail
         # rejette tout autre topicName ("Invalid topicName does not match
-        # projects/moonlit-app-455605-k7/topics/*"). La livraison cross-project
-        # vers Cloud Run passe donc par une push subscription HTTP.
+        # projects/<projet OAuth>/topics/*"). Le client OAuth vivant désormais
+        # dans le projet Firebase, toute la chaîne tient dans ce seul projet.
         #
         # Étape volontairement bloquante (pas de continue-on-error) : elle a
         # échoué silencieusement pendant plusieurs déploiements verts, laissant
@@ -164,7 +162,9 @@ jobs:
           # d'un coup, et on décide du sort du job à la fin.
           set -uo pipefail
 
-          OAUTH_PROJECT="moonlit-app-455605-k7"
+          # Projet de l'app OAuth Gmail, qui impose l'emplacement du topic. C'est
+          # aussi le projet Firebase : la chaîne est entièrement intra-projet.
+          OAUTH_PROJECT="suivi-budget-ab888"
           TOPIC="gmail-linxo-notifications"
           REGION="europe-west1"
           SUBSCRIPTION="gmail-linxo-push-to-cloudrun"
@@ -193,27 +193,16 @@ jobs:
             --role="roles/pubsub.publisher" \
             --quiet >/dev/null || FAILED=1
 
-          # 3. Droit pour Pub/Sub de forger un jeton OIDC au nom de $PUSH_SA.
-          #    Binding intra-projet : l'agent de service Pub/Sub du projet OAuth
-          #    doit avoir roles/iam.serviceAccountTokenCreator sur $PUSH_SA, qui
-          #    vit dans ce même projet. Sans ce binding, la création/mise à jour
-          #    de la subscription authentifiée échoue.
-          OAUTH_PROJECT_NUMBER=$(gcloud projects describe "$OAUTH_PROJECT" \
-            --format='value(projectNumber)' 2>/dev/null) || true
-          if [ -n "$OAUTH_PROJECT_NUMBER" ]; then
-            PUBSUB_AGENT="service-${OAUTH_PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
-            echo "→ roles/iam.serviceAccountTokenCreator pour $PUBSUB_AGENT sur $PUSH_SA"
-            gcloud iam service-accounts add-iam-policy-binding "$PUSH_SA" \
-              --project="$OAUTH_PROJECT" \
-              --member="serviceAccount:$PUBSUB_AGENT" \
-              --role="roles/iam.serviceAccountTokenCreator" \
-              --quiet >/dev/null || FAILED=1
-          else
-            echo "✗ Numéro du projet $OAUTH_PROJECT illisible — binding tokenCreator impossible."
-            FAILED=1
-          fi
+          # $PUSH_SA et ses deux bindings (tokenCreator pour l'agent Pub/Sub,
+          # serviceAccountUser pour $DEPLOY_SA) relèvent du setup manuel ponctuel,
+          # au même titre que la création du compte lui-même : $DEPLOY_SA n'a que
+          # roles/pubsub.admin sur le projet OAuth, qui ne couvre pas la policy
+          # IAM d'un compte de service ('iam.serviceAccounts.getIamPolicy denied').
+          # Le binding tokenCreator manquant se manifeste de toute façon ci-dessous,
+          # la mise à jour de la subscription étant alors refusée.
+          # Voir docs/GMAIL_PUBSUB_SETUP.md.
 
-          # 4. Push subscription cross-project → endpoint HTTP du handler.
+          # 3. Push subscription → endpoint HTTP du handler.
           #    `update` et non pas un simple "existe déjà" : si l'URL du handler
           #    ou l'ack deadline changent, la subscription doit suivre.
           #    Ack deadline > timeout de la fonction (60 s par défaut) : à 60 s
@@ -221,12 +210,11 @@ jobs:
           #    encore et en lance un second en parallèle.
           #
           #    MAIS le topic d'une subscription est IMMUABLE : `update` ne sait
-          #    pas le corriger. Une subscription héritée de l'époque où le topic
-          #    vivait dans le projet Firebase resterait donc branchée sur un
-          #    topic que Gmail n'alimente plus, pendant que cette étape reste
-          #    verte — exactement le mode de panne déjà rencontré ici
-          #    (déploiement vert, Gmail Push mort). On vérifie donc le topic, et
-          #    on recrée la subscription s'il ne correspond pas.
+          #    pas le corriger. Une subscription héritée d'un déplacement du topic
+          #    resterait donc branchée sur un topic que Gmail n'alimente plus,
+          #    pendant que cette étape reste verte — mode de panne déjà rencontré
+          #    ici (déploiement vert, Gmail Push mort). On vérifie donc le topic,
+          #    et on recrée la subscription s'il ne correspond pas.
           #
           #    HANDLER_URL vide = tout premier déploiement, le service Cloud Run
           #    n'existe pas encore : on laisse le déploiement créer le service et
@@ -271,7 +259,7 @@ jobs:
                 --ack-deadline=600 >/dev/null || FAILED=1
             fi
 
-            # 5. État final : le log du job doit être une preuve, pas une promesse.
+            # 4. État final : le log du job doit être une preuve, pas une promesse.
             #    Les déploiements verts précédents ne disaient rien de la chaîne
             #    réellement en place ; ces lignes se relisent après coup.
             echo '→ Chaîne effectivement en place :'

@@ -5,9 +5,9 @@ qui pousse la notification vers la Cloud Function `gmail_watch_handler`.
 
 ```
 Gmail (boîte du propriétaire)
-  │  users().watch(topicName=projects/moonlit-app-455605-k7/topics/gmail-linxo-notifications)
+  │  users().watch(topicName=projects/suivi-budget-ab888/topics/gmail-linxo-notifications)
   ▼
-Topic Pub/Sub  ── projet OAuth : moonlit-app-455605-k7
+Topic Pub/Sub  ── suivi-budget-ab888
   │  push subscription HTTP « gmail-linxo-push-to-cloudrun »
   ▼
 URL Cloud Run du service gmail-watch-handler (europe-west1, suivi-budget-ab888)
@@ -16,83 +16,73 @@ URL Cloud Run du service gmail-watch-handler (europe-west1, suivi-budget-ab888)
 _run_linxo_import_core()  →  Firestore
 ```
 
-## Pourquoi deux projets GCP
+## Où doit vivre le topic
 
-Les Cloud Functions vivent dans le projet Firebase `suivi-budget-ab888`, mais
-l'API Gmail **exige** que le topic appartienne au projet de l'application OAuth
-(`moonlit-app-455605-k7`). Tout autre topic est rejeté à l'enregistrement :
+L'API Gmail **exige** que le topic appartienne au projet de l'application OAuth
+dont provient le jeton. Tout autre topic est rejeté à l'enregistrement :
 
 ```
-HttpError 400: Invalid topicName does not match projects/moonlit-app-455605-k7/topics/*
+HttpError 400: Invalid topicName does not match projects/<projet OAuth>/topics/*
 ```
 
-D'où le franchissement de frontière par une _push subscription_ HTTP plutôt que
-par un trigger Pub/Sub natif (`@pubsub_fn.on_message_published`), qui ne sait
-s'abonner qu'à un topic de son propre projet.
+Le client OAuth vit dans `suivi-budget-ab888`, qui est aussi le projet Firebase :
+topic, subscription, compte de signature et handler tiennent donc tous dans ce
+seul projet (`GMAIL_OAUTH_PROJECT_ID`, `functions/main.py`).
+
+La livraison passe par une _push subscription_ HTTP et non par un trigger Pub/Sub
+natif (`@pubsub_fn.on_message_published`) : l'endpoint du handler est une URL
+Cloud Run, et le jeton OIDC qu'elle vérifie est ce qui authentifie l'appel.
+
+> **Historique.** Jusqu'au 13/09/2026, le client OAuth vivait dans un projet
+> séparé (`moonlit-app-455605-k7`) et le topic devait donc y vivre aussi, la
+> subscription franchissant la frontière vers Cloud Run. Cette architecture a
+> buté sur la contrainte d'organisation
+> `iam.disableCrossProjectServiceAccountUsage`, qui interdit d'attacher à une
+> ressource un compte de service d'un autre projet :
+>
+> ```
+> PERMISSION_DENIED: Principal initiating the request does not have
+> iam.serviceAccounts.actAs permission on the requested push authentication
+> service account
+> ```
+>
+> Aucun rôle IAM ne lève ce refus, et la contrainte n'est pas désactivable sur un
+> projet sans organisation : `orgpolicy.policies.create` y est refusé et
+> `roles/orgpolicy.policyAdmin` n'y est même pas attribuable. Regrouper la chaîne
+> dans un seul projet supprime la question.
 
 ## Pourquoi un compte de signature dédié
 
 La subscription fait signer chaque requête push par un compte de service
 (`--push-auth-service-account`), que le handler revérifie ensuite. Ce compte est
-`gmail-push-invoker@moonlit-app-455605-k7.iam.gserviceaccount.com` : il vit dans
-le **projet OAuth**, celui de la subscription.
+`gmail-push-invoker@suivi-budget-ab888.iam.gserviceaccount.com`, distinct du
+compte de déploiement `firebase-adminsdk-fbsvc@suivi-budget-ab888`.
 
-Il ne peut pas s'agir du compte de déploiement
-`firebase-adminsdk-fbsvc@suivi-budget-ab888` (projet Firebase), pourtant utilisé
-jusqu'au 13/09/2026 : la contrainte d'organisation
-`iam.disableCrossProjectServiceAccountUsage` interdit d'attacher à une ressource
-un compte de service d'un autre projet, et toute tentative échoue par
+La distinction n'est pas cosmétique : l'agent de service Pub/Sub reçoit
+`roles/iam.serviceAccountTokenCreator` sur ce compte, ce qui permet de forger non
+seulement des jetons d'identité mais aussi des **jetons d'accès** en son nom.
+L'accorder sur le compte admin Firebase reviendrait à donner à Pub/Sub les pleins
+pouvoirs sur le projet ; `gmail-push-invoker`, lui, n'a aucun rôle.
 
-```
-PERMISSION_DENIED: Principal initiating the request does not have
-iam.serviceAccounts.actAs permission on the requested push authentication
-service account
-```
+## Prérequis : le compte de signature
 
-quels que soient les rôles IAM accordés. Cette contrainte s'applique **par
-défaut** aux projets sans organisation — les deux projets ici — et n'y est pas
-désactivable : `orgpolicy.policies.create` est refusé et le rôle
-`roles/orgpolicy.policyAdmin` n'y est même pas attribuable. Signer depuis un
-compte du même projet que la subscription contourne le problème à la racine,
-sans toucher à la gouvernance GCP.
+Le workflow crée et maintient le topic, son binding `pubsub.publisher` et la
+subscription tout seuls — y compris si l'URL du handler change.
 
-La livraison, elle, reste cross-projet (endpoint Cloud Run dans le projet
-Firebase) : ce n'est pas un attachement de compte de service, donc la contrainte
-ne s'y applique pas.
+Restent hors de sa portée, car les rôles Pub/Sub ne donnent aucun droit sur la
+policy IAM d'un compte de service (`iam.serviceAccounts.getIamPolicy denied`) :
+le compte `gmail-push-invoker` **et ses deux bindings**. C'est du setup manuel
+ponctuel, à rejouer seulement s'ils disparaissent — commandes ci-dessous, et
+rappelées dans le message d'erreur de l'étape. Un binding `tokenCreator` manquant
+se manifeste au run suivant : la mise à jour de la subscription est alors refusée.
 
-## Prérequis : droits sur le projet OAuth
+## Provisionnement manuel complet
 
-Le compte de service de déploiement
-`firebase-adminsdk-fbsvc@suivi-budget-ab888.iam.gserviceaccount.com` appartient
-au projet Firebase et **n'a aucun droit** sur `moonlit-app-455605-k7`. Sans le
-correctif ci-dessous, l'étape « Provision Gmail Pub/Sub » de
-`deploy-functions.yml` échoue et Gmail Push reste mort.
-
-### Option A — déléguer au CI (recommandé)
-
-Une seule fois, depuis un compte **Owner de `moonlit-app-455605-k7`** :
+Le workflow couvre le cas courant ; cette procédure sert à repartir de zéro ou à
+diagnostiquer :
 
 ```bash
-gcloud services enable pubsub.googleapis.com --project=moonlit-app-455605-k7
-
-gcloud projects add-iam-policy-binding moonlit-app-455605-k7 \
-  --member="serviceAccount:firebase-adminsdk-fbsvc@suivi-budget-ab888.iam.gserviceaccount.com" \
-  --role="roles/pubsub.admin"
-```
-
-Le workflow crée et maintient ensuite topic, IAM et subscription tout seul —
-y compris si l'URL du handler change. Il ne crée en revanche pas le compte de
-signature `gmail-push-invoker@moonlit-app-455605-k7` : s'il a été supprimé, le
-recréer avec ses deux bindings (les commandes exactes sont rappelées dans le
-message d'erreur de l'étape, et détaillées en option B ci-dessous).
-
-### Option B — provisionnement manuel
-
-Si l'on préfère ne pas donner `pubsub.admin` au CI, exécuter les mêmes
-opérations à la main (l'étape CI restera rouge à chaque déploiement) :
-
-```bash
-PROJECT=moonlit-app-455605-k7
+PROJECT=suivi-budget-ab888
 TOPIC=gmail-linxo-notifications
 HANDLER=https://europe-west1-suivi-budget-ab888.cloudfunctions.net/gmail_watch_handler
 
@@ -120,17 +110,15 @@ gcloud pubsub topics add-iam-policy-binding $TOPIC --project=$PROJECT \
 #
 # ⚠️ Ce doit être un COMPTE DE SERVICE, pas votre compte Google : en manuel,
 # `gcloud auth list` renvoie votre compte utilisateur, que
-# --push-auth-service-account refuse.
-#
-# Ce compte doit vivre dans le projet OAuth, comme la subscription : la
-# contrainte iam.disableCrossProjectServiceAccountUsage interdit d'attacher à
-# une subscription un compte de service d'un autre projet (voir « Pourquoi un
-# compte de signature dédié » plus bas).
+# --push-auth-service-account refuse. Et un compte dédié, pas celui du
+# déploiement (voir « Pourquoi un compte de signature dédié » plus haut).
 PUSH_SA=gmail-push-invoker@$PROJECT.iam.gserviceaccount.com
 gcloud iam service-accounts create gmail-push-invoker --project=$PROJECT \
   --display-name="Pub/Sub push auth pour gmail-watch-handler"
 
-# Pub/Sub doit pouvoir forger un jeton OIDC au nom de ce SA.
+# Pub/Sub doit pouvoir forger un jeton OIDC au nom de ce SA. L'agent de service
+# n'existe que si Pub/Sub a déjà servi dans le projet : le créer au besoin avec
+#   gcloud beta services identity create --service=pubsub.googleapis.com --project=$PROJECT
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
 gcloud iam service-accounts add-iam-policy-binding $PUSH_SA \
   --project=$PROJECT \
@@ -141,7 +129,7 @@ gcloud iam service-accounts add-iam-policy-binding $PUSH_SA \
 # au --push-auth-service-account ci-dessous.
 gcloud iam service-accounts add-iam-policy-binding $PUSH_SA \
   --project=$PROJECT \
-  --member="serviceAccount:firebase-adminsdk-fbsvc@suivi-budget-ab888.iam.gserviceaccount.com" \
+  --member="serviceAccount:firebase-adminsdk-fbsvc@$PROJECT.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
 
 gcloud pubsub subscriptions create gmail-linxo-push-to-cloudrun --project=$PROJECT \
@@ -190,12 +178,12 @@ Les deux chemins passent par le même `_register_gmail_watch`, qui écrit dans
 ```bash
 # Le topic existe et Gmail peut y publier
 gcloud pubsub topics get-iam-policy gmail-linxo-notifications \
-  --project=moonlit-app-455605-k7
+  --project=suivi-budget-ab888
 
 # La subscription pointe vers le bon endpoint : il doit être identique à
 # l'URL Cloud Run du handler (comparer les deux commandes ci-dessous)
 gcloud pubsub subscriptions describe gmail-linxo-push-to-cloudrun \
-  --project=moonlit-app-455605-k7 --format='value(pushConfig.pushEndpoint)'
+  --project=suivi-budget-ab888 --format='value(pushConfig.pushEndpoint)'
 
 gcloud run services describe gmail-watch-handler \
   --region=europe-west1 --project=suivi-budget-ab888 --format='value(status.url)'
@@ -204,7 +192,7 @@ gcloud run services describe gmail-watch-handler \
 # par la fonction (GMAIL_PUSH_SERVICE_ACCOUNT) : sinon le handler renvoie 403
 # sur chaque notification.
 gcloud pubsub subscriptions describe gmail-linxo-push-to-cloudrun \
-  --project=moonlit-app-455605-k7 \
+  --project=suivi-budget-ab888 \
   --format='value(pushConfig.oidcToken.serviceAccountEmail)'
 
 # Le handler reçoit et journalise ("Gmail Watch notification reçue. historyId=…")
@@ -214,15 +202,15 @@ gcloud functions logs read gmail_watch_handler \
 
 ## Dépannage
 
-| Symptôme                                                                                       | Cause                                                                                                    | Correctif                                                                                                                                                           |
-| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI : `Failed to create topic […]: User not authorized`                                         | Le SA de déploiement n'a pas de droits sur le projet OAuth                                               | Option A ou B ci-dessus                                                                                                                                             |
-| `Invalid topicName does not match projects/moonlit-app-455605-k7/topics/*`                     | Topic créé dans le projet Firebase                                                                       | Le topic doit vivre dans le projet OAuth                                                                                                                            |
-| `setup_gmail_watch` → `User not authorized to perform this action`                             | `gmail-api-push@system.gserviceaccount.com` n'est pas publisher sur le topic                             | Rejouer le binding IAM                                                                                                                                              |
-| Aucune trace dans les logs du handler                                                          | Watch expiré/jamais enregistré, subscription absente, branchée sur un ancien topic, ou endpoint obsolète | Lire `metadata/gmail_watch_state`, cliquer « Activer Gmail Watch », puis relire le bloc « Chaîne effectivement en place » du dernier run `deploy-functions`         |
-| Le handler journalise mais rien n'arrive en base                                               | `historyId` expiré (> 7 jours)                                                                           | Le handler retombe alors sur un import complet ; sinon recliquer « Activer Gmail Watch »                                                                            |
-| CI : `PERMISSION_DENIED […] iam.serviceAccounts.actAs […] push authentication service account` | Le compte passé au `--push-auth-service-account` n'appartient pas au projet OAuth, ou a été supprimé     | Voir « Pourquoi un compte de signature dédié » : le compte doit vivre dans `moonlit-app-455605-k7`. Aucun rôle IAM ne lève ce refus sur un compte d'un autre projet |
-| Le handler renvoie 403 sur chaque notification                                                 | `GMAIL_PUSH_SERVICE_ACCOUNT` ne correspond plus à l'identité de signature de la subscription             | Comparer les deux (section « Vérifier que la chaîne fonctionne ») et redéployer les fonctions                                                                       |
+| Symptôme                                                                                       | Cause                                                                                                            | Correctif                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI : `Failed to create topic […]: User not authorized`                                         | Le SA de déploiement n'a pas de droits sur le projet OAuth                                                       | Option A ou B ci-dessus                                                                                                                                     |
+| `Invalid topicName does not match projects/<projet>/topics/*`                                  | Le topic ne vit pas dans le projet de l'app OAuth du jeton courant                                               | Aligner `GMAIL_OAUTH_PROJECT_ID` (`functions/main.py`) sur le projet que nomme l'erreur, ou régénérer `GOOGLE_TOKEN` depuis un client OAuth du bon projet   |
+| `setup_gmail_watch` → `User not authorized to perform this action`                             | `gmail-api-push@system.gserviceaccount.com` n'est pas publisher sur le topic                                     | Rejouer le binding IAM                                                                                                                                      |
+| Aucune trace dans les logs du handler                                                          | Watch expiré/jamais enregistré, subscription absente, branchée sur un ancien topic, ou endpoint obsolète         | Lire `metadata/gmail_watch_state`, cliquer « Activer Gmail Watch », puis relire le bloc « Chaîne effectivement en place » du dernier run `deploy-functions` |
+| Le handler journalise mais rien n'arrive en base                                               | `historyId` expiré (> 7 jours)                                                                                   | Le handler retombe alors sur un import complet ; sinon recliquer « Activer Gmail Watch »                                                                    |
+| CI : `PERMISSION_DENIED […] iam.serviceAccounts.actAs […] push authentication service account` | Le compte passé au `--push-auth-service-account` vit dans un autre projet que la subscription, ou a été supprimé | Le recréer dans le projet de la subscription (voir « Historique ») : aucun rôle IAM ne lève ce refus sur un compte d'un autre projet                        |
+| Le handler renvoie 403 sur chaque notification                                                 | `GMAIL_PUSH_SERVICE_ACCOUNT` ne correspond plus à l'identité de signature de la subscription                     | Comparer les deux (section « Vérifier que la chaîne fonctionne ») et redéployer les fonctions                                                               |
 
 ## Filet de sécurité
 
