@@ -80,11 +80,16 @@ gcloud projects add-iam-policy-binding moonlit-app-455605-k7 \
   --role="roles/pubsub.admin"
 ```
 
-Le workflow crée et maintient ensuite topic, IAM et subscription tout seul —
-y compris si l'URL du handler change. Il ne crée en revanche pas le compte de
-signature `gmail-push-invoker@moonlit-app-455605-k7` : s'il a été supprimé, le
-recréer avec ses deux bindings (les commandes exactes sont rappelées dans le
-message d'erreur de l'étape, et détaillées en option B ci-dessous).
+Le workflow crée et maintient ensuite le topic, son binding `pubsub.publisher`
+et la subscription tout seuls — y compris si l'URL du handler change.
+
+Restent hors de sa portée, car `roles/pubsub.admin` ne donne aucun droit sur la
+policy IAM d'un compte de service (`iam.serviceAccounts.getIamPolicy denied`) :
+le compte de signature `gmail-push-invoker@moonlit-app-455605-k7` **et ses deux
+bindings**. C'est du setup manuel ponctuel, à rejouer seulement s'ils
+disparaissent — les commandes sont en option B ci-dessous, et rappelées dans le
+message d'erreur de l'étape. Un binding `tokenCreator` manquant se manifeste au
+run suivant : la mise à jour de la subscription est alors refusée.
 
 ### Option B — provisionnement manuel
 
