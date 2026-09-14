@@ -20,6 +20,14 @@ __pycache__/
 dist/
 node_modules/
 .venv/
+venv/
+env/
+ENV/
+# Venv Windows créé par erreur à la racine (ex: `python -m venv .`)
+/Scripts/
+/Lib/
+/Include/
+/pyvenv.cfg
 
 # Firebase
 .firebase/
