@@ -1,6 +1,6 @@
 firebase-functions>=0.6.0
 firebase-admin==7.4.0
-google-api-python-client==2.197.0
+google-api-python-client==2.200.0
 google-auth==2.57.1
 google-auth-oauthlib==1.4.1
 google-auth-httplib2==0.4.2
@@ -13,11 +13,13 @@ functions-framework>=3.10.2
 google-api-core==2.36.0
 google-cloud-core==2.7.0
 google-cloud-firestore==2.30.0
-cloudevents>=1.13.0
+# Épinglé : functions-framework>=3.10.2 pin cloudevents<=1.12.0, donc >=1.13.0
+# n'est pas installable. Revoir une fois ce plafond levé en amont.
+cloudevents>=1.11.0,<=1.12.0
 pytest>=9.0.3
-pytest-mock>=3.10.0
+pytest-mock>=3.15.1
 cryptography==50.0.1
-Flask-CORS==6.0.2
+Flask-CORS==6.0.5
 requests==2.34.2
 # starlette vulnerability fix: PYSEC-2026-161 (affects <1.0.1)
 starlette>=1.6.0

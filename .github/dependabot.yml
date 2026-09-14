@@ -48,11 +48,12 @@ updates:
       timezone: 'Europe/Paris'
     open-pull-requests-limit: 5
     ignore:
-      # cloudevents 2.x is capped out by functions-framework's own pin
-      # (cloudevents<=1.12.0 as of functions-framework 3.10.2, the latest
-      # release). Revisit once functions-framework lifts that cap.
+      # cloudevents is capped at <=1.12.0 by functions-framework's own pin
+      # (as of functions-framework 3.10.2, the latest release), so both
+      # major (2.x) and minor (>=1.13.0) bumps are unresolvable. Revisit
+      # once functions-framework lifts that cap.
       - dependency-name: 'cloudevents'
-        update-types: ['version-update:semver-major']
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
 
   - package-ecosystem: 'github-actions'
     directory: '/'
