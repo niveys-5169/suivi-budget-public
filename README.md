@@ -303,8 +303,12 @@ Les fonctions Python dans `functions/src/` gèrent :
 
 - `GOOGLE_TOKEN` — OAuth2 Google (Gmail + Sheets)
 - `FIREBASE_CREDENTIALS` — Service account Firebase
+- `PAT_GITHUB_SECRET` — PAT GitHub (repo), utilisé côté Cloud Functions pour déclencher les imports depuis le dashboard
 - `EB_APP_ID`, `EB_PRIVATE_KEY`, `EB_SESSIONS`, `EB_ACCOUNT_MAPPING` — Enable Banking
 - `TRONITY_*` — API Tronity
+
+Pas-à-pas complet pour recréer ces secrets sur un dépôt fraîchement publié :
+`docs/GITHUB_ACTIONS_SECRETS_SETUP.md`.
 
 ---
 
