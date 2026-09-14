@@ -50,10 +50,12 @@ CONFIG = {
 LINXO_SENDER = "assistance@linxo.com"
 
 GMAIL_PUBSUB_TOPIC = "gmail-linxo-notifications"
-# Le topic doit être dans le projet de l'app OAuth Gmail : Gmail API l'exige.
-# La livraison cross-project se fait via une push subscription HTTP
-# (moonlit-app-455605-k7 → endpoint Cloud Run de suivi-budget-ab888).
-GMAIL_OAUTH_PROJECT_ID = "moonlit-app-455605-k7"
+# Le topic doit être dans le projet de l'app OAuth Gmail : Gmail API l'exige et
+# rejette tout autre topicName ("Invalid topicName does not match
+# projects/<projet OAuth>/topics/*"). Le client OAuth vit désormais dans le
+# projet Firebase, donc toute la chaîne — topic, subscription, compte de
+# signature, handler — tient dans ce seul projet.
+GMAIL_OAUTH_PROJECT_ID = "suivi-budget-ab888"
 
 # Identité et audience attendues du jeton OIDC Pub/Sub (injectées par
 # deploy-functions.yml, cf. --push-auth-service-account / --push-auth-token-audience
@@ -71,10 +73,12 @@ GMAIL_SEARCH_MAX = int(os.environ.get("GMAIL_SEARCH_MAX", "100"))
 # traité qu'après persistance de ses transactions ET de son solde.
 MAX_EMAILS_PER_RUN = int(os.environ.get("MAX_EMAILS_PER_RUN", "25"))
 
-# Dépôt cible du repository_dispatch GitHub (cf. dispatch_github_workflow) —
-# mêmes valeurs par défaut que celles historiquement codées côté client.
+# Dépôt cible du repository_dispatch GitHub (cf. dispatch_github_workflow),
+# c'est-à-dire celui qui exécute les imports déclenchés depuis le dashboard.
+# Pointait vers le dépôt privé Suivi-Budget jusqu'au 13/09/2026 ; celui-ci ne
+# déploie ni n'importe plus rien, tout étant passé sur suivi-budget-public.
 GITHUB_REPO_OWNER = os.environ.get("GITHUB_REPO_OWNER", "niveys-5169")
-GITHUB_REPO_NAME = os.environ.get("GITHUB_REPO_NAME", "Suivi-Budget")
+GITHUB_REPO_NAME = os.environ.get("GITHUB_REPO_NAME", "suivi-budget-public")
 GITHUB_DISPATCH_TIMEOUT_S = 20
 
 
@@ -438,8 +442,8 @@ def _verify_pubsub_push(req: https_fn.Request) -> bool:
 def gmail_watch_handler(req: https_fn.Request) -> https_fn.Response:
     """Reçoit les notifications Gmail Watch via Pub/Sub push subscription HTTP.
 
-    Gmail pousse une notification vers moonlit-app-455605-k7/topics/gmail-linxo-notifications,
-    et une push subscription cross-project livre le message à cet endpoint HTTP.
+    Gmail pousse une notification vers suivi-budget-ab888/topics/gmail-linxo-notifications,
+    et une push subscription HTTP livre le message à cet endpoint.
     On récupère uniquement les messages ajoutés depuis le dernier historyId connu,
     on filtre ceux de Linxo, et on lance l'import seulement si nécessaire.
     """
