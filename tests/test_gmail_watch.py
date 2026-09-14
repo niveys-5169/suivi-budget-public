@@ -64,7 +64,7 @@ def _push_request(history_id="4242"):
             "data": base64.b64encode(payload.encode("utf-8")).decode("utf-8"),
             "messageId": "1",
         },
-        "subscription": "projects/moonlit-app-455605-k7/subscriptions/gmail-linxo-push-to-cloudrun",
+        "subscription": "projects/suivi-budget-ab888/subscriptions/gmail-linxo-push-to-cloudrun",
     }
     req = MagicMock()
     req.get_json.return_value = envelope
@@ -280,7 +280,7 @@ def test_register_watch_targets_the_oauth_project_topic(watch_main):
     main._register_gmail_watch()
 
     gmail.setup_watch.assert_called_once_with(
-        "projects/moonlit-app-455605-k7/topics/gmail-linxo-notifications"
+        "projects/suivi-budget-ab888/topics/gmail-linxo-notifications"
     )
 
 
