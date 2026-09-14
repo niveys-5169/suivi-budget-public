@@ -19,12 +19,12 @@ obtenir chaque valeur.
 
 ## 1. Vue d'ensemble
 
-| Secret                                                                         | Utilisé par                                                                             |
-| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `FIREBASE_CREDENTIALS`                                                         | `deploy-functions.yml`, `main.yml`, `linxo-poll.yml`, `tronity-import.yml`, `cleanup-tronity-duplicates.yml` |
-| `GOOGLE_TOKEN`                                                                 | `deploy-functions.yml`, `main.yml`, `linxo-poll.yml`                                     |
-| `PAT_GITHUB_SECRET`                                                            | `deploy-functions.yml` (injecté aux Cloud Functions, pas utilisé côté CI lui-même)        |
-| `TRONITY_CLIENT_ID`, `TRONITY_CLIENT_SECRET`, `TRONITY_VEHICLE_ID`, `TRONITY_COMPTE`, `TRONITY_HOME_LAT`, `TRONITY_HOME_LON`, `TRONITY_HOME_RADIUS_KM` | `tronity-import.yml`                                                                      |
+| Secret                                                                                                                                                 | Utilisé par                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `FIREBASE_CREDENTIALS`                                                                                                                                 | `deploy-functions.yml`, `main.yml`, `linxo-poll.yml`, `tronity-import.yml`, `cleanup-tronity-duplicates.yml` |
+| `GOOGLE_TOKEN`                                                                                                                                         | `deploy-functions.yml`, `main.yml`, `linxo-poll.yml`                                                         |
+| `PAT_GITHUB_SECRET`                                                                                                                                    | `deploy-functions.yml` (injecté aux Cloud Functions, pas utilisé côté CI lui-même)                           |
+| `TRONITY_CLIENT_ID`, `TRONITY_CLIENT_SECRET`, `TRONITY_VEHICLE_ID`, `TRONITY_COMPTE`, `TRONITY_HOME_LAT`, `TRONITY_HOME_LON`, `TRONITY_HOME_RADIUS_KM` | `tronity-import.yml`                                                                                         |
 
 `EB_APP_ID` / `EB_PRIVATE_KEY` / `EB_SESSIONS` / `EB_ACCOUNT_MAPPING` (Enable
 Banking, mentionnés dans le README) ne sont consommés par **aucun** workflow
@@ -81,7 +81,7 @@ par un Owner de ce projet OAuth).
 
 1. Dans [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
    projet `moonlit-app-455605-k7` → **APIs & Services → Identifiants** →
-   récupérer (ou créer) un **ID client OAuth** de type *Application de bureau*,
+   récupérer (ou créer) un **ID client OAuth** de type _Application de bureau_,
    et télécharger son fichier JSON sous le nom `credentials.json`.
 2. En local, à la racine du dépôt :
    ```bash
