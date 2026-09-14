@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -40,7 +40,7 @@ jobs:
           cache-dependency-path: 'functions/requirements.txt'
 
       - name: Cache Python virtualenv
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: functions/venv
           key: venv-${{ runner.os }}-${{ hashFiles('functions/requirements.txt') }}
@@ -63,7 +63,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_CREDENTIALS }}
 
       - name: Setup gcloud CLI
-        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Résoudre l'identité de déploiement et l'URL du handler Gmail Watch
         # Calculés ici, AVANT le déploiement, pour pouvoir les injecter comme
