@@ -143,6 +143,27 @@ def test_reparse_job_reimports_specific_message(importer):
     assert mark.call_args.args[1] == "done"
 
 
+def test_reparse_job_rejects_an_unauthenticated_message(importer):
+    """Un reparse par ID ne doit jamais contourner le contrôle d'origine."""
+    gmail = MagicMock()
+    gmail.search_emails.return_value = []
+    gmail.get_message_html.side_effect = lambda mid: _html(mid)
+    gmail.is_authenticated_sender.return_value = False
+    save_tx = MagicMock(return_value=1)
+    mark = MagicMock()
+    jobs = [{"id": "forged", "messageId": "forged", "status": "requested"}]
+
+    with patch.object(importer, "parse_email_linxo") as parse:
+        _run(importer, gmail, _patches(importer, gmail, jobs=jobs, save_tx=save_tx, mark=mark))
+
+    gmail.is_authenticated_sender.assert_called_once()
+    assert gmail.is_authenticated_sender.call_args.args[1] == importer.LINXO_SENDER
+    parse.assert_not_called()
+    save_tx.assert_not_called()
+    assert mark.call_args.args[0] == "forged"
+    assert mark.call_args.args[1] == "done"
+
+
 def test_full_scan_job_reparses_all(importer):
     """full_scan_request rejoue tous les mails Linxo puis marque la sentinelle done."""
     gmail = MagicMock()

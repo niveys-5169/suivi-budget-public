@@ -50,6 +50,7 @@ CONFIG = {
 }
 
 BALANCE_RECONCILIATION_TOLERANCE = float(os.environ.get("BALANCE_RECONCILIATION_TOLERANCE", "0.01"))
+LINXO_SENDER = "assistance@linxo.com"
 
 def get_credentials():
     # Logique inchangée pour charger le GOOGLE_TOKEN depuis l'environnement
@@ -83,6 +84,10 @@ def _collecter_messages(gmail, message_refs, mapping_categories, emails_exclus):
 
         if msg_id in emails_exclus:
             log.info(f"Email exclu ignoré (gmail_excluded) : {msg_id}")
+            continue
+
+        if not gmail.is_authenticated_sender(details, LINXO_SENDER):
+            log.warning("Email rejeté : origine Linxo non authentifiée (%s).", msg_id)
             continue
 
         # Le parsing est délégué au module spécialisé (BeautifulSoup)

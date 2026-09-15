@@ -93,11 +93,7 @@ export const AurumProfilePage: React.FC<{ onNavigate?: (tab: string) => void }> 
           <div className="relative">
             <div className="w-24 h-24 rounded-xl bg-gradient-to-tr from-gold to-gold/20 p-[1.5px] shadow-[0_20px_50px_rgba(212,175,55,0.2)]">
               <div className="w-full h-full rounded-xl bg-bg flex items-center justify-center overflow-hidden border border-separator">
-                <img
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Aurum'}`}
-                  alt="Profile"
-                  className="w-20 h-20"
-                />
+                <User aria-label="Profil" className="h-12 w-12 text-gold" />
               </div>
             </div>
             <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-positive rounded-full border-[5px] border-bg" />

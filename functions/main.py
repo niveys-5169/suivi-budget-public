@@ -117,6 +117,9 @@ def _run_linxo_import_core(gmail: GmailClient) -> dict:
         msg_id = msg_ref["id"]
 
         details = gmail.get_message_html(msg_id)
+        if not gmail.is_authenticated_sender(details, LINXO_SENDER):
+            logging.warning("Email rejeté : origine Linxo non authentifiée (%s).", msg_id)
+            continue
         txs, soldes = parse_email_linxo(details["html"], CONFIG)
 
         logging.info(
@@ -484,7 +487,7 @@ def gmail_watch_handler(req: https_fn.Request) -> https_fn.Response:
 
         linxo_ids = [
             mid for mid in new_ids
-            if LINXO_SENDER in gmail.get_message_sender(mid)
+            if gmail.is_authenticated_message_from(mid, LINXO_SENDER)
         ]
         logging.info(f"{len(new_ids)} nouveau(x) message(s) depuis historyId={stored_history_id}, {len(linxo_ids)} Linxo.")
 
