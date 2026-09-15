@@ -9,6 +9,7 @@ import base64
 import quopri
 import re
 import logging
+from email.utils import parseaddr
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -27,10 +28,11 @@ class GmailClient:
             return []
 
     def get_message_html(self, msg_id: str) -> dict:
-        """Récupère l'email et extrait son HTML et ses métadonnées."""
+        """Récupère l'email, son HTML et les en-têtes nécessaires à son contrôle."""
         msg = self.service.users().messages().get(userId="me", id=msg_id, format="full").execute()
-        html = self._extract_html_from_payload(msg.get("payload", {}))
-        subject = self._extract_header(msg.get("payload", {}), "Subject")
+        payload = msg.get("payload", {})
+        html = self._extract_html_from_payload(payload)
+        subject = self._extract_header(payload, "Subject")
 
         return {
             "id": msg_id,
@@ -38,6 +40,7 @@ class GmailClient:
             "threadId": msg.get("threadId", ""),
             "internalDate": int(msg.get("internalDate", "0")),
             "subject": subject,
+            "headers": payload.get("headers", []),
         }
 
     def get_message_metadata(self, msg_id: str) -> dict:
@@ -113,6 +116,52 @@ class GmailClient:
                 return str(h.get("value", "")).strip()
         return ""
 
+    @staticmethod
+    def is_authenticated_sender(message: dict, expected_sender: str) -> bool:
+        """Valide l'origine d'un message avant de confier son HTML à l'importeur.
+
+        Gmail peut retourner un message trouvé par une recherche ``from:`` alors
+        que le champ From a été usurpé. On exige donc l'adresse exacte et le
+        résultat DMARC ajouté par Gmail pour le domaine affiché. Le contrôle est
+        volontairement fail-closed : une preuve d'authentification absente ou
+        ambiguë ne peut pas alimenter les écritures financières.
+        """
+        headers = message.get("headers", [])
+        from_header = next(
+            (
+                str(header.get("value", "")).strip()
+                for header in headers
+                if str(header.get("name", "")).lower() == "from"
+            ),
+            "",
+        )
+        sender = parseaddr(from_header)[1].casefold()
+        expected = expected_sender.casefold()
+        if sender != expected:
+            return False
+
+        expected_domain = expected.rsplit("@", 1)[-1]
+        authentication_results = [
+            str(header.get("value", "")).strip()
+            for header in headers
+            if str(header.get("name", "")).lower() == "authentication-results"
+        ]
+
+        # Gmail prepends its Authentication-Results header. Rejecting multiple
+        # values prevents a sender-supplied header from being accepted as Gmail's
+        # authentication evidence.
+        if len(authentication_results) != 1:
+            return False
+
+        authentication_result = authentication_results[0]
+        if not re.match(r"^mx\.google\.com\s*;", authentication_result, re.IGNORECASE):
+            return False
+        if not re.search(r"\bdmarc\s*=\s*pass\b", authentication_result, re.IGNORECASE):
+            return False
+
+        domain_pattern = rf"\bheader\.from\s*=\s*{re.escape(expected_domain)}(?=\s|;|\(|$)"
+        return bool(re.search(domain_pattern, authentication_result, re.IGNORECASE))
+
     def setup_watch(self, topic_name: str) -> dict:
         """Enregistre un Gmail Watch pour pousser les notifications vers un topic Pub/Sub."""
         return self.service.users().watch(
@@ -154,15 +203,14 @@ class GmailClient:
             log.error(f"Erreur getProfile Gmail : {e}")
             return None
 
-    def get_message_sender(self, msg_id: str) -> str:
-        """Retourne le header From d'un message (fetch metadata uniquement)."""
+    def is_authenticated_message_from(self, msg_id: str, expected_sender: str) -> bool:
+        """Vérifie l'origine d'un message sans télécharger son corps."""
         try:
             msg = self.service.users().messages().get(
                 userId="me", id=msg_id, format="metadata",
-                metadataHeaders=["From"]
+                metadataHeaders=["From", "Authentication-Results"],
             ).execute()
-            headers = msg.get("payload", {}).get("headers", [])
-            return next((h["value"] for h in headers if h["name"].lower() == "from"), "")
+            return self.is_authenticated_sender(msg.get("payload", {}), expected_sender)
         except HttpError as e:
-            log.error(f"Erreur get_message_sender Gmail : {e}")
-            return ""
+            log.error(f"Erreur de vérification d'origine Gmail : {e}")
+            return False

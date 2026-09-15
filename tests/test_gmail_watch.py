@@ -90,12 +90,13 @@ def test_handler_imports_when_a_linxo_email_arrived(watch_main_authed):
     main, gmail, deps = watch_main_authed
     deps["get_history"].return_value = "4000"
     gmail.get_new_message_ids_from_history.return_value = ["msg-1"]
-    gmail.get_message_sender.return_value = "Linxo <assistance@linxo.com>"
+    gmail.is_authenticated_message_from.return_value = True
 
     response = main.gmail_watch_handler(_push_request())
 
     assert response.status_code == 200
     gmail.get_new_message_ids_from_history.assert_called_once_with("4000")
+    gmail.is_authenticated_message_from.assert_called_once_with("msg-1", main.LINXO_SENDER)
     deps["import_core"].assert_called_once()
 
 
@@ -104,7 +105,7 @@ def test_handler_only_advances_cursor_when_no_linxo_email(watch_main_authed):
     main, gmail, deps = watch_main_authed
     deps["get_history"].return_value = "4000"
     gmail.get_new_message_ids_from_history.return_value = ["msg-1"]
-    gmail.get_message_sender.return_value = "Facture <no-reply@edf.fr>"
+    gmail.is_authenticated_message_from.return_value = False
 
     response = main.gmail_watch_handler(_push_request(history_id="4242"))
 

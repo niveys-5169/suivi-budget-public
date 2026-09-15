@@ -172,6 +172,19 @@ def test_unknown_account_ignored(mocked_main, mocker):
     save_soldes.assert_not_called()
 
 
+def test_unauthenticated_message_is_not_parsed_or_persisted(mocked_main, mocker):
+    main, gmail, save_soldes = mocked_main
+    gmail.is_authenticated_sender.return_value = False
+    parser = mocker.patch("main.parse_email_linxo")
+
+    result = main._run_linxo_import_core(gmail)
+
+    assert result["emailsProcessed"] == 0
+    parser.assert_not_called()
+    save_soldes.assert_not_called()
+    gmail.add_label.assert_not_called()
+
+
 def test_empty_soldes_no_write(mocked_main, mocker):
     """Aucun solde parsé -> aucune écriture."""
     main, gmail, save_soldes = mocked_main
