@@ -22,6 +22,20 @@ export const AI_REQUEST_TIMEOUT_MS = 30_000;
 /** Nombre de tentatives (1 + 2 retries) pour les erreurs transitoires. */
 const AI_MAX_ATTEMPTS = 3;
 const AI_RETRY_BASE_DELAY_MS = 600;
+/** Budget de sortie Gemini : assez large pour éviter les réponses coupées net. */
+const GEMINI_MAX_OUTPUT_TOKENS = 1024;
+
+/**
+ * Nettoie la sortie brute d'un LLM : supprime les blocs de raisonnement
+ * interne (`<think>…</think>`) que certains modèles exposent, et les espaces
+ * parasites. Le reste du texte est renvoyé tel quel.
+ */
+export function sanitizeLLMText(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?(<\/think>|$)/gi, '')
+    .replace(/^\s+/, '')
+    .trimEnd();
+}
 
 interface AIErrorResponse {
   error?: { message?: string };
@@ -31,6 +45,8 @@ interface OpenAIRequestBody {
   model: string;
   messages: { role: string; content: string }[];
   max_tokens: number;
+  temperature?: number;
+  top_p?: number;
 }
 
 /** Libellés lisibles par fournisseur, utilisés dans les messages d'erreur. */
@@ -171,6 +187,12 @@ export async function callGemini(
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents,
+    generationConfig: {
+      temperature: 0.2,
+      topP: 0.8,
+      topK: 20,
+      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
+    },
   };
 
   const label = PROVIDER_LABELS.gemini;
@@ -207,12 +229,13 @@ export async function callGemini(
       }
 
       const data = await resp.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const candidate = data?.candidates?.[0];
+      const text = candidate?.content?.parts?.[0]?.text;
       if (!text) {
         lastError = new AIError('Réponse vide de Gemini. Réessaie ou change de modèle.');
         continue;
       }
-      return text;
+      return sanitizeLLMText(text);
     }
 
     throw lastError;
@@ -223,6 +246,8 @@ export interface CallOptions {
   baseUrl?: string;
   model?: string;
   extraHeaders?: Record<string, string>;
+  temperature?: number;
+  top_p?: number;
 }
 
 export async function callOpenAICompatible(
@@ -236,6 +261,8 @@ export async function callOpenAICompatible(
     baseUrl = 'https://api.openai.com/v1',
     model = OPENAI_MODEL,
     extraHeaders = {},
+    temperature = 0.2,
+    top_p = 0.8,
   } = options;
 
   const messages = [
@@ -251,6 +278,8 @@ export async function callOpenAICompatible(
     model,
     messages,
     max_tokens: model.includes('nvidia') || baseUrl.includes('nvidia') ? 1024 : 2048,
+    temperature,
+    top_p,
   };
 
   return requestWithRetry(async () => {
@@ -278,7 +307,7 @@ export async function callOpenAICompatible(
     const data = await resp.json();
     const text = data?.choices?.[0]?.message?.content;
     if (!text) throw new AIError(`Réponse vide de ${label}. Réessaie ou change de modèle.`);
-    return text;
+    return sanitizeLLMText(text);
   });
 }
 

@@ -29,6 +29,31 @@ const EMPTY_FINANCIAL_SUMMARY: FinancialSummary = {
 export type { AIProvider } from '../utils/aiConfig';
 export type { ChatMessage };
 
+/**
+ * Heuristique de troncature : la réponse est suspecte si elle ne finit pas par
+ * une ponctuation de fin, si un bloc markdown (gras `**` ou code ```) reste
+ * ouvert, ou si elle se termine par un mot de liaison.
+ */
+export function isAnswerProbablyTruncated(text: string): boolean {
+  const t = text.trimEnd();
+  if (t.length < 120) return false;
+  if (!/[.!?…»)\]"'*)`%€]$/.test(t)) return true;
+  if ((t.match(/```/g) ?? []).length % 2 === 1) return true;
+  if ((t.match(/\*\*/g) ?? []).length % 2 === 1) return true;
+  return /(?:\ble|\bla|\bles|\bde|\bdu|\bdes|\bet|\bou|\bun|\bune|\bpour|\bavec|\bqui|\bque|,)$/i.test(
+    t,
+  );
+}
+
+/** Recolle deux fragments de réponse sans espace si le 1er finit sur un mot coupé. */
+function spliceContinuation(first: string, next: string): string {
+  const head = first.trimEnd();
+  const tail = next.trimStart();
+  if (!tail) return head;
+  const needsSpace = !/[-–—\s'’]$/.test(head) && !/^[,.;:!?»%€)]/.test(tail);
+  return needsSpace ? `${head} ${tail}` : `${head}${tail}`;
+}
+
 /** Gère la conversation avec l'assistant IA financier (Gemini/OpenAI/OpenRouter/Nvidia) et l'historique de chat. */
 export function useFinanceQA() {
   const { transactions } = useTransactions();
@@ -80,6 +105,27 @@ export function useFinanceQA() {
           const systemPrompt = buildSystemPrompt(summary ?? EMPTY_FINANCIAL_SUMMARY, wealth);
           const recentHistory = historyRef.current.slice(-12);
           answer = await callLLM(config, systemPrompt, question, recentHistory);
+
+          // Garde anti-troncature : une seule relance si la réponse semble
+          // coupée en plein milieu (limite de tokens, réseau…). En cas d'échec
+          // on garde la réponse d'origine plutôt que de tout perdre.
+          if (isAnswerProbablyTruncated(answer)) {
+            try {
+              const continuation = await callLLM(
+                config,
+                systemPrompt,
+                "Ta réponse précédente a été coupée en plein milieu. Termine-la : reprends la dernière phrase exactement où elle s'est arrêtée, en français, sans rien répéter ni ajouter d'introduction. Réponds en 5 lignes maximum.",
+                [
+                  ...recentHistory,
+                  { role: 'user', content: question },
+                  { role: 'assistant', content: answer },
+                ],
+              );
+              answer = spliceContinuation(answer, continuation);
+            } catch {
+              // On conserve la réponse partielle plutôt que rien.
+            }
+          }
         }
 
         const userMsg: ChatMessage = { role: 'user', content: question };

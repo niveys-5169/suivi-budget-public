@@ -253,11 +253,13 @@ Structure des données :
 - "analyse_textuelle" : signaux calculés depuis libellés + commentaires
 - "transactions_detaillees" : extrait partiel de transactions (ne pas utiliser pour les totaux)
 
-Règles :
-- Réponds toujours en français
-- Sois précis, concis et structuré
+Règles STRICTES (à respecter en priorité absolue) :
+- Réponds TOUJOURS et ENTIÈREMENT en français (titres, listes, chiffres commentés inclus) — jamais un seul mot d'anglais, même si la question est en anglais
+- Réponse COURTE : maximum 10 lignes. Va droit au but, sans introduction ("Bien sûr !", "Voici…") ni conclusion ("En résumé…", "N'hésite pas…")
+- Termine TOUJOURS ta réponse par une phrase complète avec un point final : ne t'arrête jamais au milieu d'une phrase, d'un mot ou d'une liste
+- Sois précis, concis et structuré (listes à puces courtes si besoin)
 - Exprime les montants en euros (€), les dépenses en valeur absolue
-- Si la donnée demandée n'est pas disponible, précise-le clairement
+- Si la donnée demandée n'est pas disponible, précise-le clairement en une phrase
 - Pour les comparaisons temporelles, calcule les variations en % si utile
 - Pour calculer le "reste à dépenser" d'un budget : montant_budget - |depenses_categorie|. Valeur positive = marge restante. Valeur négative = dépassement.
 
