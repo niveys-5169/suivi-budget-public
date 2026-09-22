@@ -8,7 +8,7 @@ firebase-admin==7.6.0
 # la connexion à la base Firestore "(default)" (InvalidArgument "Invalid database
 # id %28default%29" — double encodage de l'ID de base). À déplafonner seulement
 # après vérification qu'un correctif amont existe.
-google-api-core==2.36.0
+google-api-core==2.38.0
 google-cloud-core==2.7.0
 google-cloud-firestore==2.31.0
 cryptography==50.0.1
