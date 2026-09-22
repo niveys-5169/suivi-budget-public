@@ -5,6 +5,10 @@ import { AppStateProvider } from '../../../public/src/context/AppStateContext';
 import * as useTransactionsModule from '../../../public/src/hooks/useTransactions';
 import * as globalDataModule from '../../../public/src/context/GlobalDataContext';
 
+const monthlySavingsSpy = vi.hoisted(() =>
+  vi.fn(() => ({ position: null, loading: true, error: null })),
+);
+
 // Mock dependencies
 vi.mock('../../../public/src/hooks/useTransactions', () => ({
   useTransactions: vi.fn(),
@@ -12,6 +16,10 @@ vi.mock('../../../public/src/hooks/useTransactions', () => ({
 
 vi.mock('../../../public/src/context/GlobalDataContext', () => ({
   useGlobalData: vi.fn(),
+}));
+
+vi.mock('../../../public/src/hooks/useMonthlySavingsPosition', () => ({
+  useMonthlySavingsPosition: monthlySavingsSpy,
 }));
 
 // `useFormOptions` (catégories / comptes de la modale d'édition) s'appuie sur
@@ -69,6 +77,8 @@ function renderDrillDownScreen() {
 
 test('AnalyseScreen — taper une opération du drill-down ouvre « Audit Flux »', async () => {
   renderDrillDownScreen();
+
+  expect(monthlySavingsSpy).toHaveBeenCalledWith(MONTH, drillDownTransactions);
 
   fireEvent.click(screen.getByText('Santé'));
 

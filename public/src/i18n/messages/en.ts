@@ -584,6 +584,39 @@ const en: Record<MessageId, string> = {
   'rav.preview.recurring': 'Upcoming recurring',
   'rav.error.duplicate': 'Category already present',
   'rav.error.saveFailed': 'Save failed',
+  'monthlySavings.title.complete': 'Monthly savings capacity',
+  'monthlySavings.title.current': 'Savings capacity to date',
+  'monthlySavings.provisional': 'Provisional',
+  'monthlySavings.tooltip.label': 'Understand how savings capacity is calculated',
+  'monthlySavings.tooltip.capacity':
+    'Savings capacity = change in operating account balances + net savings.',
+  'monthlySavings.tooltip.available': 'Available to save = savings capacity − net savings.',
+  'monthlySavings.tooltip.transfers':
+    'Internal transfers are neutralized so the same movement is not counted twice.',
+  'monthlySavings.status.deficit': 'This month consumed existing cash or savings.',
+  'monthlySavings.status.balanced': 'This month is balanced.',
+  'monthlySavings.status.available': 'This month generated a surplus that is still available.',
+  'monthlySavings.status.fullyAllocated': 'The monthly surplus has been fully allocated.',
+  'monthlySavings.status.overAllocated': 'Part of the savings came from previously available cash.',
+  'monthlySavings.metric.netSavings': 'Savings made',
+  'monthlySavings.metric.available': 'Available to save',
+  'monthlySavings.metric.remaining': 'Remaining to allocate',
+  'monthlySavings.metric.overAllocated': 'Over-allocation',
+  'monthlySavings.metric.netWithdrawal': 'Net savings withdrawal',
+  'monthlySavings.quality.partial':
+    'Partial calculation: some cash flows or balances do not fully reconcile.',
+  'monthlySavings.unavailable.title': 'Calculation unavailable',
+  'monthlySavings.unavailable.load': 'Unable to load savings data.',
+  'monthlySavings.unavailable.missing':
+    'An opening or closing balance is missing for at least one account.',
+  'monthlySavings.details.title': 'View calculation details',
+  'monthlySavings.details.opening': 'Opening operating balance',
+  'monthlySavings.details.closing': 'Closing operating balance',
+  'monthlySavings.details.delta': 'Cash balance change',
+  'monthlySavings.details.deposits': 'Savings deposits',
+  'monthlySavings.details.withdrawals': 'Savings withdrawals',
+  'monthlySavings.details.transactionCapacity': 'Net income / expenses excluding transfers',
+  'monthlySavings.details.reconciliation': 'Reconciliation difference',
 };
 
 export default en;

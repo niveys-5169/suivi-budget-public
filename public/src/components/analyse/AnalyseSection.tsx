@@ -26,10 +26,12 @@ import { hideLoader } from '../../utils/loader';
 import { AnalyseDonutCard } from './AnalyseDonutCard';
 import { AnalyseCategoryRow } from './AnalyseCategoryRow';
 import { AnalyseOverviewTab } from './AnalyseOverviewTab';
+import { MonthlySavingsCard } from './MonthlySavingsCard';
 import { AnalyseSimplifiedView } from './AnalyseSimplifiedView';
 import { AnalyseDrillDownModal } from './AnalyseDrillDownModal';
 import { TransactionFormModal } from '../TransactionFormModal';
 import { useBalances } from '../../hooks/useBalances';
+import { useMonthlySavingsPosition } from '../../hooks/useMonthlySavingsPosition';
 import type {
   AnalyseTab,
   DrillDownView,
@@ -61,6 +63,8 @@ export const AnalyseSection: React.FC = () => {
     const m = parseInt(filters.month) || new Date().getMonth() + 1;
     return new Date(y, m - 1, 1);
   });
+  const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+  const monthlySavings = useMonthlySavingsPosition(monthKey, transactions);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -157,8 +161,6 @@ export const AnalyseSection: React.FC = () => {
   React.useEffect(() => {
     setActiveIndex(null);
   }, [activeTab, currentMonth]);
-
-  const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
 
   const buildCategoryList = useCallback(
     (
@@ -306,15 +308,22 @@ export const AnalyseSection: React.FC = () => {
 
         {/* Overview tab */}
         {activeTab === 'overview' && (
-          <AnalyseOverviewTab
-            totalEntrees={totalEntrees}
-            totalSorties={totalSorties}
-            totalBudget={totalExpenseBudget}
-            totalSpent={totalSpentInBudget}
-            accountCount={accountCount}
-            onDrillDown={handleDrillDown}
-            onNavigateBudgets={() => navigate('/budgets')}
-          />
+          <div className="space-y-4">
+            <MonthlySavingsCard
+              position={monthlySavings.position}
+              loading={monthlySavings.loading}
+              error={monthlySavings.error}
+            />
+            <AnalyseOverviewTab
+              totalEntrees={totalEntrees}
+              totalSorties={totalSorties}
+              totalBudget={totalExpenseBudget}
+              totalSpent={totalSpentInBudget}
+              accountCount={accountCount}
+              onDrillDown={handleDrillDown}
+              onNavigateBudgets={() => navigate('/budgets')}
+            />
+          </div>
         )}
 
         {/* Entrées / Sorties tabs */}

@@ -4,6 +4,10 @@ import { AnalyseSection } from '../AnalyseSection';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
+const monthlySavingsSpy = vi.hoisted(() =>
+  vi.fn(() => ({ position: null, loading: true, error: null })),
+);
+
 // Mock hooks
 vi.mock('../../../hooks/useTransactions', () => ({
   useTransactions: () => ({
@@ -78,6 +82,10 @@ vi.mock('../../../hooks/useBalances', () => ({
   }),
 }));
 
+vi.mock('../../../hooks/useMonthlySavingsPosition', () => ({
+  useMonthlySavingsPosition: monthlySavingsSpy,
+}));
+
 // Mock Recharts to avoid rendering issues in tests
 vi.mock('recharts', async () => {
   const original = await vi.importActual('recharts');
@@ -102,6 +110,7 @@ describe('AnalyseSection', () => {
     );
 
     expect(screen.getByText(/analyse/i)).toBeInTheDocument();
+    expect(monthlySavingsSpy).toHaveBeenCalledWith('2026-04', expect.any(Array));
 
     // Switch to 'Sorties' tab to see category details
     const sortiesBtn = screen.getByRole('button', { name: /sorties/i });

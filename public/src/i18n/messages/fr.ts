@@ -587,6 +587,41 @@ const fr = {
   'rav.preview.recurring': 'Récurrentes à venir',
   'rav.error.duplicate': 'Catégorie déjà présente',
   'rav.error.saveFailed': 'Sauvegarde impossible',
+  'monthlySavings.title.complete': "Capacité d'épargne du mois",
+  'monthlySavings.title.current': "Capacité d'épargne à ce jour",
+  'monthlySavings.provisional': 'Provisoire',
+  'monthlySavings.tooltip.label': "Comprendre le calcul de la capacité d'épargne",
+  'monthlySavings.tooltip.capacity':
+    "Capacité d'épargne = variation des comptes courants + épargne nette.",
+  'monthlySavings.tooltip.available': "Disponible à épargner = capacité d'épargne − épargne nette.",
+  'monthlySavings.tooltip.transfers':
+    'Les virements internes sont neutralisés pour éviter de compter deux fois le même mouvement.',
+  'monthlySavings.status.deficit':
+    "Le fonctionnement du mois a consommé de la trésorerie ou de l'épargne existante.",
+  'monthlySavings.status.balanced': "Le fonctionnement du mois est à l'équilibre.",
+  'monthlySavings.status.available': 'Le mois a généré un excédent encore disponible.',
+  'monthlySavings.status.fullyAllocated': "L'excédent du mois a été entièrement affecté.",
+  'monthlySavings.status.overAllocated':
+    "Une partie de l'épargne a été financée par la trésorerie antérieure.",
+  'monthlySavings.metric.netSavings': 'Épargne réalisée',
+  'monthlySavings.metric.available': 'Disponible à épargner',
+  'monthlySavings.metric.remaining': 'Reste à affecter',
+  'monthlySavings.metric.overAllocated': 'Sur-affectation',
+  'monthlySavings.metric.netWithdrawal': "Retrait net d'épargne",
+  'monthlySavings.quality.partial':
+    'Calcul partiel : certains flux ou soldes ne se rapprochent pas complètement.',
+  'monthlySavings.unavailable.title': 'Calcul indisponible',
+  'monthlySavings.unavailable.load': "Impossible de charger les données d'épargne.",
+  'monthlySavings.unavailable.missing':
+    "Un solde d'ouverture ou de clôture manque pour au moins un compte.",
+  'monthlySavings.details.title': 'Voir le détail du calcul',
+  'monthlySavings.details.opening': 'Solde courant au début',
+  'monthlySavings.details.closing': 'Solde courant à la fin',
+  'monthlySavings.details.delta': 'Variation de trésorerie',
+  'monthlySavings.details.deposits': "Versements vers l'épargne",
+  'monthlySavings.details.withdrawals': "Retraits d'épargne",
+  'monthlySavings.details.transactionCapacity': 'Entrées / sorties nettes hors transferts',
+  'monthlySavings.details.reconciliation': 'Écart de rapprochement',
 } as const;
 
 export type MessageId = keyof typeof fr;

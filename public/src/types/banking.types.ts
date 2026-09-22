@@ -158,6 +158,66 @@ export interface Transaction {
   merchantLogoUrl?: string;
 }
 
+export type AccountEconomicRole = 'OPERATING' | 'SAVINGS' | 'INVESTMENT' | 'EXCLUDED';
+
+export type TransferKind =
+  | 'EXTERNAL'
+  | 'INTERNAL_OPERATING'
+  | 'SAVINGS_DEPOSIT'
+  | 'SAVINGS_WITHDRAWAL'
+  | 'INTERNAL_SAVINGS'
+  | 'OTHER_INTERNAL'
+  | 'UNCERTAIN';
+
+export type TransferConfidence = 'EXACT' | 'HIGH' | 'UNCERTAIN';
+
+export type MonthlySavingsStatus =
+  'DEFICIT' | 'BALANCED' | 'AVAILABLE_TO_SAVE' | 'FULLY_ALLOCATED' | 'OVER_ALLOCATED';
+
+export type MonthlySavingsCalculationStatus = 'COMPLETE' | 'PARTIAL' | 'UNAVAILABLE';
+
+export interface MonthlySavingsAccount {
+  id: string;
+  name: string;
+  role: AccountEconomicRole;
+  owner?: string;
+  openingBalance: number | null;
+  closingBalance: number | null;
+}
+
+export interface MonthlySavingsInput {
+  month: string;
+  accounts: MonthlySavingsAccount[];
+  transactions: Transaction[];
+  isCompleteMonth: boolean;
+}
+
+export interface MonthlySavingsDataQuality {
+  calculationStatus: MonthlySavingsCalculationStatus;
+  missingOpeningBalances: string[];
+  missingClosingBalances: string[];
+  unmatchedTransfers: number;
+  uncertainTransfers: number;
+  untrackedTransactionAccounts: string[];
+  reconciliationDelta: number | null;
+}
+
+export interface MonthlySavingsPosition {
+  month: string;
+  openingOperatingBalance: number | null;
+  closingOperatingBalance: number | null;
+  operatingBalanceDelta: number | null;
+  savingsDeposits: number;
+  savingsWithdrawals: number;
+  netSavings: number;
+  savingsCapacity: number | null;
+  capacityFromTransactions: number;
+  unallocatedSurplus: number | null;
+  status: MonthlySavingsStatus | null;
+  isCompleteMonth: boolean;
+  dataQuality: MonthlySavingsDataQuality;
+}
+
 export type AccountStatus =
   | 'reconciled'
   | 'pending_review'

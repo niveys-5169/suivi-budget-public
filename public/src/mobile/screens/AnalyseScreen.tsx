@@ -12,11 +12,14 @@ import { useFormOptions } from '../../hooks/useFormOptions';
 import { useAppState } from '../../context/AppStateContext';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
 import type { Transaction } from '../../types/banking.types';
+import { useMonthlySavingsPosition } from '../../hooks/useMonthlySavingsPosition';
+import { MonthlySavingsCard } from '../../components/analyse/MonthlySavingsCard';
 
 export const AnalyseScreen: React.FC = () => {
   const { monthKey, setMonthKey } = useAppState();
   const { transactions, loading, saveTransaction, deleteTransaction } = useTransactions();
   const { categories, accounts } = useFormOptions();
+  const monthlySavings = useMonthlySavingsPosition(monthKey, transactions);
   const [mode, setMode] = useState<AnalyseMode>('sorties');
 
   const [hiddenCategories, setHiddenCategories] = useState<Set<string>>(() => {
@@ -176,6 +179,14 @@ export const AnalyseScreen: React.FC = () => {
       <MScreenHeader title="Analyse" />
 
       <MMonthNavigator monthKey={monthKey} onChange={setMonthKey} />
+
+      <div className="px-4">
+        <MonthlySavingsCard
+          position={monthlySavings.position}
+          loading={monthlySavings.loading}
+          error={monthlySavings.error}
+        />
+      </div>
 
       <MDashboardSummary entrees={summary.entrees} sorties={summary.sorties} />
 

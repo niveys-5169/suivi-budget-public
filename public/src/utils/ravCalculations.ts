@@ -1,6 +1,7 @@
 import { Transaction, Recurrence } from '../types/banking.types';
 import type { RavConfigFormValues } from '../lib/schemas/forms';
 import { getPeriodKey, computePeriodState, getApprovedTxIds, isSettled } from './recurrenceEngine';
+import { PATRIMONIAL_FLOW_CATEGORY_ALIASES } from '../constants/transactionFlowCategories';
 
 export interface DerivedRav {
   reste: number;
@@ -11,17 +12,7 @@ export interface DerivedRav {
   pct: number;
 }
 
-export const DEFAULT_EXCLUDED_EXPENSES = new Set([
-  'Virements internes',
-  'Virement interne',
-  'Epargne',
-  'Épargne',
-  'Prêt',
-  'Retrait Epargne',
-  'Retraits epargne',
-  'Retrait Épargne',
-  'Retraits épargne',
-]);
+export const DEFAULT_EXCLUDED_EXPENSES = new Set([...PATRIMONIAL_FLOW_CATEGORY_ALIASES, 'Prêt']);
 
 export function normCategory(value: string): string {
   return (value || '').trim().toLocaleLowerCase('fr');
