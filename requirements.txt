@@ -15,5 +15,5 @@ cryptography==50.0.1
 requests==2.34.2
 # urllib3 est une dépendance transitive — épinglé pour contrôler les montées de
 # version. Mettre à jour en même temps que les audits de sécurité le signalent.
-urllib3==2.7.0
+urllib3==2.8.0
 beautifulsoup4==4.15.0
