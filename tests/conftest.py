@@ -3,6 +3,7 @@ Fixtures pytest partagées pour tous les tests Cloud Functions
 Mocking : Firestore, Request, CloudEvent, Google OIDC token
 """
 
+import contextlib
 import sys
 import os
 import pytest
@@ -119,3 +120,39 @@ def reset_imports(mocker):
     # Mock initialize_app pour éviter l'init réelle de Firebase
     mocker.patch('firebase_admin.initialize_app', return_value=None)
     yield
+
+
+# Modules présents à la fois dans src/ et functions/ : sous le même nom dans
+# sys.modules, la version src/ importée par un test précédent masquerait celle
+# de functions/ (ex. main.py recevant src/firebase_db.py).
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+_SRC_DIR = os.path.join(_REPO_ROOT, 'src')
+_FUNCTIONS_DIR = os.path.join(_REPO_ROOT, 'functions')
+_SHARED_MODULES = {
+    name[:-3]
+    for name in set(os.listdir(_SRC_DIR)) & set(os.listdir(_FUNCTIONS_DIR))
+    if name.endswith('.py')
+} | {'main'}
+
+
+@pytest.fixture
+def functions_import_path():
+    """Contexte d'import où `functions/` masque `src/`.
+
+    Retire TOUTES les occurrences de src/ du sys.path (plusieurs tests
+    l'insèrent à la collecte) et purge les modules homonymes, puis restaure
+    sys.path à la sortie. Les imports faits dans le bloc (y compris via
+    mocker.patch("main.x")) résolvent donc vers functions/.
+    """
+    @contextlib.contextmanager
+    def _ctx():
+        saved_path = list(sys.path)
+        sys.path[:] = [p for p in sys.path if os.path.abspath(p) != _SRC_DIR]
+        for mod in _SHARED_MODULES:
+            sys.modules.pop(mod, None)
+        try:
+            yield
+        finally:
+            sys.path[:] = saved_path
+
+    return _ctx

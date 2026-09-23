@@ -5,8 +5,6 @@ Vérifie que les soldes parsés sont écrits DIRECTEMENT dans `account_balances`
 dans une collection de staging déclenchant un moteur de réconciliation.
 """
 
-import os
-import sys
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -14,58 +12,47 @@ import pytest
 
 
 @pytest.fixture
-def mocked_main(mocker):
+def mocked_main(mocker, functions_import_path):
     """Importe et mocke `functions.main` avec ses dépendances Firestore."""
-    src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-    src_removed = False
-    if src_path in sys.path:
-        sys.path.remove(src_path)
-        src_removed = True
+    with functions_import_path():
+        mocker.patch("main.charger_mapping_categories_linxo", return_value={})
+        mocker.patch("main.charger_ids_emails_traites", return_value=set())
+        mocker.patch("main.marquer_email_traite")
+        mocker.patch("main.sauvegarder_transactions", return_value=1)
 
-    for mod in ("firebase_db", "main", "transaction_parser", "gmail_client"):
-        sys.modules.pop(mod, None)
+        # Premier solde connu pour le compte -> aucun écart, statut reconciled.
+        mocker.patch("main.calcul_coherence_solde", return_value={
+            "previousSolde": None, "computedSolde": None, "linxoDelta": None, "ecart": None,
+        })
+        save_soldes = mocker.patch("main.sauvegarder_soldes_comptes", return_value=1)
 
-    mocker.patch("main.charger_mapping_categories_linxo", return_value={})
-    mocker.patch("main.charger_ids_emails_traites", return_value=set())
-    mocker.patch("main.marquer_email_traite")
-    mocker.patch("main.sauvegarder_transactions", return_value=1)
+        email_dt = datetime(2026, 5, 15, 7, 30, tzinfo=timezone.utc)
+        internal_date_ms = int(email_dt.timestamp() * 1000)
 
-    # Premier solde connu pour le compte -> aucun écart, statut reconciled.
-    mocker.patch("main.calcul_coherence_solde", return_value={
-        "previousSolde": None, "computedSolde": None, "linxoDelta": None, "ecart": None,
-    })
-    save_soldes = mocker.patch("main.sauvegarder_soldes_comptes", return_value=1)
+        gmail = MagicMock()
+        gmail.search_emails.return_value = [{"id": "msg-1"}]
+        gmail.get_message_html.return_value = {
+            "id": "msg-1",
+            "internalDate": internal_date_ms,
+            "html": "<html>fake</html>",
+        }
+        gmail.add_label.return_value = None
 
-    email_dt = datetime(2026, 5, 15, 7, 30, tzinfo=timezone.utc)
-    internal_date_ms = int(email_dt.timestamp() * 1000)
+        parsed_txs = [{
+            "date": datetime(2026, 5, 15, 0, 0, tzinfo=timezone.utc),
+            "libelle": "Carte BforBank",
+            "compteLinxo": "BforBank Compte Courant",
+            "montant": -36.82,
+            "categorieLinxo": "Courses",
+        }]
+        parsed_soldes = [{
+            "compte": "BforBank Compte Courant",
+            "solde": 1135.19,
+            "status": "OK",
+        }]
+        mocker.patch("main.parse_email_linxo", return_value=(parsed_txs, parsed_soldes))
 
-    gmail = MagicMock()
-    gmail.search_emails.return_value = [{"id": "msg-1"}]
-    gmail.get_message_html.return_value = {
-        "id": "msg-1",
-        "internalDate": internal_date_ms,
-        "html": "<html>fake</html>",
-    }
-    gmail.add_label.return_value = None
-
-    parsed_txs = [{
-        "date": datetime(2026, 5, 15, 0, 0, tzinfo=timezone.utc),
-        "libelle": "Carte BforBank",
-        "compteLinxo": "BforBank Compte Courant",
-        "montant": -36.82,
-        "categorieLinxo": "Courses",
-    }]
-    parsed_soldes = [{
-        "compte": "BforBank Compte Courant",
-        "solde": 1135.19,
-        "status": "OK",
-    }]
-    mocker.patch("main.parse_email_linxo", return_value=(parsed_txs, parsed_soldes))
-
-    import main
-
-    if src_removed:
-        sys.path.append(src_path)
+        import main
 
     return main, gmail, save_soldes
 
