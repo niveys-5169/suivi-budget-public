@@ -319,7 +319,6 @@ const en: Record<MessageId, string> = {
   'budget.trend.theoretical': 'Ideal pace',
 
   // ── Grouped transactions list ────────────────────────────────────────────
-  'txList.swipe.validate': 'Verify',
   'txList.empty': 'No financial activity detected',
   'txList.sort.label': 'Label / Category',
   'txList.sort.account': 'Account',
