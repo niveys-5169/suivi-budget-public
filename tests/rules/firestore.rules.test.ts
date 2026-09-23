@@ -83,8 +83,8 @@ describe.each(FRONT_PATHS)('%s', (path) => {
     await assertSucceeds(deleteDoc(doc(owner(), path)));
   });
 
-  it('compte preview : lecture seule', async () => {
-    await assertSucceeds(getDoc(doc(preview(), path)));
+  it('ancien claim preview : refusé (accès retiré)', async () => {
+    await assertFails(getDoc(doc(preview(), path)));
     await assertFails(setDoc(doc(preview(), path), { v: 1 }));
     await assertFails(deleteDoc(doc(preview(), path)));
   });

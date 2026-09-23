@@ -1,6 +1,8 @@
 rules_version = '2';
-// Copie EXACTE des règles déployées en production (console Firebase →
-// Firestore → Règles, relevées le 2026-09-23). Aucun workflow ne déploie ce
+// Règles de production (console Firebase → Firestore → Règles, relevées le
+// 2026-09-23), moins l'accès en lecture du claim `preview`, retiré car aucun
+// compte ne s'en sert et il exposait toute la base (dont la clé API IA de
+// user_settings). À PUBLIER dans la console. Aucun workflow ne déploie ce
 // fichier : il sert de référence versionnée et de cible aux tests émulateur
 // (tests/rules/). Toute modification doit être publiée à la main depuis la
 // console, puis reportée ici (ou l'inverse), pour que les deux restent égaux.
@@ -15,17 +17,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
 
-      // Propriétaire : lecture + écriture
-      allow write: if request.auth != null
-                   && request.auth.token.email == "niveys@gmail.com"
-                   && request.auth.token.email_verified == true;
-
-      // Propriétaire OU compte preview (claim `preview`) : lecture
-      allow read: if (request.auth != null
-                   && request.auth.token.email == "niveys@gmail.com"
-                   && request.auth.token.email_verified == true)
-                  || (request.auth != null
-                   && request.auth.token.preview == true);
+      // Propriétaire uniquement : lecture + écriture
+      allow read, write: if request.auth != null
+                         && request.auth.token.email == "niveys@gmail.com"
+                         && request.auth.token.email_verified == true;
     }
   }
 }
