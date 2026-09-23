@@ -132,23 +132,33 @@ export const WealthPage: React.FC = () => {
     [setOwnerScope],
   );
 
+  // Montant précédent remis à zéro au changement d'actif, puis rechargé.
+  const [snapshotFor, setSnapshotFor] = useState(selectedAsset);
+  if (selectedAsset !== snapshotFor) {
+    setSnapshotFor(selectedAsset);
+    setPreviousAmount(null);
+  }
   useEffect(() => {
     if (
-      selectedAsset &&
-      !selectedAsset.id?.startsWith('live_pf_') &&
-      !selectedAsset.id?.startsWith('portfolio')
+      !selectedAsset ||
+      selectedAsset.id?.startsWith('live_pf_') ||
+      selectedAsset.id?.startsWith('portfolio')
     ) {
-      getLastPlacementSnapshot(selectedAsset.id)
-        .then((result) => {
-          setPreviousAmount(result);
-        })
-        .catch((err) => {
-          console.error('Error fetching placement snapshot:', err);
-          setPreviousAmount(null);
-        });
-    } else {
-      setPreviousAmount(null);
+      return;
     }
+    // Ignore la réponse d'un actif qui n'est plus sélectionné.
+    let ignore = false;
+    getLastPlacementSnapshot(selectedAsset.id)
+      .then((result) => {
+        if (!ignore) setPreviousAmount(result);
+      })
+      .catch((err) => {
+        console.error('Error fetching placement snapshot:', err);
+        if (!ignore) setPreviousAmount(null);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [selectedAsset]);
 
   useEffect(() => {

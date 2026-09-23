@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIntl } from 'react-intl';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,7 +50,6 @@ export const RAVEditor: React.FC<Props> = ({ monthKey, onClose }) => {
     control,
     handleSubmit,
     reset,
-    watch,
     setValue,
     getValues,
     formState: { isSubmitting },
@@ -108,7 +107,8 @@ export const RAVEditor: React.FC<Props> = ({ monthKey, onClose }) => {
     [monthKey, txList, activeRecurrences],
   );
 
-  const watchedDraft = watch();
+  // Toutes les valeurs ont un défaut (useForm), d'où le type complet, comme watch().
+  const watchedDraft = useWatch({ control }) as RavConfigFormValues;
   const liveCurrent = useMemo(
     () => computedFromConfig(persistedConfig),
     [persistedConfig, computedFromConfig],

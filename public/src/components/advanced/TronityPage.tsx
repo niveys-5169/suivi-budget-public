@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Settings } from 'lucide-react';
 import { useAdvancedSettings } from '../../hooks/useAdvancedSettings';
@@ -10,11 +10,12 @@ export const TronityPage: React.FC = () => {
   const [draft, setDraft] = useState(tronityConfig);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (tronityConfig) {
-      setDraft(tronityConfig);
-    }
-  }, [tronityConfig]);
+  // Le brouillon repart de la config à chaque nouvelle valeur Firestore.
+  const [syncedConfig, setSyncedConfig] = useState(tronityConfig);
+  if (tronityConfig && tronityConfig !== syncedConfig) {
+    setSyncedConfig(tronityConfig);
+    setDraft(tronityConfig);
+  }
 
   const handleSave = async () => {
     if (!draft) return;

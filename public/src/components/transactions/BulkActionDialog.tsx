@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Modal } from '../shared/Modal';
 import { Button } from '../shared/Button';
@@ -31,9 +31,11 @@ export const BulkActionDialog: React.FC<BulkActionDialogProps> = ({
   const [busy, setBusy] = useState(false);
 
   // Réinitialise le champ à chaque ouverture / changement de mode.
-  useEffect(() => {
+  const [seenMode, setSeenMode] = useState(mode);
+  if (mode !== seenMode) {
+    setSeenMode(mode);
     setValue('');
-  }, [mode]);
+  }
 
   if (!mode) return null;
 

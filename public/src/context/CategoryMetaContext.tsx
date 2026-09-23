@@ -40,6 +40,8 @@ export const CategoryMetaProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     if (!user) {
       setCategoryOverrides({});
+      // Synchro avec Firebase Auth/Firestore (système externe) : état vidé sans utilisateur.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOverridesState({});
       setLoading(false);
       return;

@@ -21,6 +21,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // E2E smoke runs without Firebase credentials. Resolve the public shell as
     // a signed-out visitor instead of waiting indefinitely for Firebase Auth.
     if (import.meta.env.VITE_E2E === 'true') {
+      // Mode E2E sans Firebase : l'état d'auth est résolu d'emblée (synchro externe).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(null);
       setError(null);
       setLoading(false);

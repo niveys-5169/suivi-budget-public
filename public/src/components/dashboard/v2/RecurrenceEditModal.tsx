@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '../../../ui';
 import { Modal } from '../../shared/Modal';
@@ -51,13 +51,15 @@ export const RecurrenceEditModal: React.FC<RecurrenceEditModalProps> = ({
   const [anchorDate, setAnchorDate] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!recurrence) return;
+  // Champs réinitialisés depuis chaque nouvelle récurrence éditée.
+  const [loadedRecurrence, setLoadedRecurrence] = useState<Recurrence | null>(null);
+  if (recurrence && recurrence !== loadedRecurrence) {
+    setLoadedRecurrence(recurrence);
     setLabel(recurrence.label);
     setCategory(recurrence.category);
     setAmount(Math.abs(recurrence.expectedAmount));
     setAnchorDate(defaultAnchorDate(recurrence));
-  }, [recurrence]);
+  }
 
   if (!recurrence) return null;
 

@@ -74,6 +74,9 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
 const WealthPositionsChartImpl: React.FC<Props> = ({ placementHistory = [] }) => {
   const [timeRange, setTimeRange] = useState<'6M' | '1Y' | 'ALL'>('1Y');
   const [hidden, setHidden] = useState<Set<SeriesKey>>(new Set());
+  // Horloge lue une fois au montage : le rendu reste pur, et une fenêtre de
+  // 6 à 12 mois ne bouge pas de façon visible pendant une session.
+  const [now] = useState(() => Date.now());
 
   const chartData = useMemo(() => {
     if (!placementHistory?.length) return [];
@@ -85,7 +88,7 @@ const WealthPositionsChartImpl: React.FC<Props> = ({ placementHistory = [] }) =>
         ? timeline
         : (() => {
             const limitMs = (timeRange === '6M' ? 6 : 12) * 30 * 24 * 60 * 60 * 1000;
-            const threshold = Date.now() - limitMs;
+            const threshold = now - limitMs;
             return timeline.filter((d) => d.timestamp >= threshold);
           })();
 
@@ -98,7 +101,7 @@ const WealthPositionsChartImpl: React.FC<Props> = ({ placementHistory = [] }) =>
       investissements: p.byCat.investissements,
       retraite: p.byCat.retraite,
     }));
-  }, [placementHistory, timeRange]);
+  }, [placementHistory, timeRange, now]);
 
   const hasAnyData = useMemo(
     () => chartData.some((d) => SERIES.some((s) => d[s.key] > 0)),

@@ -73,8 +73,10 @@ export const AurumRecentTransactions: React.FC<{
   const MS_IN_A_DAY = 86400000;
   const formatDateLabel = (dateStr: string) => {
     if (dateStr === 'undated') return 'Date inconnue';
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - MS_IN_A_DAY).toISOString().split('T')[0];
+    // Un seul instant pour « aujourd'hui » et « hier » (cohérents même à minuit).
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const yesterday = new Date(now.getTime() - MS_IN_A_DAY).toISOString().split('T')[0];
 
     if (dateStr === today) return "Aujourd'hui";
     if (dateStr === yesterday) return 'Hier';

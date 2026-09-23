@@ -116,29 +116,11 @@ const DonutChartImpl: React.FC<Props> = ({
     [displayActive],
   );
 
-  const CustomTooltip = useCallback(
-    ({ active, payload }: { active?: boolean; payload?: { payload: DonutData }[] }) => {
-      if (active && payload && payload.length) {
-        const data = payload[0]!.payload;
-        return (
-          <div className="bg-bg border border-separator rounded-xl px-4 py-2 flex items-center gap-2 pointer-events-none z-[100]">
-            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color }} />
-            <span className="text-caption font-bold text-white whitespace-nowrap">
-              {data.label}
-            </span>
-          </div>
-        );
-      }
-      return null;
-    },
-    [],
-  );
-
   return (
     <div className="relative w-full aspect-square max-w-[280px] mx-auto">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Tooltip content={<CustomTooltip />} cursor={false} />
+          <Tooltip content={<DonutTooltip />} cursor={false} />
           <Pie
             data={chartData}
             cx="50%"
@@ -218,6 +200,27 @@ const DonutChartImpl: React.FC<Props> = ({
       </div>
     </div>
   );
+};
+
+// Hors du composant : défini pendant le rendu, il serait recréé (et remonté)
+// à chaque rendu du graphique.
+const DonutTooltip = ({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { payload: DonutData }[];
+}) => {
+  if (active && payload && payload.length) {
+    const data = payload[0]!.payload;
+    return (
+      <div className="bg-bg border border-separator rounded-xl px-4 py-2 flex items-center gap-2 pointer-events-none z-[100]">
+        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color }} />
+        <span className="text-caption font-bold text-white whitespace-nowrap">{data.label}</span>
+      </div>
+    );
+  }
+  return null;
 };
 
 export const DonutChart = React.memo(DonutChartImpl);

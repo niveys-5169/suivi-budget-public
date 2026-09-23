@@ -29,6 +29,8 @@ export const usePortfolioHoldings = () => {
   }, [user]);
 
   useEffect(() => {
+    // Chargement réseau (système externe), fetchHoldings sert aussi au refresh.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchHoldings();
   }, [fetchHoldings]);
 
