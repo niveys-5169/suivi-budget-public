@@ -123,7 +123,7 @@ def test_transactions_scanned_once_for_multiple_soldes(mocked_main, mocker):
     main.CONFIG["COMPTES_ACTIFS"]["LCL Compte Joint"] = "LCL"
 
     scan_mock = mocker.patch(
-        "main.charger_transactions_existantes_pour_dedoublonnage",
+        "main.charger_transactions_pour_coherence",
         return_value=[
             {"compte": "BforBank", "montant": -10.0, "date": "2026-05-14", "emailDate": None},
             {"compte": "LCL", "montant": 100.0, "date": "2026-05-15", "emailDate": None},
@@ -135,9 +135,9 @@ def test_transactions_scanned_once_for_multiple_soldes(mocked_main, mocker):
 
     main._run_linxo_import_core(gmail)
 
-    # Un seul scan complet malgré 2 soldes traités.
-    scan_calls = [c for c in scan_mock.call_args_list if c.kwargs.get("since_days") == 0 or (c.args and c.args[0] == 0)]
-    assert len(scan_calls) == 1
+    # Un seul chargement malgré 2 soldes traités, pour les comptes de ces soldes.
+    scan_mock.assert_called_once()
+    assert sorted(scan_mock.call_args.args[0]) == ["BforBank", "LCL"]
 
     # Chaque appel de calcul_coherence_solde reçoit sa part pré-filtrée par compte.
     assert coherence_mock.call_count == 2

@@ -226,7 +226,7 @@ def test_transactions_scanned_once_for_multiple_soldes(importer):
          patch.object(importer, "is_firebase_available", return_value=True), \
          patch.object(importer, "charger_mapping_categories_linxo", return_value={}), \
          patch.object(importer, "parse_email_linxo", return_value=([], soldes)), \
-         patch.object(importer, "charger_transactions_existantes_pour_dedoublonnage", scan_mock), \
+         patch.object(importer, "charger_transactions_pour_coherence", scan_mock), \
          patch.object(importer, "deduplicate", side_effect=lambda new, old: (new, [], [])), \
          patch.object(importer, "sauvegarder_transactions", return_value=0), \
          patch.object(importer, "calcul_coherence_solde", coherence_mock), \
@@ -238,10 +238,10 @@ def test_transactions_scanned_once_for_multiple_soldes(importer):
          patch.object(importer, "upsert_gmail_messages"):
         importer.main()
 
-    # Un seul scan complet (since_days=0), malgré 2 soldes traités. `nouvelles_transactions`
-    # est vide ici donc le seul appel à charger_transactions_existantes_pour_dedoublonnage
-    # est celui du contrôle de cohérence.
-    scan_mock.assert_called_once_with(since_days=0)
+    # Un seul chargement pour le contrôle de cohérence malgré 2 soldes traités,
+    # borné aux comptes de ces soldes.
+    scan_mock.assert_called_once()
+    assert sorted(scan_mock.call_args.args[0]) == ["BforBank", "LCL"]
 
     assert coherence_mock.call_count == 2
     for call in coherence_mock.call_args_list:

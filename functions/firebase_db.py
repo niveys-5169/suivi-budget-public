@@ -178,7 +178,9 @@ def _resoudre_id_transaction(tx: dict, prefetch_map: dict) -> str:
     return _transaction_id(tx["compte"], tx["date"], tx["libelle"], tx["montant"])
 
 
-def charger_transactions_existantes_pour_dedoublonnage(since_days: int = 365) -> list[dict]:
+def charger_transactions_existantes_pour_dedoublonnage(
+    since_days: int = 365, email_date_min: datetime | None = None
+) -> list[dict]:
     """Retourne les transactions existantes (date/libellé/montant) pour la déduplication."""
     db = _get_db()
     out = []
@@ -189,6 +191,8 @@ def charger_transactions_existantes_pour_dedoublonnage(since_days: int = 365) ->
         if since_days > 0:
             cutoff = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
             query = query.where(filter=FieldFilter("date", ">=", cutoff))
+        if email_date_min is not None:
+            query = query.where(filter=FieldFilter("emailDate", ">=", email_date_min))
         for doc in _stream_with_backoff(query, "Chargement transactions pour dédoublonnage"):
             data = doc.to_dict() or {}
             date_str = str(data.get("date") or "").strip()
@@ -208,6 +212,32 @@ def charger_transactions_existantes_pour_dedoublonnage(since_days: int = 365) ->
     except NotFound as e:
         log.warning(f"Collection transactions non trouvée : {e}")
     return out
+
+
+def charger_transactions_pour_coherence(comptes) -> list[dict]:
+    """Transactions utiles au contrôle de cohérence des soldes de `comptes`.
+
+    calcul_coherence_solde ne retient que les transactions dont l'emailDate
+    (datetime) est postérieure à celle du solde stocké du compte : inutile de
+    relire toute la collection. On borne donc la requête par la plus ancienne
+    de ces emailDate. Un compte sans solde stocké n'a pas de contrôle (ignoré) ;
+    un solde stocké sans emailDate exploitable impose le scan complet, comme
+    avant.
+    """
+    from balance_coherence import ensure_utc
+    db = _get_db()
+    bornes = []
+    for compte in set(comptes):
+        snap = db.collection("account_balances").document(compte).get()
+        if not snap.exists:
+            continue
+        email_date = ensure_utc((snap.to_dict() or {}).get("emailDate"))
+        if email_date is None:
+            return charger_transactions_existantes_pour_dedoublonnage(since_days=0)
+        bornes.append(email_date)
+    if not bornes:
+        return []
+    return charger_transactions_existantes_pour_dedoublonnage(since_days=0, email_date_min=min(bornes))
 
 
 _UNCATEGORIZED_LABELS = {"", "a catégoriser", "a categoriser", "non catégorisé", "non categorise"}
