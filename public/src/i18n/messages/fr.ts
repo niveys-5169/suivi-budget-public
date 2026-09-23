@@ -319,7 +319,6 @@ const fr = {
   'budget.trend.theoretical': 'Rythme théorique',
 
   // ── Liste transactions groupée ───────────────────────────────────────────
-  'txList.swipe.validate': 'Valider',
   'txList.empty': 'Aucun flux financier détecté',
   'txList.sort.label': 'Libellé / Catégorie',
   'txList.sort.account': 'Compte',

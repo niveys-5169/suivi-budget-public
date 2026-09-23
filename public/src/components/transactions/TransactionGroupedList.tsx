@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useIntl } from 'react-intl';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { formatLibelle } from '../../utils/categoryUtils';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
 import { CategoryIcon } from '../CategoryIcon';
+import { IconButton } from '../../ui';
 import type { Transaction } from '../../types/banking.types';
 import { Check, ArrowUp, ArrowDown, ArrowUpDown, Repeat2 } from 'lucide-react';
 import { formatCurrency as cachedFormatCurrency } from '../../lib/formatters';
@@ -22,7 +22,6 @@ interface TransactionCardProps {
   isRecurrent?: boolean;
 }
 
-const SWIPE_THRESHOLD = 140;
 const MS_IN_A_DAY = 86400000;
 const OBSERVER_ROOT_MARGIN = '200px';
 
@@ -44,17 +43,6 @@ const TransactionCard = React.memo<TransactionCardProps & { isFirst: boolean; is
     const catMeta = getCategoryMeta(tx.categorie || '');
     const cleanLibelle = formatLibelle(tx.libelle || '');
 
-    const x = useMotionValue(0);
-    const dragOpacity = useTransform(x, [-100, 0, 100], [0.8, 1, 0.8]);
-    const backgroundOpacity = useTransform(x, [-100, -40, 0, 40, 100], [1, 1, 0, 1, 1]);
-
-    const handleDragEnd = async (_: unknown, info: { offset: { x: number } }) => {
-      if (Math.abs(info.offset.x) > SWIPE_THRESHOLD) {
-        onTogglePointe(tx.id, !tx.pointe);
-      }
-      x.set(0);
-    };
-
     const formatCurrency = (amount: number) => {
       return cachedFormatCurrency(amount, 'EUR', 'fr-FR', { signDisplay: 'always' });
     };
@@ -65,37 +53,17 @@ const TransactionCard = React.memo<TransactionCardProps & { isFirst: boolean; is
       ${isFirst ? 'rounded-t-xl' : ''} 
       ${isLast ? 'rounded-b-lg' : ''}`}
       >
-        {/* Background Action Indicator */}
-        <motion.div
-          style={{ opacity: backgroundOpacity }}
-          className="absolute inset-0 flex items-center justify-between px-10 bg-gold/10 pointer-events-none rounded-lg overflow-hidden"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gold/20 flex items-center justify-center border border-gold/30">
-              <Check className="text-gold" size={12} aria-hidden="true" />
-            </div>
-            <span className="text-caption font-semibold text-gold">
-              {t({ id: 'txList.swipe.validate' })}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-caption font-semibold text-gold">
-              {t({ id: 'txList.swipe.validate' })}
-            </span>
-            <div className="w-6 h-6 rounded-full bg-gold/20 flex items-center justify-center border border-gold/30">
-              <Check className="text-gold" size={12} aria-hidden="true" />
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          drag={selectionMode ? false : 'x'}
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.7}
-          onDragEnd={handleDragEnd}
-          style={selectionMode ? undefined : { x, opacity: dragOpacity }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => (selectionMode ? onToggleSelect(tx.id) : onOpenDetail(tx.id))}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              if (selectionMode) onToggleSelect(tx.id);
+              else onOpenDetail(tx.id);
+            }
+          }}
           className={`density-row relative flex items-center gap-6 px-10 py-6 transition-all duration-500 cursor-pointer
           ${selected ? 'bg-gold/10 ring-1 ring-inset ring-gold/40' : ''}
           ${!tx.pointe ? 'opacity-40 grayscale-[0.8]' : 'opacity-100 hover:bg-white/[0.04]'}`}
@@ -152,7 +120,29 @@ const TransactionCard = React.memo<TransactionCardProps & { isFirst: boolean; is
               {formatCurrency(tx.montant ?? 0)}
             </p>
           </div>
-        </motion.div>
+
+          {/* Pointage toggle — clic plutôt que swipe, geste souris/desktop */}
+          {!selectionMode && (
+            <IconButton
+              size="sm"
+              variant="plain"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePointe(tx.id, !tx.pointe);
+              }}
+              className={`!rounded-full border shrink-0 ${
+                tx.pointe
+                  ? 'border-gold/40 !bg-gold/20 !text-gold'
+                  : 'border-separator hover:!text-label'
+              }`}
+              label={t({
+                id: tx.pointe ? 'tx.row.action.unreconcile' : 'tx.row.action.reconcile',
+              })}
+            >
+              <Check size={13} />
+            </IconButton>
+          )}
+        </div>
       </div>
     );
   },
