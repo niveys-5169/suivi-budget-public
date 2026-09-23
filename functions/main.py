@@ -20,6 +20,7 @@ from firebase_db import (
     charger_recurrences_actives,
     charger_transactions_categorisees,
     charger_transactions_existantes_pour_dedoublonnage,
+    charger_transactions_pour_coherence,
     sauvegarder_soldes_comptes,
     sauvegarder_transactions,
     supprimer_transactions_par_ids,
@@ -205,7 +206,7 @@ def _run_linxo_import_core(gmail: GmailClient) -> dict:
     # run, plutôt qu'un scan complet par solde dans calcul_coherence_solde.
     tx_par_compte = defaultdict(list)
     if soldes_a_traiter:
-        for tx in charger_transactions_existantes_pour_dedoublonnage(since_days=0):
+        for tx in charger_transactions_pour_coherence(r["compte"] for r in soldes_a_traiter):
             tx_par_compte[tx.get("compte")].append(tx)
     for raw in soldes_a_traiter:
         control = calcul_coherence_solde(

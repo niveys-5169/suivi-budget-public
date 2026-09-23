@@ -9,7 +9,6 @@ renouvellement, trace de l'échec).
 import base64
 import json
 import os
-import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,21 +17,10 @@ from google.auth.exceptions import TransportError
 
 
 @pytest.fixture
-def watch_main(mocker):
+def watch_main(mocker, functions_import_path):
     """Importe `functions.main` avec ses dépendances Firestore/Gmail mockées."""
-    src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-    src_removed = False
-    if src_path in sys.path:
-        sys.path.remove(src_path)
-        src_removed = True
-
-    for mod in ("firebase_db", "main", "transaction_parser", "gmail_client"):
-        sys.modules.pop(mod, None)
-
-    import main
-
-    if src_removed:
-        sys.path.append(src_path)
+    with functions_import_path():
+        import main
 
     gmail = MagicMock()
     mocker.patch.object(main, "_build_gmail_client", return_value=gmail)

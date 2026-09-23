@@ -25,6 +25,7 @@ export default defineConfig({
       '**/.worktrees/**',
       '**/Suivi-Budget-mirror/**',
       '**/e2e/**',
+      'tests/rules/**',
       '**/playwright-report/**',
       '**/storybook-static/**',
     ],

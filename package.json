@@ -9,6 +9,7 @@
     "build:premium": "vite build --mode premium",
     "preview": "vite preview",
     "test": "node --max-old-space-size=4096 node_modules/vitest/vitest.mjs",
+    "test:rules": "npx --yes firebase-tools@15.30.2 emulators:exec --only firestore --project demo-aurum-rules \"vitest run --config vitest.rules.config.ts\"",
     "test:ui": "node --max-old-space-size=4096 node_modules/vitest/vitest.mjs --ui",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -48,6 +49,7 @@
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@playwright/test": "^1.63.0",
     "@sentry/vite-plugin": "^5.4.0",
     "@storybook/addon-a11y": "^10.6.0",
