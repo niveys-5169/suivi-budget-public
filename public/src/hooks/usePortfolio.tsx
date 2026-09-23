@@ -451,6 +451,8 @@ export const usePortfolio = () => {
 
   useEffect(() => {
     if (user) {
+      // Chargement Firestore (système externe), fetchPortfolio sert aussi au refresh.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchPortfolio(user);
     }
   }, [user, fetchPortfolio]);

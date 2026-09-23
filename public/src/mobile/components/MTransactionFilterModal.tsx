@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { RotateCcw, CheckCircle2, Circle } from 'lucide-react';
 import { Modal } from '../../components/shared/Modal';
 import { Segmented } from './shared/Segmented';
@@ -34,10 +34,11 @@ export const MTransactionFilterModal: React.FC<MTransactionFilterModalProps> = (
   const [localFilters, setLocalFilters] = useState(filters);
 
   // Sync local state from parent filters each time the modal opens
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
     if (isOpen) setLocalFilters(filters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }
 
   const handleFilterChange = (key: keyof TransactionFilters, value: string) => {
     setLocalFilters((prev) => ({ ...prev, [key]: value }));

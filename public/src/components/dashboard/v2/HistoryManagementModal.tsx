@@ -85,6 +85,8 @@ export const HistoryManagementModal: React.FC<Props> = ({ onClose }) => {
   // History Fetching
   useEffect(() => {
     if (!selectedAssetId) {
+      // Synchro avec un listener Firestore (système externe) : sans actif, on vide.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRows([]);
       return;
     }
@@ -118,11 +120,9 @@ export const HistoryManagementModal: React.FC<Props> = ({ onClose }) => {
   }, [selectedAssetId]);
 
   // Ensure selectedAssetId is updated if assets load later
-  useEffect(() => {
-    if (!selectedAssetId && allAssets.length > 0) {
-      setSelectedAssetId(allAssets[0]!.id);
-    }
-  }, [allAssets, selectedAssetId]);
+  if (!selectedAssetId && allAssets.length > 0) {
+    setSelectedAssetId(allAssets[0]!.id);
+  }
 
   const handleAddRow = () => {
     const selectedAsset = allAssets.find((a) => a.id === selectedAssetId);

@@ -34,6 +34,8 @@ export const usePortfolioTransactions = () => {
 
   useEffect(() => {
     // Fetch on mount
+    // Chargement réseau (système externe), fetchTransactions sert aussi au refresh.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTransactions();
   }, [fetchTransactions]);
 

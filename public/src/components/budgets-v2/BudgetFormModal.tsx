@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIntl } from 'react-intl';
 import { createBudget, updateBudget, suggestBudgetAmount } from '../../api/budgets';
@@ -49,7 +49,6 @@ export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({ budget, onClos
     register,
     handleSubmit,
     control,
-    watch,
     setValue,
     getValues,
     formState: { errors, isSubmitting },
@@ -66,9 +65,9 @@ export const BudgetFormModal: React.FC<BudgetFormModalProps> = ({ budget, onClos
     .filter(Boolean)
     .sort();
 
-  const watchedType = watch('type');
-  const watchedSens = watch('sens');
-  const watchedMoisAttendus = watch('moisAttendus');
+  const watchedType = useWatch({ control, name: 'type' });
+  const watchedSens = useWatch({ control, name: 'sens' });
+  const watchedMoisAttendus = useWatch({ control, name: 'moisAttendus' });
 
   const handleSuggest = async () => {
     const { categorie, type } = getValues();

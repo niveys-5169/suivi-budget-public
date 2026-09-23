@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Settings2, Key, RefreshCcw, Zap, Shapes } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,18 +12,10 @@ type SettingsTab = 'api' | 'categories' | 'maintenance' | 'config' | 'expert';
 
 export const AdvancedSettings: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as SettingsTab) || 'api';
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
-
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab && tab !== activeTab) {
-      setActiveTab(tab as SettingsTab);
-    }
-  }, [searchParams, activeTab]);
+  // L'URL est la source de vérité de l'onglet (lien direct, retour arrière).
+  const activeTab = (searchParams.get('tab') as SettingsTab) || 'api';
 
   const handleTabChange = (tab: SettingsTab) => {
-    setActiveTab(tab);
     setSearchParams({ tab });
   };
 

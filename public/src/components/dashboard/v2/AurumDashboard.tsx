@@ -68,11 +68,13 @@ export const AurumDashboard: React.FC = () => {
     () => (location.state as { tab?: DashboardTab })?.tab || 'dashboard',
   );
 
-  useEffect(() => {
-    if ((location.state as { tab?: DashboardTab })?.tab) {
-      setActiveTab((location.state as { tab?: DashboardTab }).tab as DashboardTab);
-    }
-  }, [location.state]);
+  // Une navigation portant `state.tab` (ex. depuis la palette) change d'onglet.
+  const [seenLocationState, setSeenLocationState] = useState(location.state);
+  if (location.state !== seenLocationState) {
+    setSeenLocationState(location.state);
+    const tab = (location.state as { tab?: DashboardTab } | null)?.tab;
+    if (tab) setActiveTab(tab);
+  }
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 

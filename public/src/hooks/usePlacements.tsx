@@ -101,6 +101,8 @@ export function usePlacements() {
   }, []);
 
   useEffect(() => {
+    // Abonnement Firestore (système externe), aussi relancé par refresh.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     const unsub = loadData();
     return () => unsub();
   }, [loadData]);

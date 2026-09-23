@@ -181,6 +181,8 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
 
   useEffect(() => {
     if (isOpen && accountId) {
+      // Chargement Firestore (système externe) à l'ouverture de la modale.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchHistory();
     } else if (!isOpen) {
       setHistory([]);
