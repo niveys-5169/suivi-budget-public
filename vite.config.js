@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => {
     root: 'public',
     plugins: [
       react(),
-      // PWA: installable app, app-shell precache, runtime cache for Firestore.
+      // PWA: installable app, app-shell precache, offline data via Firestore's own IndexedDB cache
+      // (services/firebase.ts) — its WebChannel URLs are cache-busted, so a SW cache never hits.
       // Disabled in dev (devOptions.enabled: false) to avoid SW cache during HMR.
       VitePWA({
         registerType: 'autoUpdate',
@@ -65,17 +66,6 @@ export default defineConfig(({ mode }) => {
                 expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
               },
             },
-            {
-              // Firestore reads: stale-while-revalidate so app shows last-known data offline.
-              urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'aurum-firestore',
-                networkTimeoutSeconds: 4,
-                expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
           ],
         },
         devOptions: { enabled: false },
@@ -115,13 +105,22 @@ export default defineConfig(({ mode }) => {
           main: 'public/index.html',
         },
         output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('firebase')) return 'vendor-firebase';
-              if (id.includes('recharts') || id.includes('d3')) return 'vendor-charts';
-              if (id.includes('framer-motion')) return 'vendor-motion';
-              if (id.includes('react-intl')) return 'vendor-intl';
-            }
+          // `codeSplitting` plutôt que `manualChunks` (déprécié sous Rolldown) :
+          // en mode compat, un groupe embarque ses dépendances, si bien que
+          // react-dom finissait dans vendor-charts et rendait Recharts
+          // obligatoire au démarrage. La priorité garde React à part.
+          codeSplitting: {
+            groups: [
+              {
+                name: 'vendor-react',
+                test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                priority: 50,
+              },
+              { name: 'vendor-firebase', test: /node_modules[\\/].*firebase/, priority: 40 },
+              { name: 'vendor-charts', test: /node_modules[\\/].*(recharts|d3)/, priority: 30 },
+              { name: 'vendor-motion', test: /node_modules[\\/].*framer-motion/, priority: 20 },
+              { name: 'vendor-intl', test: /node_modules[\\/].*react-intl/, priority: 20 },
+            ],
           },
         },
       },

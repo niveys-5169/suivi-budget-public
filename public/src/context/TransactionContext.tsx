@@ -157,9 +157,18 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     requestFullLoad();
   }, [hasMore, user, requestFullLoad]);
 
+  // `filters.search` est volontairement hors des dépendances : seule sa valeur
+  // debouncée déclenche le filtrage, sinon chaque frappe refiltrerait tout et
+  // re-rendrait chaque consommateur du contexte.
+  const { compte, type, year, month, pointe, categorie } = filters;
   const filteredTransactions = useMemo(
-    () => filterTransactions(transactions, filters, debouncedSearch),
-    [transactions, filters, debouncedSearch],
+    () =>
+      filterTransactions(
+        transactions,
+        { search: debouncedSearch, compte, type, year, month, pointe, categorie },
+        debouncedSearch,
+      ),
+    [transactions, debouncedSearch, compte, type, year, month, pointe, categorie],
   );
 
   // Crée/supprime le crédit EDF compensateur quand une recharge Tronity

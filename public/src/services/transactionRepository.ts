@@ -8,7 +8,6 @@ import {
   updateDoc,
   deleteDoc,
   addDoc,
-  setDoc,
   serverTimestamp,
   writeBatch,
   DocumentData,
@@ -103,9 +102,12 @@ export async function updatePointe(id: string, checked: boolean): Promise<void> 
 }
 
 export async function removeTransaction(id: string): Promise<void> {
-  await withRetry(async () => {
-    await deleteDoc(doc(db, 'transactions', id));
-    await setDoc(
+  // Batch atomique : sans tombstone, un reparse ou un mail non étiqueté
+  // réimporterait la transaction supprimée.
+  await withRetry(() => {
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'transactions', id));
+    batch.set(
       doc(db, 'deleted_transactions', id),
       {
         transactionId: id,
@@ -115,6 +117,7 @@ export async function removeTransaction(id: string): Promise<void> {
       },
       { merge: true },
     );
+    return batch.commit();
   });
 }
 

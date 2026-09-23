@@ -1,14 +1,35 @@
-import React, { Suspense, lazy, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion, type Variants } from 'framer-motion';
 import { getTabIndex, NAV_ITEMS } from './navItems';
 import { useEdgeSwipeNav } from './useEdgeSwipeNav';
 import { HomeScreen } from './screens/HomeScreen';
-import { TransactionsScreen } from './screens/TransactionsScreen';
-import { AnalyseScreen } from './screens/AnalyseScreen';
-import { BudgetsScreen } from './screens/BudgetsScreen';
-import { PatrimoineScreen } from './screens/PatrimoineScreen';
-import { QAScreen } from './screens/QAScreen';
+
+// Écrans secondaires en chunks séparés (Recharts n'est plus dans le chargement
+// initial), préchargés dès que le navigateur est inactif pour que le premier
+// swipe vers un onglet ne montre pas le fallback.
+const loadTransactions = () => import('./screens/TransactionsScreen');
+const loadAnalyse = () => import('./screens/AnalyseScreen');
+const loadBudgets = () => import('./screens/BudgetsScreen');
+const loadPatrimoine = () => import('./screens/PatrimoineScreen');
+const loadQA = () => import('./screens/QAScreen');
+const TransactionsScreen = lazy(() =>
+  loadTransactions().then((m) => ({ default: m.TransactionsScreen })),
+);
+const AnalyseScreen = lazy(() => loadAnalyse().then((m) => ({ default: m.AnalyseScreen })));
+const BudgetsScreen = lazy(() => loadBudgets().then((m) => ({ default: m.BudgetsScreen })));
+const PatrimoineScreen = lazy(() =>
+  loadPatrimoine().then((m) => ({ default: m.PatrimoineScreen })),
+);
+const QAScreen = lazy(() => loadQA().then((m) => ({ default: m.QAScreen })));
+
+const prefetchScreens = () => {
+  [loadTransactions, loadBudgets, loadAnalyse, loadPatrimoine, loadQA].forEach((load) => {
+    load().catch(() => {
+      // Hors ligne : le chargement sera retenté à la navigation.
+    });
+  });
+};
 
 // Chargé à la demande : évite qu'un import statique ici n'annule le
 // code-splitting déjà en place côté desktop (MainApp.tsx, AurumDashboard.tsx).
@@ -49,6 +70,15 @@ export const MobileSwipeContainer: React.FC = () => {
   const location = useLocation();
   const { onTouchStart, onTouchEnd } = useEdgeSwipeNav();
   const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(prefetchScreens, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const timer = window.setTimeout(prefetchScreens, 2000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const activeTab = getTabIndex(location.pathname);
   const prevIndexRef = useRef(activeTab);

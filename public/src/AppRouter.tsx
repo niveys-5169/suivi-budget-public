@@ -1,9 +1,13 @@
-import React, { useSyncExternalStore } from 'react';
-import { MainApp } from './MainApp';
-import { MobileApp } from './MobileApp';
+import React, { Suspense, lazy, useSyncExternalStore } from 'react';
 import { FLAGS } from './lib/featureFlags';
 import { DevConsoleLogger } from './components/dashboard/v2/DevConsoleLogger';
 import { PWAUpdateBanner } from './components/shared/PWAUpdateBanner';
+
+// Un seul des deux arbres sert sur un appareil donné : chacun vit dans son
+// chunk pour que le mobile ne télécharge pas le desktop (et inversement).
+// Pas de fallback : le loader de index.html reste affiché jusqu'à hideLoader().
+const MainApp = lazy(() => import('./MainApp').then((m) => ({ default: m.MainApp })));
+const MobileApp = lazy(() => import('./MobileApp').then((m) => ({ default: m.MobileApp })));
 
 const MOBILE_MAX_DIMENSION = 767;
 
@@ -36,7 +40,9 @@ export const AppRouter: React.FC = () => {
   return (
     <>
       <DevConsoleLogger />
-      {FLAGS.MOBILE_V3 && mode === 'mobile' ? <MobileApp /> : <MainApp />}
+      <Suspense fallback={null}>
+        {FLAGS.MOBILE_V3 && mode === 'mobile' ? <MobileApp /> : <MainApp />}
+      </Suspense>
       {/* Monté au niveau routeur pour enregistrer le service worker (useRegisterSW)
           et afficher l'invite de mise à jour dans les deux modes, PWA mobile incluse. */}
       <PWAUpdateBanner />
