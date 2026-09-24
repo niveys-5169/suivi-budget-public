@@ -2,7 +2,12 @@ import React, { useId, useState } from 'react';
 import { AlertTriangle, ChevronDown, Info, PiggyBank } from 'lucide-react';
 import { useIntl } from 'react-intl';
 import { Amount, Badge, Card, IconButton, Separator, Stack, Text } from '../../ui';
-import type { MonthlySavingsPosition } from '../../types/banking.types';
+import type {
+  MonthlySavingsAccountReconciliation,
+  MonthlySavingsEntry,
+  MonthlySavingsEntryKind,
+  MonthlySavingsPosition,
+} from '../../types/banking.types';
 
 interface Props {
   position: MonthlySavingsPosition | null;
@@ -23,6 +28,122 @@ const MetricRow: React.FC<{
     <Amount value={value} signed={signed} tone={tone} variant="subhead" />
   </Stack>
 );
+
+const sumEntries = (entries: MonthlySavingsEntry[]): number =>
+  Math.round(entries.reduce((sum, entry) => sum + entry.montant, 0) * 100) / 100;
+
+const EntryList: React.FC<{ entries: MonthlySavingsEntry[] }> = ({ entries }) => {
+  const { formatMessage: t, formatDate } = useIntl();
+  return (
+    <Stack gap="sm" className="max-h-80 overflow-y-auto pl-4">
+      {entries.map((entry, index) => (
+        <Stack
+          key={`${entry.transactionId}-${index}`}
+          direction="row"
+          gap="sm"
+          align="center"
+          justify="between"
+        >
+          <Stack gap="none" className="min-w-0">
+            <Text variant="footnote" truncate>
+              {entry.libelle}
+            </Text>
+            <Text variant="caption" tone="tertiary" truncate>
+              {formatDate(new Date(`${entry.date.slice(0, 10)}T12:00:00`), {
+                day: '2-digit',
+                month: 'short',
+              })}
+              {' · '}
+              {entry.compte}
+              {entry.counterpartAccount ? ` → ${entry.counterpartAccount}` : ''}
+            </Text>
+          </Stack>
+          <Stack direction="row" gap="sm" align="center" className="shrink-0">
+            {entry.kind === 'UNCERTAIN' ? (
+              <Badge tone="warning">{t({ id: 'monthlySavings.details.uncertain' })}</Badge>
+            ) : null}
+            <Amount value={entry.montant} signed variant="footnote" />
+          </Stack>
+        </Stack>
+      ))}
+    </Stack>
+  );
+};
+
+const ExpandableRow: React.FC<{
+  label: string;
+  value: number | null;
+  count?: number;
+  signed?: boolean;
+  tone?: 'auto' | 'neutral' | 'positive' | 'negative' | 'warning';
+  children: React.ReactNode;
+}> = ({ label, value, count, signed = false, tone = 'auto', children }) => {
+  const { formatMessage: t } = useIntl();
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
+        <Stack direction="row" gap="sm" align="center" className="min-w-0">
+          <ChevronDown
+            size={14}
+            aria-hidden="true"
+            className="shrink-0 text-label-tertiary transition-transform group-open:rotate-180"
+          />
+          <Stack gap="none" className="min-w-0">
+            <Text variant="subhead" tone="secondary">
+              {label}
+            </Text>
+            {count !== undefined ? (
+              <Text variant="caption" tone="tertiary">
+                {t({ id: 'monthlySavings.details.operationsCount' }, { count })}
+              </Text>
+            ) : null}
+          </Stack>
+        </Stack>
+        <Amount value={value} signed={signed} tone={tone} variant="subhead" />
+      </summary>
+      <div className="pt-2">{children}</div>
+    </details>
+  );
+};
+
+const AccountReconciliation: React.FC<{ account: MonthlySavingsAccountReconciliation }> = ({
+  account,
+}) => {
+  const { formatMessage: t } = useIntl();
+  return (
+    <Stack gap="sm" className="pl-4">
+      <Text variant="footnote" className="font-semibold">
+        {account.name}
+      </Text>
+      <MetricRow
+        label={t({ id: 'monthlySavings.details.account.opening' })}
+        value={account.openingBalance}
+        tone="neutral"
+      />
+      <MetricRow
+        label={t({ id: 'monthlySavings.details.account.transactions' })}
+        value={account.transactionsTotal}
+        signed
+      />
+      <MetricRow
+        label={t({ id: 'monthlySavings.details.account.expected' })}
+        value={account.expectedClosingBalance}
+        tone="neutral"
+      />
+      <MetricRow
+        label={t({ id: 'monthlySavings.details.account.closing' })}
+        value={account.closingBalance}
+        tone="neutral"
+      />
+      <MetricRow
+        label={t({ id: 'monthlySavings.details.account.gap' })}
+        value={account.gap}
+        signed
+        tone={Math.abs(account.gap) > 0.01 ? 'warning' : 'neutral'}
+      />
+    </Stack>
+  );
+};
 
 const statusMessageId = (status: MonthlySavingsPosition['status']): string => {
   switch (status) {
@@ -123,6 +244,22 @@ export const MonthlySavingsCard: React.FC<Props> = ({ position, loading, error =
   }
 
   const quality = position.dataQuality.calculationStatus;
+  const entriesOf = (...kinds: MonthlySavingsEntryKind[]) =>
+    position.breakdown.entries.filter((entry) => kinds.includes(entry.kind));
+  const depositEntries = entriesOf('SAVINGS_DEPOSIT');
+  const withdrawalEntries = entriesOf('SAVINGS_WITHDRAWAL');
+  const countedEntries = entriesOf('COUNTED', 'UNCERTAIN');
+  const internalEntries = entriesOf('INTERNAL_TRANSFER');
+  const ignoredEntries = entriesOf('UNTRACKED', 'IGNORED');
+  const reconciliationDelta = position.dataQuality.reconciliationDelta;
+  const otherGap =
+    reconciliationDelta === null
+      ? 0
+      : Math.round(
+          (reconciliationDelta -
+            position.breakdown.accounts.reduce((sum, account) => sum + account.gap, 0)) *
+            100,
+        ) / 100;
   const allocationLabel =
     position.status === 'OVER_ALLOCATED'
       ? t({ id: 'monthlySavings.metric.overAllocated' })
@@ -217,36 +354,86 @@ export const MonthlySavingsCard: React.FC<Props> = ({ position, loading, error =
               signed
             />
             <Separator />
-            <MetricRow
+            <ExpandableRow
               label={t({ id: 'monthlySavings.details.deposits' })}
               value={position.savingsDeposits}
+              count={depositEntries.length}
               signed
-            />
-            <MetricRow
+            >
+              <EntryList entries={depositEntries} />
+            </ExpandableRow>
+            <ExpandableRow
               label={t({ id: 'monthlySavings.details.withdrawals' })}
               value={position.savingsWithdrawals === 0 ? 0 : -position.savingsWithdrawals}
-            />
+              count={withdrawalEntries.length}
+            >
+              <EntryList entries={withdrawalEntries} />
+            </ExpandableRow>
             <MetricRow
               label={t({ id: 'monthlySavings.metric.netSavings' })}
               value={position.netSavings}
               signed
             />
             <Separator />
-            <MetricRow
+            <ExpandableRow
               label={t({ id: 'monthlySavings.details.transactionCapacity' })}
               value={position.capacityFromTransactions}
+              count={countedEntries.length}
               signed
-            />
-            <MetricRow
+            >
+              <EntryList entries={countedEntries} />
+            </ExpandableRow>
+            <ExpandableRow
               label={t({ id: 'monthlySavings.details.reconciliation' })}
-              value={position.dataQuality.reconciliationDelta}
+              value={reconciliationDelta}
               signed
-              tone={
-                Math.abs(position.dataQuality.reconciliationDelta || 0) > 0.01
-                  ? 'warning'
-                  : 'neutral'
-              }
-            />
+              tone={Math.abs(reconciliationDelta || 0) > 0.01 ? 'warning' : 'neutral'}
+            >
+              <Stack gap="md">
+                <Text variant="caption" tone="tertiary" className="pl-4">
+                  {t({ id: 'monthlySavings.details.reconciliationHint' })}
+                </Text>
+                {position.breakdown.accounts.map((account) => (
+                  <AccountReconciliation key={account.name} account={account} />
+                ))}
+                {Math.abs(otherGap) > 0.01 ? (
+                  <Stack gap="sm" className="pl-4">
+                    <MetricRow
+                      label={t({ id: 'monthlySavings.details.otherGap' })}
+                      value={otherGap}
+                      signed
+                      tone="warning"
+                    />
+                    <Text variant="caption" tone="tertiary">
+                      {t({ id: 'monthlySavings.details.otherGapHint' })}
+                    </Text>
+                  </Stack>
+                ) : null}
+              </Stack>
+            </ExpandableRow>
+            {internalEntries.length > 0 || ignoredEntries.length > 0 ? <Separator /> : null}
+            {internalEntries.length > 0 ? (
+              <ExpandableRow
+                label={t({ id: 'monthlySavings.details.internal' })}
+                value={sumEntries(internalEntries)}
+                count={internalEntries.length}
+                signed
+                tone="neutral"
+              >
+                <EntryList entries={internalEntries} />
+              </ExpandableRow>
+            ) : null}
+            {ignoredEntries.length > 0 ? (
+              <ExpandableRow
+                label={t({ id: 'monthlySavings.details.ignored' })}
+                value={sumEntries(ignoredEntries)}
+                count={ignoredEntries.length}
+                signed
+                tone="neutral"
+              >
+                <EntryList entries={ignoredEntries} />
+              </ExpandableRow>
+            ) : null}
           </Stack>
         </details>
       </Stack>

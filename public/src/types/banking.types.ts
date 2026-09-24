@@ -202,6 +202,45 @@ export interface MonthlySavingsDataQuality {
   reconciliationDelta: number | null;
 }
 
+/**
+ * Classement d'une opération par le moteur d'épargne mensuelle.
+ * COUNTED et UNCERTAIN composent `capacityFromTransactions`.
+ */
+export type MonthlySavingsEntryKind =
+  | 'SAVINGS_DEPOSIT'
+  | 'SAVINGS_WITHDRAWAL'
+  | 'INTERNAL_TRANSFER'
+  | 'UNCERTAIN'
+  | 'COUNTED'
+  | 'UNTRACKED'
+  | 'IGNORED';
+
+export interface MonthlySavingsEntry {
+  transactionId: string;
+  date: string;
+  libelle: string;
+  compte: string;
+  montant: number;
+  kind: MonthlySavingsEntryKind;
+  /** Compte de la contrepartie appariée, pour un virement neutralisé. */
+  counterpartAccount?: string;
+}
+
+/** Rapprochement d'un compte courant : solde attendu d'après les opérations vs solde réel. */
+export interface MonthlySavingsAccountReconciliation {
+  name: string;
+  openingBalance: number;
+  transactionsTotal: number;
+  expectedClosingBalance: number;
+  closingBalance: number;
+  gap: number;
+}
+
+export interface MonthlySavingsBreakdown {
+  entries: MonthlySavingsEntry[];
+  accounts: MonthlySavingsAccountReconciliation[];
+}
+
 export interface MonthlySavingsPosition {
   month: string;
   openingOperatingBalance: number | null;
@@ -216,6 +255,7 @@ export interface MonthlySavingsPosition {
   status: MonthlySavingsStatus | null;
   isCompleteMonth: boolean;
   dataQuality: MonthlySavingsDataQuality;
+  breakdown: MonthlySavingsBreakdown;
 }
 
 export type AccountStatus =

@@ -616,6 +616,21 @@ const en: Record<MessageId, string> = {
   'monthlySavings.details.withdrawals': 'Savings withdrawals',
   'monthlySavings.details.transactionCapacity': 'Net income / expenses excluding transfers',
   'monthlySavings.details.reconciliation': 'Reconciliation difference',
+  'monthlySavings.details.operationsCount':
+    '{count, plural, =0 {No transactions} one {# transaction} other {# transactions}}',
+  'monthlySavings.details.uncertain': 'Uncertain',
+  'monthlySavings.details.internal': 'Neutralised internal transfers',
+  'monthlySavings.details.ignored': 'Transactions not taken into account',
+  'monthlySavings.details.account.opening': 'Opening balance',
+  'monthlySavings.details.account.transactions': 'Imported transactions',
+  'monthlySavings.details.account.expected': 'Expected balance',
+  'monthlySavings.details.account.closing': 'Actual balance',
+  'monthlySavings.details.account.gap': 'Difference',
+  'monthlySavings.details.otherGap': 'Difference outside operating accounts',
+  'monthlySavings.details.reconciliationHint':
+    'A negative difference means the balance fell more than imported transactions explain: missing, pending or out-of-month transactions.',
+  'monthlySavings.details.otherGapHint':
+    'The difference outside operating accounts comes from transactions counted on savings accounts or unmatched transfers.',
 };
 
 export default en;
