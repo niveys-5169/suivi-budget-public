@@ -1,16 +1,29 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { BankinBudgetsContainer } from '../BankinBudgetsContainer';
 import React from 'react';
 
 // Mock contexts
 const mockSetViewMode = vi.fn();
+const mockUpdateBudget = vi.fn();
+const DEFAULT_BUDGETS = [
+  { categorie: 'Logement', montant: 1000, actif: true },
+  { categorie: 'Alimentation', montant: 500, actif: true },
+];
+const DEFAULT_TRANSACTIONS = [
+  { id: '1', date: '2026-04-01', libelle: 'Loyer', montant: -1000, categorie: 'Logement' },
+  { id: '2', date: '2026-04-10', libelle: 'Courses', montant: -200, categorie: 'Alimentation' },
+];
+let mockBudgets: Record<string, unknown>[] = DEFAULT_BUDGETS;
+let mockTransactions: Record<string, unknown>[] = DEFAULT_TRANSACTIONS;
+
+vi.mock('../../../../api/budgets', () => ({
+  updateBudget: (...args: unknown[]) => mockUpdateBudget(...args),
+}));
+
 vi.mock('../../../../context/BudgetContext', () => ({
   useBudgetContext: () => ({
-    budgets: [
-      { categorie: 'Logement', montant: 1000, actif: true },
-      { categorie: 'Alimentation', montant: 500, actif: true },
-    ],
+    budgets: mockBudgets,
     monthKey: '2026-04',
     setMonthKey: vi.fn(),
     viewMode: 'monthly',
@@ -20,10 +33,7 @@ vi.mock('../../../../context/BudgetContext', () => ({
 
 vi.mock('../../../../context/TransactionContext', () => ({
   useTransactionContext: () => ({
-    transactions: [
-      { id: '1', date: '2026-04-01', libelle: 'Loyer', montant: -1000, categorie: 'Logement' },
-      { id: '2', date: '2026-04-10', libelle: 'Courses', montant: -200, categorie: 'Alimentation' },
-    ],
+    transactions: mockTransactions,
     loading: false,
     requestFullLoad: vi.fn(),
   }),
@@ -45,6 +55,12 @@ vi.mock('recharts', async () => {
 });
 
 describe('BankinBudgetsContainer', () => {
+  beforeEach(() => {
+    mockBudgets = DEFAULT_BUDGETS;
+    mockTransactions = DEFAULT_TRANSACTIONS;
+    mockUpdateBudget.mockReset();
+  });
+
   it('renders summary and category grid', () => {
     render(<BankinBudgetsContainer />);
 
@@ -99,5 +115,40 @@ describe('BankinBudgetsContainer', () => {
 
     expect(monthlyBtn).toHaveAttribute('aria-pressed', 'true');
     expect(annualBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  describe('bouton de sens (Auto → Entrée → Sortie)', () => {
+    const NOTES_TX = [
+      ...DEFAULT_TRANSACTIONS,
+      { id: '3', date: '2026-04-12', libelle: 'Remb.', montant: 80, categorie: 'Notes de frais' },
+    ];
+
+    it('enregistre le sens même sans budget pour la catégorie', () => {
+      mockTransactions = NOTES_TX;
+      render(<BankinBudgetsContainer />);
+
+      const card = screen.getByTitle('Notes de frais').closest('[role="button"]') as HTMLElement;
+      fireEvent.click(within(card).getByTitle('Auto — clic pour Entrée'));
+
+      expect(mockUpdateBudget).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ categorie: 'Notes de frais', isIncome: true, actif: false }),
+      );
+    });
+
+    it('applique le sens stocké sur un budget inactif sans réactiver son montant', () => {
+      mockTransactions = NOTES_TX;
+      mockBudgets = [
+        ...DEFAULT_BUDGETS,
+        { categorie: 'Notes de frais', montant: 300, actif: false, isIncome: false },
+      ];
+      render(<BankinBudgetsContainer />);
+
+      // Sens « Sortie » pris en compte : la carte affiche l'état Sortie.
+      expect(screen.getByTitle('Sortie — clic pour Auto')).toBeInTheDocument();
+      // Budget inactif : son montant n'entre pas dans le budget total (1 500 inchangé).
+      expect(screen.getAllByText(/1 500/)[0]).toBeInTheDocument();
+      expect(screen.queryByText(/\/ 300/)).not.toBeInTheDocument();
+    });
   });
 });
