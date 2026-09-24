@@ -57,8 +57,19 @@ export const BankinBudgetsContainer: React.FC = () => {
   const handleToggleSens = useCallback(
     async (catId: string, current: boolean | undefined) => {
       const budget = budgets.find((b) => categoryKey(b.categorie || '') === categoryKey(catId));
-      if (!budget) return;
       const next = current === undefined ? true : current === true ? false : undefined;
+      if (!budget) {
+        // Pas de budget pour cette catégorie : on crée un doc inactif qui ne porte que le sens.
+        if (next === undefined) return;
+        await updateBudget(budgetDocKey(catId), {
+          categorie: catId,
+          nom: catId,
+          montant: 0,
+          actif: false,
+          isIncome: next,
+        });
+        return;
+      }
       const payload = next !== undefined ? { isIncome: next } : { isIncome: deleteField() };
       await updateBudget(budget.id || budgetDocKey(budget.categorie || ''), payload);
     },
@@ -186,7 +197,12 @@ export const BankinBudgetsContainer: React.FC = () => {
 
       const budgetObj = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
       const budgetMontant = budgetObj ? budgetObj.montant : 0;
-      const isBudgetDefinedAsIncome = isBudgetIncome(catName, budgetObj);
+      // Le sens choisi via la carte est lu même sur un budget inactif (doc « sens seul »).
+      const storedIsIncome = (
+        budgetObj ?? budgets.find((b) => categoryKey(b.categorie || '') === catKey)
+      )?.isIncome;
+      const isBudgetDefinedAsIncome =
+        storedIsIncome !== undefined ? storedIsIncome : isBudgetIncome(catName, budgetObj);
 
       const netAmount = inflow + outflow;
 
@@ -229,7 +245,7 @@ export const BankinBudgetsContainer: React.FC = () => {
 
       // --- SECTION REVENUS ---
       // On l'ajoute si on a reçu de l'argent (>0) OU si c'est explicitement un budget de revenu
-      if (isBudgetDefinedAsIncome || (inflow > 0 && !budgetObj)) {
+      if (isBudgetDefinedAsIncome || (inflow > 0 && !budgetObj && storedIsIncome === undefined)) {
         incomeCategories.push({
           id: catName,
           nom: catName,
@@ -239,10 +255,10 @@ export const BankinBudgetsContainer: React.FC = () => {
           color: meta.color,
           transactions: mappedTransactions,
           isIncome: true,
-          storedIsIncome: budgetObj?.isIncome,
+          storedIsIncome,
         });
         if (isBudgetDefinedAsIncome) totalIncomeBudget += budgetMontant;
-      } else if (outflow < 0 || budgetMontant > 0) {
+      } else if (outflow < 0 || budgetMontant > 0 || storedIsIncome === false) {
         // --- SECTION DÉPENSES ---
         // Le montant "spent" affiché est le NET (Dépenses - Remboursements).
         // Pas de clamp : un excédent de remboursements affiche un solde positif (vert).
@@ -256,7 +272,7 @@ export const BankinBudgetsContainer: React.FC = () => {
           color: meta.color,
           transactions: mappedTransactions,
           isIncome: false,
-          storedIsIncome: budgetObj?.isIncome,
+          storedIsIncome,
         });
         totalExpenseBudget += budgetMontant;
       }
