@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { callGemini, callOpenAICompatible, describeHttpError } from '../llmClient';
+import { callGemini, callLLM, callOpenAICompatible, describeHttpError } from '../llmClient';
 import type { AIConfig } from '../../utils/aiConfig';
 
 const openaiConfig: AIConfig = {
@@ -130,11 +130,54 @@ describe('callGemini', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('concatène les parts de texte (réponse ancrée sur le web)', async () => {
+    fetchMock.mockResolvedValue(
+      mockResponse(200, {
+        candidates: [{ content: { parts: [{ text: 'Livret A : ' }, { text: '1,5 %.' }] } }],
+      }),
+    );
+    expect(await callGemini(geminiConfig, 'sys', [], 'q')).toBe('Livret A : 1,5 %.');
+  });
+
   it('échoue immédiatement sur 401 sans parcourir les autres modèles', async () => {
     fetchMock.mockResolvedValue(mockResponse(401, { error: { message: 'bad key' } }));
     await expect(callGemini(geminiConfig, 'sys', [], 'q')).rejects.toThrow(
       /Clé API Gemini invalide/,
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('callLLM — recherche web', () => {
+  const bodyOf = (call: number) => JSON.parse(fetchMock.mock.calls[call]![1].body as string);
+
+  it('active Google Search pour Gemini', async () => {
+    fetchMock.mockResolvedValue(
+      mockResponse(200, { candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+    );
+    await callLLM(geminiConfig, 'sys', 'q');
+    expect(bodyOf(0).tools).toEqual([{ google_search: {} }]);
+  });
+
+  it('active le plugin web pour OpenRouter', async () => {
+    fetchMock.mockResolvedValue(mockResponse(200, { choices: [{ message: { content: 'ok' } }] }));
+    await callLLM({ ...openaiConfig, provider: 'openrouter' }, 'sys', 'q');
+    expect(bodyOf(0).plugins).toEqual([{ id: 'web' }]);
+  });
+
+  it('retente sans web si le fournisseur refuse (402 crédits)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(mockResponse(402, { error: { message: 'Insufficient credits' } }))
+      .mockResolvedValueOnce(mockResponse(200, { choices: [{ message: { content: 'ok' } }] }));
+    const res = await callLLM({ ...openaiConfig, provider: 'openrouter' }, 'sys', 'q');
+    expect(res).toBe('ok');
+    expect(bodyOf(1).plugins).toBeUndefined();
+  });
+
+  it("n'envoie pas d'option web à OpenAI", async () => {
+    fetchMock.mockResolvedValue(mockResponse(200, { choices: [{ message: { content: 'ok' } }] }));
+    await callLLM(openaiConfig, 'sys', 'q');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(bodyOf(0).plugins).toBeUndefined();
   });
 });

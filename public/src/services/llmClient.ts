@@ -47,6 +47,7 @@ interface OpenAIRequestBody {
   max_tokens: number;
   temperature?: number;
   top_p?: number;
+  plugins?: { id: string }[];
 }
 
 /** Libellés lisibles par fournisseur, utilisés dans les messages d'erreur. */
@@ -175,6 +176,7 @@ export async function callGemini(
   systemPrompt: string,
   history: ChatMessage[],
   question: string,
+  webSearch = false,
 ): Promise<string> {
   const contents = [
     ...history.map((msg) => ({
@@ -193,6 +195,8 @@ export async function callGemini(
       topK: 20,
       maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
     },
+    // Ancrage Google Search : le modèle décide seul s'il a besoin du web.
+    ...(webSearch ? { tools: [{ google_search: {} }] } : {}),
   };
 
   const label = PROVIDER_LABELS.gemini;
@@ -230,7 +234,9 @@ export async function callGemini(
 
       const data = await resp.json();
       const candidate = data?.candidates?.[0];
-      const text = candidate?.content?.parts?.[0]?.text;
+      // Avec l'ancrage web, la réponse peut être répartie sur plusieurs parts.
+      const parts: { text?: string }[] = candidate?.content?.parts ?? [];
+      const text = parts.map((p) => p.text ?? '').join('');
       if (!text) {
         lastError = new AIError('Réponse vide de Gemini. Réessaie ou change de modèle.');
         continue;
@@ -248,6 +254,8 @@ export interface CallOptions {
   extraHeaders?: Record<string, string>;
   temperature?: number;
   top_p?: number;
+  /** OpenRouter uniquement : active le plugin de recherche web. */
+  webSearch?: boolean;
 }
 
 export async function callOpenAICompatible(
@@ -263,6 +271,7 @@ export async function callOpenAICompatible(
     extraHeaders = {},
     temperature = 0.2,
     top_p = 0.8,
+    webSearch = false,
   } = options;
 
   const messages = [
@@ -280,6 +289,7 @@ export async function callOpenAICompatible(
     max_tokens: model.includes('nvidia') || baseUrl.includes('nvidia') ? 1024 : 2048,
     temperature,
     top_p,
+    ...(webSearch ? { plugins: [{ id: 'web' }] } : {}),
   };
 
   return requestWithRetry(async () => {
@@ -322,14 +332,35 @@ export async function callLLM(
   question: string,
   history: ChatMessage[] = [],
 ): Promise<string> {
+  // Recherche web (Gemini, OpenRouter) : si le fournisseur la refuse (modèle
+  // incompatible 400, crédits insuffisants 402), on retente sans web plutôt
+  // que de priver l'utilisateur de réponse.
+  if (config.provider === 'gemini' || config.provider === 'openrouter') {
+    try {
+      return await callProvider(config, systemPrompt, question, history, true);
+    } catch (err) {
+      if (!(err instanceof AIError && (err.status === 400 || err.status === 402))) throw err;
+    }
+  }
+  return callProvider(config, systemPrompt, question, history, false);
+}
+
+async function callProvider(
+  config: AIConfig,
+  systemPrompt: string,
+  question: string,
+  history: ChatMessage[],
+  webSearch: boolean,
+): Promise<string> {
   if (config.provider === 'gemini') {
-    return callGemini(config, systemPrompt, history, question);
+    return callGemini(config, systemPrompt, history, question, webSearch);
   }
 
   const options: CallOptions = {
     model: config.model ?? undefined,
     baseUrl: config.baseUrl ?? undefined,
     extraHeaders: {},
+    webSearch,
   };
 
   if (config.provider === 'openrouter') {

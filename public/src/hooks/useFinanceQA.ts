@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTransactions } from './useTransactions';
 import { useBudget } from './useBudget';
 import { usePatrimoine } from './usePatrimoine';
@@ -56,7 +56,7 @@ function spliceContinuation(first: string, next: string): string {
 
 /** Gère la conversation avec l'assistant IA financier (Gemini/OpenAI/OpenRouter/Nvidia) et l'historique de chat. */
 export function useFinanceQA() {
-  const { transactions } = useTransactions();
+  const { transactions, requestFullLoad } = useTransactions();
   const { budgets } = useBudget();
   const {
     placements,
@@ -71,6 +71,12 @@ export function useFinanceQA() {
   const [loading, setLoading] = useState(false);
   const historyRef = useRef<ChatMessage[]>([]);
 
+  // Par défaut seuls les 18 derniers mois sont chargés : l'assistant doit
+  // raisonner sur tout l'historique.
+  useEffect(() => {
+    requestFullLoad();
+  }, [requestFullLoad]);
+
   const send = useCallback(
     async (question: string) => {
       if (!question.trim() || loading) return;
@@ -81,7 +87,7 @@ export function useFinanceQA() {
 
         if (!config.apiKey) throw new Error('Clé API non configurée. Va dans ⚙ pour configurer.');
 
-        const summary = buildFinancialSummary(transactions, budgets);
+        const summary = buildFinancialSummary(transactions, budgets, question);
         const wealth = buildWealthSummary({
           placements,
           savingsBalances,
