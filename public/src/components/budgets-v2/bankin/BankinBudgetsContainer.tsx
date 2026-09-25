@@ -6,6 +6,7 @@ import { useBudget } from '../../../hooks/useBudget';
 import { useBudgetExclusions } from '../../../hooks/useBudgetExclusions';
 import { useTransactions } from '../../../hooks/useTransactions';
 import { useBalances } from '../../../hooks/useBalances';
+import { usePreferences } from '../../../hooks/usePreferences';
 import { updateBudget } from '../../../api/budgets';
 import { BankinBudgetMain } from './BankinBudgetMain';
 import { BankinBudgetCategoryDetail } from './BankinBudgetCategoryDetail';
@@ -37,6 +38,8 @@ export const BankinBudgetsContainer: React.FC = () => {
   const { excluded } = useBudgetExclusions();
   const { transactions, togglePointe, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
+  const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
+    usePreferences();
   const [viewState, setViewState] = useState<ViewState>({ type: 'main' });
   const [showManager, setShowManager] = useState(false);
   const [showRavEditor, setShowRavEditor] = useState(false);
@@ -52,6 +55,17 @@ export const BankinBudgetsContainer: React.FC = () => {
       .filter((c): c is string => Boolean(c))
       .sort();
   }, [balances]);
+
+  // Fusionne l'ordre d'une grille (revenus OU dépenses) avec l'ordre manuel global,
+  // sans perturber l'ordre déjà mémorisé pour l'autre grille.
+  const handleReorder = useCallback(
+    (reorderedIds: string[]) => {
+      const reorderedSet = new Set(reorderedIds);
+      const rest = budgetManualOrder.filter((id) => !reorderedSet.has(id));
+      setBudgetManualOrder([...rest, ...reorderedIds]);
+    },
+    [budgetManualOrder, setBudgetManualOrder],
+  );
 
   // Cycle Auto → Entrée → Sortie → Auto pour une catégorie depuis la carte.
   const handleToggleSens = useCallback(
@@ -278,8 +292,23 @@ export const BankinBudgetsContainer: React.FC = () => {
       }
     });
 
-    incomeCategories.sort((a, b) => b.depense - a.depense);
-    expenseCategories.sort((a, b) => b.depense - a.depense);
+    const sortCategories = (list: CategoryDetail[]) => {
+      if (budgetSortMode === 'alpha') {
+        list.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+      } else if (budgetSortMode === 'manual') {
+        const orderIndex = new Map(budgetManualOrder.map((id, i) => [id, i]));
+        list.sort((a, b) => {
+          const ia = orderIndex.has(a.id) ? orderIndex.get(a.id)! : Infinity;
+          const ib = orderIndex.has(b.id) ? orderIndex.get(b.id)! : Infinity;
+          if (ia !== ib) return ia - ib;
+          return a.nom.localeCompare(b.nom, 'fr');
+        });
+      } else {
+        list.sort((a, b) => b.montant - a.montant);
+      }
+    };
+    sortCategories(incomeCategories);
+    sortCategories(expenseCategories);
 
     const netBalance = totalReceived - totalSpent;
 
@@ -320,7 +349,16 @@ export const BankinBudgetsContainer: React.FC = () => {
       netBalance,
       totalChartData,
     };
-  }, [budgets, transactions, monthKey, viewMode, isBudgetIncome, excluded]);
+  }, [
+    budgets,
+    transactions,
+    monthKey,
+    viewMode,
+    isBudgetIncome,
+    excluded,
+    budgetSortMode,
+    budgetManualOrder,
+  ]);
 
   if (viewState.type === 'category') {
     const category = [...budgetData.incomeCategories, ...budgetData.expenseCategories].find(
@@ -444,6 +482,9 @@ export const BankinBudgetsContainer: React.FC = () => {
         onCategoryClick={(id) => setViewState({ type: 'category', categoryId: id })}
         onToggleSens={handleToggleSens}
         viewMode={viewMode}
+        sortMode={budgetSortMode}
+        onSortModeChange={setBudgetSortMode}
+        onReorder={handleReorder}
       />
     </div>
   );

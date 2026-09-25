@@ -1,9 +1,11 @@
 import React from 'react';
-import { ArrowDownLeft, ArrowUpRight, Shuffle } from 'lucide-react';
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
+import { ArrowDownLeft, ArrowUpRight, GripVertical, Shuffle } from 'lucide-react';
 import { CategoryIcon } from '../../CategoryIcon';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { getStatusColor, isRefundPositive } from '../../../utils/budgetHelpers';
 import { fmt } from '../../../utils/format';
+import { IconButton } from '../../../ui';
 
 interface Props {
   name: string;
@@ -14,6 +16,10 @@ interface Props {
   storedIsIncome?: boolean; // undefined=Auto, true=Entrée, false=Sortie
   onToggleSens?: () => void;
   expectedPct?: number;
+  dragHandleProps?: {
+    attributes: DraggableAttributes;
+    listeners: DraggableSyntheticListeners;
+  };
 }
 
 export const BankinBudgetCard: React.FC<Props> = ({
@@ -25,6 +31,7 @@ export const BankinBudgetCard: React.FC<Props> = ({
   storedIsIncome,
   onToggleSens,
   expectedPct,
+  dragHandleProps,
 }) => {
   const meta = getCategoryMeta(name);
 
@@ -59,6 +66,19 @@ export const BankinBudgetCard: React.FC<Props> = ({
       className="bg-surface px-4 py-4 rounded-lg border border-separator hover:border-separator transition-all cursor-pointer group active:scale-[0.99]"
     >
       <div className="flex items-center gap-4">
+        {dragHandleProps && (
+          <IconButton
+            label="Glisser pour réordonner"
+            variant="plain"
+            size="sm"
+            {...dragHandleProps.attributes}
+            {...dragHandleProps.listeners}
+            onClick={(e) => e.stopPropagation()}
+            className="cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          >
+            <GripVertical size={14} />
+          </IconButton>
+        )}
         <div
           className="w-9 h-9 flex items-center justify-center rounded-xl border shrink-0"
           style={{
