@@ -4,6 +4,30 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [Unreleased] - Semaine du 21/09/2026
+
+### Added
+
+- **Mouvements postérieurs au solde, calculés en direct** : `mouvementsDepuisSolde`
+  additionne les transactions du compte arrivées dans un mail Linxo plus
+  récent que celui du solde affiché. S'il y en a, le solde n'a pas suivi :
+  statut « NON À JOUR » et ligne « Depuis ce solde » sur `BalanceCard`,
+  badge « Non à jour ±x € » sur l'accueil mobile (`79d475e`).
+- Accueil mobile : badge « Écart ±x € » quand le contrôle de cohérence met
+  un solde en revue, jusque-là visible seulement sur `BalanceCard` (`bd1dfd1`).
+  Voir [docs/notes/soldes-comptes.md](docs/notes/soldes-comptes.md).
+
+### Fixed
+
+- **Solde BforBank figé (25/09)** : quand le solde passe sous le seuil
+  d'alerte, Linxo écrit « Solde bas » au lieu de « Solde du compte ».
+  Le parser ne reconnaissait pas ce libellé : solde ignoré alors que les
+  opérations du même mail étaient importées (515,98 € affichés au lieu de
+  307,60 €). Motif `solde_bas` ajouté aux deux copies du parser (`52505f4`).
+- `sauvegarder_soldes_comptes` ne remplace plus le solde courant par celui
+  d'un mail plus ancien (reparse, mail retraité par un autre importeur) :
+  ce solde va seulement dans l'historique (`6646816`).
+
 ## [Unreleased] - Semaine du 27/07/2026
 
 ### Added

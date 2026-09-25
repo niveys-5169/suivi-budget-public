@@ -57,8 +57,10 @@ def _extract_solde_from_status_bloc(solde_bloc: str) -> tuple[float | None, str]
         (r"(?:Solde|Balance)[^:=]*[:=]\s*([-+]?[   ]*[0-9][\s  \.,0-9]*€)", "colon_egal"),
         # 2. Sans colon, avec € à la fin
         (r"(?:Solde|Balance).*?([-+]?[   ]*[0-9]+(?:[   \.,][0-9]+)*\s*€)", "euro_final"),
-        # 3-5. Fallbacks — exigent une virgule décimale ,\d{2} pour rejeter les entiers longs
+        # 3-6. Fallbacks — exigent une virgule décimale ,\d{2} pour rejeter les entiers longs
         (r"Solde\s+du\s+compte\s+([-+]?[   ]*[0-9][\s  \.]*[0-9]*,[0-9]{2})(?!\s*[:=])", "solde_du_compte"),
+        # Alerte « Solde bas » : même bloc STATUS, autre libellé (solde du jour)
+        (r"Solde\s+bas\s+([-+]?[   ]*[0-9][\s  \.]*[0-9]*,[0-9]{2})(?!\s*[:=])", "solde_bas"),
         (r"Solde\s+actuel\s+([-+]?[   ]*[0-9][\s  \.]*[0-9]*,[0-9]{2})(?!\s*[:=])", "solde_actuel"),
         (r"Solde\s+([-+]?[   ]*[0-9][\s  \.]*[0-9]*,[0-9]{2})(?!\s*[:=])", "solde_direct"),
     ]

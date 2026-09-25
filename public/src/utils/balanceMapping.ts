@@ -1,4 +1,5 @@
 import { BaseBalance } from '../types/balances';
+import type { Transaction } from '../types/banking.types';
 
 /**
  * Maps a Firestore document or data object to a Balance interface.
@@ -56,4 +57,27 @@ export const needsBalanceReview = (
     r.status === 'discrepancy_unresolved' &&
     r.mismatchAckFingerprint !== buildBalanceMismatchFingerprint(r)
   );
+};
+
+/**
+ * Mouvements du compte arrivés APRÈS le mail qui a fourni le solde stocké,
+ * recalculés en direct. Même fenêtre que le contrôle de cohérence de l'import
+ * (emailDate strictement postérieure ; transactions sans emailDate ignorées).
+ * Non nul : des opérations sont remontées sans que le solde suive — typiquement
+ * un solde non reconnu par le parser. `null` si le solde n'a pas d'emailDate.
+ */
+export const mouvementsDepuisSolde = (
+  balance: Pick<BaseBalance, 'compte' | 'emailDate'>,
+  transactions: Pick<Transaction, 'compte' | 'montant' | 'emailDate'>[],
+): { total: number; count: number } | null => {
+  const depuis = balance.emailDate?.toDate?.();
+  if (!depuis) return null;
+  let cents = 0;
+  let count = 0;
+  for (const tx of transactions) {
+    if (tx.compte !== balance.compte || !tx.emailDate || tx.emailDate <= depuis) continue;
+    cents += Math.round(tx.montant * 100);
+    count += 1;
+  }
+  return { total: cents / 100, count };
 };
