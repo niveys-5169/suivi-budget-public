@@ -7,7 +7,7 @@ import { useBalances } from '../../hooks/useBalances';
 import { useTransactions } from '../../hooks/useTransactions';
 import { useFormOptions } from '../../hooks/useFormOptions';
 import type { Transaction } from '../../types/banking.types';
-import { needsBalanceReview } from '../../utils/balanceMapping';
+import { mouvementsDepuisSolde, needsBalanceReview } from '../../utils/balanceMapping';
 
 import { MScreenHeader } from '../components/MScreenHeader';
 import { MSettingsModal } from '../components/MSettingsModal';
@@ -31,6 +31,11 @@ export const HomeScreen: React.FC = () => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const unpointedTxs = useMemo(() => transactions.filter((t) => !t.pointe), [transactions]);
+  // Opérations arrivées après le mail du solde : le solde affiché n'est pas à jour.
+  const mouvementsParCompte = useMemo(
+    () => new Map(checkingBalances.map((b) => [b.id, mouvementsDepuisSolde(b, transactions)])),
+    [checkingBalances, transactions],
+  );
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -95,24 +100,36 @@ export const HomeScreen: React.FC = () => {
             >
               <span className="flex items-center gap-2 min-w-0">
                 <span className="font-medium truncate">{account.compte}</span>
-                {needsBalanceReview(account) && (
-                  // Le contrôle de cohérence (ancien solde + mouvements ≠ solde
-                  // Linxo) n'était visible que dans BalanceCard, côté desktop.
+                {(mouvementsParCompte.get(account.id)?.count ?? 0) > 0 ? (
                   <span className="shrink-0 px-2 py-1 rounded-full text-caption font-semibold text-negative bg-negative/10 border border-negative/20 tabular-nums">
-                    {typeof account.ecart === 'number' ? (
-                      <>
-                        Écart{' '}
-                        <FormattedNumber
-                          value={account.ecart}
-                          style="currency"
-                          currency="EUR"
-                          signDisplay="always"
-                        />
-                      </>
-                    ) : (
-                      'À réviser'
-                    )}
+                    Non à jour{' '}
+                    <FormattedNumber
+                      value={mouvementsParCompte.get(account.id)?.total ?? 0}
+                      style="currency"
+                      currency="EUR"
+                      signDisplay="always"
+                    />
                   </span>
+                ) : (
+                  needsBalanceReview(account) && (
+                    // Le contrôle de cohérence (ancien solde + mouvements ≠ solde
+                    // Linxo) n'était visible que dans BalanceCard, côté desktop.
+                    <span className="shrink-0 px-2 py-1 rounded-full text-caption font-semibold text-negative bg-negative/10 border border-negative/20 tabular-nums">
+                      {typeof account.ecart === 'number' ? (
+                        <>
+                          Écart{' '}
+                          <FormattedNumber
+                            value={account.ecart}
+                            style="currency"
+                            currency="EUR"
+                            signDisplay="always"
+                          />
+                        </>
+                      ) : (
+                        'À réviser'
+                      )}
+                    </span>
+                  )
                 )}
               </span>
               <span className="font-semibold tabular-nums">

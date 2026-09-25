@@ -82,6 +82,8 @@ export interface BaseBalance {
   status: 'reconciled' | 'pending_review' | 'discrepancy_unresolved';
   /** Écart d'audit du contrôle de cohérence (solde Linxo − solde calculé). */
   ecart?: number;
+  /** Date de réception du mail Linxo qui a fourni ce solde. */
+  emailDate?: Timestamp | null;
   discrepancies?: Discrepancy[];
   owner?: string;
   date?: string;
@@ -148,6 +150,8 @@ export interface Transaction {
   moisAffectation?: string;
   source?: string;
   importedAt?: Timestamp | null;
+  /** Date de réception du mail Linxo source (imports Gmail uniquement). */
+  emailDate?: Date;
   /** Opération notifiée « en attente » par Linxo (pas encore comptabilisée). */
   enAttente?: boolean;
   /** Recharge Tronity : compte EDF cible du crédit créé au pointage. */

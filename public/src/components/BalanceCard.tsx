@@ -12,12 +12,15 @@ interface BalanceCardProps {
     computedSolde?: number;
     direction?: string;
   };
+  /** Mouvements arrivés après le mail du solde, recalculés en direct (voir mouvementsDepuisSolde). */
+  mouvementsDepuis?: { total: number; count: number } | null;
   onClick?: () => void;
   onHistoryClick?: (accountId: string, accountName: string) => void;
 }
 
 export const BalanceCard: React.FC<BalanceCardProps> = ({
   balance: r,
+  mouvementsDepuis,
   onClick,
   onHistoryClick,
 }) => {
@@ -26,12 +29,15 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
   const fingerprint = buildBalanceMismatchFingerprint(r);
   const isMismatch = status === 'discrepancy_unresolved';
   const isPendingReview = status === 'pending_review';
-  const needsReconciliation = isMismatch || isPendingReview;
+  // Des opérations sont remontées après le mail du solde sans que le solde suive.
+  const isStale = !!mouvementsDepuis && mouvementsDepuis.count > 0;
+  const needsReconciliation = isMismatch || isPendingReview || isStale;
   const isMismatchAcked =
     isMismatch && r.mismatchAckFingerprint && r.mismatchAckFingerprint === fingerprint;
 
-  const statusTxt =
-    status === 'reconciled'
+  const statusTxt = isStale
+    ? 'NON À JOUR'
+    : status === 'reconciled'
       ? 'OK'
       : isMismatch
         ? isMismatchAcked
@@ -41,8 +47,9 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
           ? 'À RÉVISER'
           : 'À initialiser';
 
-  const statusCls =
-    status === 'reconciled'
+  const statusCls = isStale
+    ? 'text-caption text-negative bg-negative/10 border border-negative/20'
+    : status === 'reconciled'
       ? 'text-caption text-positive bg-positive/10 border border-positive/20'
       : isMismatch || isPendingReview
         ? isMismatchAcked
@@ -118,6 +125,19 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
           <span className="text-label/30">Projection</span>
           <span className="tabular-nums text-label/60 font-semibold">{computed}</span>
         </div>
+        {mouvementsDepuis && (
+          <div className="flex justify-between items-center py-1 border-b border-separator">
+            <span className="text-label/30">
+              Depuis ce solde ({mouvementsDepuis.count} opération
+              {mouvementsDepuis.count > 1 ? 's' : ''})
+            </span>
+            <span
+              className={`tabular-nums font-semibold ${isStale ? 'text-negative' : 'text-label/60'}`}
+            >
+              {fmt(mouvementsDepuis.total)}
+            </span>
+          </div>
+        )}
         <div className="flex justify-between items-center pt-2">
           <span className="text-label/40 text-caption font-semibold">Écart audit</span>
           <span

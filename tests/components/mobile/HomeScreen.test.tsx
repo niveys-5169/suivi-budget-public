@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { expect, test, vi } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { HomeScreen } from '../../../public/src/mobile/screens/HomeScreen';
 
 const balances = vi.hoisted(() => [
@@ -14,6 +14,8 @@ const balances = vi.hoisted(() => [
   { id: 'LCL', compte: 'LCL', current_balance: 2196.35, status: 'reconciled', ecart: 0 },
 ]);
 
+const transactions = vi.hoisted(() => ({ current: [] as unknown[] }));
+
 vi.mock('../../../public/src/hooks/useBalances', () => ({
   useBalances: () => ({
     checkingBalances: balances,
@@ -22,7 +24,7 @@ vi.mock('../../../public/src/hooks/useBalances', () => ({
 }));
 vi.mock('../../../public/src/hooks/useTransactions', () => ({
   useTransactions: () => ({
-    transactions: [],
+    transactions: transactions.current,
     saveTransaction: vi.fn(),
     deleteTransaction: vi.fn(),
     updateFilters: vi.fn(),
@@ -46,6 +48,10 @@ vi.mock('../../../public/src/components/dashboard/v2/AurumPointageModal', () => 
   AurumPointageModal: () => null,
 }));
 
+beforeEach(() => {
+  transactions.current = [];
+});
+
 /**
  * Régression : un solde BforBank régressé par un vieux mail Linxo était passé
  * en pending_review (écart 208,38 €), mais l'accueil mobile n'affichait que le
@@ -62,4 +68,28 @@ test("signale l'écart d'audit d'un solde à revoir, pas celui d'un solde récon
   expect(badges).toHaveLength(1);
   // FormattedNumber est mocké globalement (tests/setup.tsx) : valeur brute.
   expect(badges[0]?.textContent).toBe('Écart 208.38');
+});
+
+/**
+ * Régression : le « Solde bas » du mail du 25/09 n'était pas lu, mais ses
+ * opérations l'étaient. Le solde LCL (réconcilié, mail du 24/09) devient
+ * « non à jour » dès qu'une opération d'un mail postérieur arrive.
+ */
+test('signale un solde non à jour quand des opérations sont arrivées après son mail', () => {
+  const lcl = balances[1] as Record<string, unknown>;
+  lcl.emailDate = { toDate: () => new Date('2026-09-24T04:28:44Z') };
+  transactions.current = [
+    { compte: 'LCL', montant: -68.38, emailDate: new Date('2026-09-25T04:23:45Z'), pointe: true },
+    { compte: 'LCL', montant: -140, emailDate: new Date('2026-09-25T04:23:45Z'), pointe: true },
+  ];
+  try {
+    render(
+      <MemoryRouter>
+        <HomeScreen />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/Non à jour/).textContent).toBe('Non à jour -208.38');
+  } finally {
+    delete lcl.emailDate;
+  }
 });
