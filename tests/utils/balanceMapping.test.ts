@@ -4,7 +4,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildBalanceMismatchFingerprint } from '../../public/src/utils/balanceMapping';
+import {
+  buildBalanceMismatchFingerprint,
+  needsBalanceReview,
+} from '../../public/src/utils/balanceMapping';
 
 describe('buildBalanceMismatchFingerprint', () => {
   it('génère un fingerprint pour des inputs valides', () => {
@@ -139,5 +142,35 @@ describe('buildBalanceMismatchFingerprint', () => {
     const fingerprint = buildBalanceMismatchFingerprint(input);
     expect(fingerprint).toBeDefined();
     expect(typeof fingerprint).toBe('string');
+  });
+});
+
+describe('needsBalanceReview', () => {
+  const base = {
+    id: 'BforBank',
+    compte: 'BforBank',
+    source: 'gmail',
+    source_timestamp: null,
+    current_balance: 515.98,
+    ecart: 208.38,
+    previousSolde: 307.6,
+    linxoDelta: 0,
+    computedSolde: 307.6,
+  };
+
+  it('signale un solde pending_review', () => {
+    expect(needsBalanceReview({ ...base, status: 'pending_review' })).toBe(true);
+  });
+
+  it('ignore un solde réconcilié', () => {
+    expect(needsBalanceReview({ ...base, status: 'reconciled', ecart: 0 })).toBe(false);
+  });
+
+  it('signale un écart non résolu tant qu’il n’est pas accepté', () => {
+    const r = { ...base, status: 'discrepancy_unresolved' as const };
+    expect(needsBalanceReview(r)).toBe(true);
+    expect(
+      needsBalanceReview({ ...r, mismatchAckFingerprint: buildBalanceMismatchFingerprint(r) }),
+    ).toBe(false);
   });
 });
