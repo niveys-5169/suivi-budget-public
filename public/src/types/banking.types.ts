@@ -80,6 +80,8 @@ export interface BaseBalance {
   source_timestamp: Timestamp | null;
   last_reconciled_date?: Timestamp;
   status: 'reconciled' | 'pending_review' | 'discrepancy_unresolved';
+  /** Écart d'audit du contrôle de cohérence (solde Linxo − solde calculé). */
+  ecart?: number;
   discrepancies?: Discrepancy[];
   owner?: string;
   date?: string;

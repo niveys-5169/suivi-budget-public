@@ -42,3 +42,18 @@ export const buildBalanceMismatchFingerprint = (
     Number(solde),
   ].join('|');
 };
+
+/**
+ * Solde dont le contrôle de cohérence demande une revue. Même règle que
+ * `BalanceCard` : `pending_review`, ou `discrepancy_unresolved` non accepté
+ * (empreinte d'acquittement différente de l'écart courant).
+ */
+export const needsBalanceReview = (
+  r: Parameters<typeof buildBalanceMismatchFingerprint>[0] & { mismatchAckFingerprint?: string },
+): boolean => {
+  if (r.status === 'pending_review') return true;
+  return (
+    r.status === 'discrepancy_unresolved' &&
+    r.mismatchAckFingerprint !== buildBalanceMismatchFingerprint(r)
+  );
+};

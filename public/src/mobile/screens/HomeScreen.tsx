@@ -7,6 +7,7 @@ import { useBalances } from '../../hooks/useBalances';
 import { useTransactions } from '../../hooks/useTransactions';
 import { useFormOptions } from '../../hooks/useFormOptions';
 import type { Transaction } from '../../types/banking.types';
+import { needsBalanceReview } from '../../utils/balanceMapping';
 
 import { MScreenHeader } from '../components/MScreenHeader';
 import { MSettingsModal } from '../components/MSettingsModal';
@@ -92,7 +93,28 @@ export const HomeScreen: React.FC = () => {
               }}
               className="py-4 flex items-center justify-between text-body text-white active:bg-white/5 cursor-pointer rounded-xl px-2 -mx-2 transition-colors"
             >
-              <span className="font-medium">{account.compte}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="font-medium truncate">{account.compte}</span>
+                {needsBalanceReview(account) && (
+                  // Le contrôle de cohérence (ancien solde + mouvements ≠ solde
+                  // Linxo) n'était visible que dans BalanceCard, côté desktop.
+                  <span className="shrink-0 px-2 py-1 rounded-full text-caption font-semibold text-negative bg-negative/10 border border-negative/20 tabular-nums">
+                    {typeof account.ecart === 'number' ? (
+                      <>
+                        Écart{' '}
+                        <FormattedNumber
+                          value={account.ecart}
+                          style="currency"
+                          currency="EUR"
+                          signDisplay="always"
+                        />
+                      </>
+                    ) : (
+                      'À réviser'
+                    )}
+                  </span>
+                )}
+              </span>
               <span className="font-semibold tabular-nums">
                 {showBalance ? (
                   <FormattedNumber
