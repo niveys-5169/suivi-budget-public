@@ -15,8 +15,16 @@ import { fmt } from '../../../utils/format';
 import { getExpectedPaceProgress } from '../../../utils/date';
 import { MonthNavigator } from '../../shared/MonthNavigator';
 import { BankinBudgetGrid } from './BankinBudgetGrid';
+import { SegmentedControl } from '../../../ui';
 
 import { CategoryDetail } from './BankinBudgetsContainer';
+import { BudgetSortMode } from '../../../hooks/usePreferences';
+
+const SORT_SEGMENTS = [
+  { value: 'montant' as const, label: 'Montant' },
+  { value: 'alpha' as const, label: 'Alphabétique' },
+  { value: 'manual' as const, label: 'Manuel' },
+];
 
 interface Props {
   netBalance: number;
@@ -32,6 +40,9 @@ interface Props {
   onCategoryClick: (id: string) => void;
   onToggleSens?: (catId: string, current: boolean | undefined) => void;
   viewMode: 'monthly' | 'annual';
+  sortMode?: BudgetSortMode;
+  onSortModeChange?: (mode: BudgetSortMode) => void;
+  onReorder?: (orderedIds: string[]) => void;
 }
 
 export const BankinBudgetMain: React.FC<Props> = ({
@@ -48,6 +59,9 @@ export const BankinBudgetMain: React.FC<Props> = ({
   onCategoryClick,
   onToggleSens,
   viewMode,
+  sortMode = 'montant',
+  onSortModeChange,
+  onReorder,
 }) => {
   const remaining = Math.max(0, totalBudget - totalSpent);
   const isOver = totalBudget > 0 && totalSpent > totalBudget;
@@ -265,6 +279,19 @@ export const BankinBudgetMain: React.FC<Props> = ({
 
       {/* Categories sections */}
       <div className="px-4 space-y-10">
+        {/* Tri des catégories */}
+        {onSortModeChange && (incomeCategories.length > 0 || expenseCategories.length > 0) && (
+          <div className="flex items-center justify-end gap-2 px-2">
+            <span className="text-caption font-semibold text-label-tertiary">Trier :</span>
+            <SegmentedControl
+              label="Trier les catégories"
+              segments={SORT_SEGMENTS}
+              value={sortMode}
+              onChange={onSortModeChange}
+            />
+          </div>
+        )}
+
         {/* Revenus */}
         {incomeCategories.length > 0 && (
           <div className="space-y-4">
@@ -279,6 +306,8 @@ export const BankinBudgetMain: React.FC<Props> = ({
               onCategoryClick={onCategoryClick}
               onToggleSens={onToggleSens}
               expectedPct={expectedProgress}
+              isManualSort={sortMode === 'manual'}
+              onReorder={onReorder}
             />
           </div>
         )}
@@ -296,6 +325,8 @@ export const BankinBudgetMain: React.FC<Props> = ({
             onCategoryClick={onCategoryClick}
             onToggleSens={onToggleSens}
             expectedPct={expectedProgress}
+            isManualSort={sortMode === 'manual'}
+            onReorder={onReorder}
           />
         </div>
 

@@ -6,6 +6,7 @@ import { withRetry } from '../utils/withRetry';
 
 export type TransactionsViewMode = 'hightech' | 'fintech';
 export type Density = 'comfortable' | 'compact';
+export type BudgetSortMode = 'manual' | 'montant' | 'alpha';
 
 export interface UsePreferencesResult {
   dashboardCategories: string[];
@@ -16,6 +17,10 @@ export interface UsePreferencesResult {
   setPrivacyMode: (fn: (v: boolean) => boolean) => void;
   density: Density;
   setDensity: (density: Density) => void;
+  budgetSortMode: BudgetSortMode;
+  setBudgetSortMode: (mode: BudgetSortMode) => void;
+  budgetManualOrder: string[];
+  setBudgetManualOrder: (order: string[]) => void;
   /** Active la nouvelle interface (design JourX). L'ancien design reste le défaut. */
   loading: boolean;
   error: string | null;
@@ -61,6 +66,17 @@ export const usePreferences = (): UsePreferencesResult => {
       return 'comfortable';
     }
   });
+  const [budgetSortMode, setBudgetSortModeState] = useState<BudgetSortMode>(() => {
+    try {
+      const raw = localStorage.getItem('budget_sort_mode');
+      return raw === 'manual' || raw === 'alpha' ? raw : 'montant';
+    } catch {
+      return 'montant';
+    }
+  });
+  const [budgetManualOrder, setBudgetManualOrderState] = useState<string[]>(() =>
+    getFromStorage(getStorageKey(user?.uid, 'budget_manual_order'), []),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -69,6 +85,7 @@ export const usePreferences = (): UsePreferencesResult => {
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const categoriesKey = getStorageKey(user?.uid, 'dashboard_categories');
   const viewModeKey = getStorageKey(user?.uid, 'transactions_view_mode');
+  const manualOrderKey = getStorageKey(user?.uid, 'budget_manual_order');
 
   // Load from Firestore with localStorage fallback
   useEffect(() => {
@@ -90,17 +107,29 @@ export const usePreferences = (): UsePreferencesResult => {
           const categories = data.categories || [];
           const viewMode = data.transactionsViewMode || 'hightech';
           const remoteDensity: Density = data.density === 'compact' ? 'compact' : 'comfortable';
+          const remoteSortMode: BudgetSortMode =
+            data.budgetSortMode === 'manual' || data.budgetSortMode === 'alpha'
+              ? data.budgetSortMode
+              : 'montant';
+          const remoteManualOrder: string[] = Array.isArray(data.budgetManualOrder)
+            ? data.budgetManualOrder
+            : [];
 
           setDashboardCategories(categories);
           setTransactionsViewMode(viewMode);
           setDensityState(remoteDensity);
+          setBudgetSortModeState(remoteSortMode);
+          setBudgetManualOrderState(remoteManualOrder);
 
           saveToStorage(categoriesKey, categories);
           saveToStorage(viewModeKey, viewMode);
+          saveToStorage(manualOrderKey, remoteManualOrder);
           localStorage.setItem('ui_density', remoteDensity);
+          localStorage.setItem('budget_sort_mode', remoteSortMode);
         } else {
           setDashboardCategories(getFromStorage(categoriesKey, []));
           setTransactionsViewMode(getFromStorage(viewModeKey, 'hightech'));
+          setBudgetManualOrderState(getFromStorage(manualOrderKey, []));
         }
 
         setError(null);
@@ -112,14 +141,25 @@ export const usePreferences = (): UsePreferencesResult => {
             const categories = data.categories || [];
             const viewMode = data.transactionsViewMode || 'hightech';
             const remoteDensity: Density = data.density === 'compact' ? 'compact' : 'comfortable';
+            const remoteSortMode: BudgetSortMode =
+              data.budgetSortMode === 'manual' || data.budgetSortMode === 'alpha'
+                ? data.budgetSortMode
+                : 'montant';
+            const remoteManualOrder: string[] = Array.isArray(data.budgetManualOrder)
+              ? data.budgetManualOrder
+              : [];
 
             setDashboardCategories(categories);
             setTransactionsViewMode(viewMode);
             setDensityState(remoteDensity);
+            setBudgetSortModeState(remoteSortMode);
+            setBudgetManualOrderState(remoteManualOrder);
 
             saveToStorage(categoriesKey, categories);
             saveToStorage(viewModeKey, viewMode);
+            saveToStorage(manualOrderKey, remoteManualOrder);
             localStorage.setItem('ui_density', remoteDensity);
+            localStorage.setItem('budget_sort_mode', remoteSortMode);
           }
         });
 
@@ -136,7 +176,7 @@ export const usePreferences = (): UsePreferencesResult => {
     loadPreferences();
 
     return () => unsubscribeRef.current?.();
-  }, [user, categoriesKey, viewModeKey]);
+  }, [user, categoriesKey, viewModeKey, manualOrderKey]);
 
   const syncPreferences = useCallback(
     async (categories: string[], viewMode: TransactionsViewMode) => {
@@ -247,6 +287,38 @@ export const usePreferences = (): UsePreferencesResult => {
     [user],
   );
 
+  const handleSetBudgetSortMode = useCallback(
+    (next: BudgetSortMode) => {
+      setBudgetSortModeState(next);
+      localStorage.setItem('budget_sort_mode', next);
+
+      // Fire-and-forget Firestore sync; failure falls back to local persistence.
+      if (user) {
+        const preferenceRef = doc(db, 'users', user.uid, 'preferences', 'ui');
+        setDoc(preferenceRef, { budgetSortMode: next }, { merge: true }).catch((err) => {
+          console.error('>>> usePreferences: Failed to save budgetSortMode:', err);
+        });
+      }
+    },
+    [user],
+  );
+
+  const handleSetBudgetManualOrder = useCallback(
+    (next: string[]) => {
+      setBudgetManualOrderState(next);
+      saveToStorage(manualOrderKey, next);
+
+      // Fire-and-forget Firestore sync; failure falls back to local persistence.
+      if (user) {
+        const preferenceRef = doc(db, 'users', user.uid, 'preferences', 'ui');
+        setDoc(preferenceRef, { budgetManualOrder: next }, { merge: true }).catch((err) => {
+          console.error('>>> usePreferences: Failed to save budgetManualOrder:', err);
+        });
+      }
+    },
+    [user, manualOrderKey],
+  );
+
   return {
     dashboardCategories,
     setDashboardCategories: handleSetCategories,
@@ -256,6 +328,10 @@ export const usePreferences = (): UsePreferencesResult => {
     setPrivacyMode: handleSetPrivacyMode,
     density,
     setDensity: handleSetDensity,
+    budgetSortMode,
+    setBudgetSortMode: handleSetBudgetSortMode,
+    budgetManualOrder,
+    setBudgetManualOrder: handleSetBudgetManualOrder,
     loading,
     error,
     isSyncing,
