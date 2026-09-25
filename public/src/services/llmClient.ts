@@ -331,15 +331,22 @@ export async function callLLM(
   systemPrompt: string,
   question: string,
   history: ChatMessage[] = [],
+  onWebUnavailable?: (message: string) => void,
 ): Promise<string> {
   // Recherche web (Gemini, OpenRouter) : si le fournisseur la refuse (modèle
   // incompatible 400, crédits insuffisants 402), on retente sans web plutôt
-  // que de priver l'utilisateur de réponse.
+  // que de priver l'utilisateur de réponse, et on le signale via le callback.
   if (config.provider === 'gemini' || config.provider === 'openrouter') {
     try {
       return await callProvider(config, systemPrompt, question, history, true);
     } catch (err) {
       if (!(err instanceof AIError && (err.status === 400 || err.status === 402))) throw err;
+      const label = PROVIDER_LABELS[config.provider];
+      const reason =
+        err.status === 402
+          ? `crédits ${label} insuffisants pour la recherche web`
+          : `modèle ${label} incompatible avec la recherche web`;
+      onWebUnavailable?.(`Réponse sans accès internet : ${reason}.`);
     }
   }
   return callProvider(config, systemPrompt, question, history, false);

@@ -169,9 +169,19 @@ describe('callLLM — recherche web', () => {
     fetchMock
       .mockResolvedValueOnce(mockResponse(402, { error: { message: 'Insufficient credits' } }))
       .mockResolvedValueOnce(mockResponse(200, { choices: [{ message: { content: 'ok' } }] }));
-    const res = await callLLM({ ...openaiConfig, provider: 'openrouter' }, 'sys', 'q');
+    const onWebUnavailable = vi.fn();
+    const res = await callLLM(
+      { ...openaiConfig, provider: 'openrouter' },
+      'sys',
+      'q',
+      [],
+      onWebUnavailable,
+    );
     expect(res).toBe('ok');
     expect(bodyOf(1).plugins).toBeUndefined();
+    expect(onWebUnavailable).toHaveBeenCalledWith(
+      'Réponse sans accès internet : crédits OpenRouter insuffisants pour la recherche web.',
+    );
   });
 
   it("n'envoie pas d'option web à OpenAI", async () => {

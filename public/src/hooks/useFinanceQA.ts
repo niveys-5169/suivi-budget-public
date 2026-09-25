@@ -110,7 +110,11 @@ export function useFinanceQA() {
         } else {
           const systemPrompt = buildSystemPrompt(summary ?? EMPTY_FINANCIAL_SUMMARY, wealth);
           const recentHistory = historyRef.current.slice(-12);
-          answer = await callLLM(config, systemPrompt, question, recentHistory);
+          let webWarning = null as string | null;
+          answer = await callLLM(config, systemPrompt, question, recentHistory, (msg) => {
+            webWarning = msg;
+            toast.error(msg);
+          });
 
           // Garde anti-troncature : une seule relance si la réponse semble
           // coupée en plein milieu (limite de tokens, réseau…). En cas d'échec
@@ -132,6 +136,7 @@ export function useFinanceQA() {
               // On conserve la réponse partielle plutôt que rien.
             }
           }
+          if (webWarning) answer = `${answer}\n\n_⚠ ${webWarning}_`;
         }
 
         const userMsg: ChatMessage = { role: 'user', content: question };
