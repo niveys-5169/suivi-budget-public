@@ -20,6 +20,11 @@ vi.mock('../../../public/src/hooks/useSyncTransactions', () => ({
   useSyncTransactions: () => ({ sync: vi.fn(), isSyncing: false }),
 }));
 
+const saveAISettingsMock = vi.fn();
+vi.mock('../../../public/src/services/firebase-api', () => ({
+  saveAISettings: (...args: unknown[]) => saveAISettingsMock(...args),
+}));
+
 describe('MSettingsModal', () => {
   const onCloseMock = vi.fn();
 
@@ -62,37 +67,67 @@ describe('MSettingsModal', () => {
     });
   });
 
-  it('renders and saves AI configuration', async () => {
+  it('enregistre clé, modèle et URL par fournisseur (ancien format migré)', async () => {
     localStorage.setItem('ai_provider', 'openai');
     localStorage.setItem('ai_api_key', 'old-key');
+    saveAISettingsMock.mockResolvedValue(undefined);
 
     render(<MSettingsModal isOpen onClose={onCloseMock} />);
-
     expect(screen.getByText('Assistant IA')).toBeInTheDocument();
 
-    expect(screen.getByLabelText('Clé API')).toHaveValue('old-key');
+    // L'ancienne clé OpenAI a été migrée dans le bloc OpenAI.
+    fireEvent.click(screen.getByRole('button', { name: /OpenAI/ }));
+    expect(screen.getByLabelText('Clé API OpenAI')).toHaveValue('old-key');
 
-    // Re-query each field (<Sheet> remounts its subtree between renders under
-    // the framer-motion test mock). Change the provider last so the model placeholder
-    // stays 'gpt-4o-mini' while we target it.
-    fireEvent.change(screen.getByLabelText('Clé API'), { target: { value: 'new-key' } });
+    // Re-query each field: <Sheet> remounts its subtree under the framer-motion mock.
+    fireEvent.click(screen.getByRole('button', { name: /NVIDIA/ }));
+    fireEvent.change(screen.getByLabelText('Clé API NVIDIA'), { target: { value: 'nv-key' } });
     fireEvent.change(screen.getByLabelText('Modèle'), {
-      target: { value: 'gemini-2.0-flash-exp' },
+      target: { value: 'meta/llama-3.3-70b-instruct' },
     });
-    fireEvent.change(screen.getByLabelText('URL de base'), {
-      target: { value: 'https://new-base-url' },
+    fireEvent.change(screen.getByLabelText('URL de l’endpoint'), {
+      target: { value: 'https://nv.example/v1' },
     });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'gemini' } });
 
-    // Assistant IA = 1st save button
     fireEvent.click(screen.getAllByRole('button', { name: /Enregistrer/i })[0]!);
 
     await waitFor(() => {
-      expect(localStorage.getItem('ai_provider')).toBe('gemini');
-      expect(localStorage.getItem('ai_api_key')).toBe('new-key');
-      expect(localStorage.getItem('ai_model')).toBe('gemini-2.0-flash-exp');
-      expect(localStorage.getItem('ai_base_url')).toBe('https://new-base-url');
-      expect(screen.getAllByText('Enregistré')[0]).toBeInTheDocument();
+      expect(screen.getByText('Enregistré et synchronisé.')).toBeInTheDocument();
     });
+    const stored = JSON.parse(localStorage.getItem('ai_settings')!);
+    expect(stored.providers.openai.apiKey).toBe('old-key');
+    expect(stored.providers.nvidia).toEqual({
+      apiKey: 'nv-key',
+      model: 'meta/llama-3.3-70b-instruct',
+      baseUrl: 'https://nv.example/v1',
+    });
+    expect(localStorage.getItem('ai_api_key')).toBeNull();
+    expect(saveAISettingsMock).toHaveBeenCalledWith(stored);
+  });
+
+  it('refuse une URL d’endpoint invalide', () => {
+    render(<MSettingsModal isOpen onClose={onCloseMock} />);
+    fireEvent.change(screen.getByLabelText('URL de l’endpoint'), {
+      target: { value: 'pas une url' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: /Enregistrer/i })[0]!);
+
+    expect(screen.getByText('URL invalide (http(s)://…).')).toBeInTheDocument();
+    expect(localStorage.getItem('ai_settings')).toBeNull();
+    expect(saveAISettingsMock).not.toHaveBeenCalled();
+  });
+
+  it('signale un enregistrement local seulement si la synchro échoue', async () => {
+    saveAISettingsMock.mockRejectedValue(new Error('hors ligne'));
+    render(<MSettingsModal isOpen onClose={onCloseMock} />);
+    fireEvent.change(screen.getByLabelText('Clé API Gemini'), { target: { value: 'g-key' } });
+    fireEvent.click(screen.getAllByRole('button', { name: /Enregistrer/i })[0]!);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Enregistré sur cet appareil uniquement : hors ligne'),
+      ).toBeInTheDocument();
+    });
+    expect(JSON.parse(localStorage.getItem('ai_settings')!).providers.gemini.apiKey).toBe('g-key');
   });
 });

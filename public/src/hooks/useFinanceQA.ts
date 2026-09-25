@@ -1,9 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTransactions } from './useTransactions';
 import { useBudget } from './useBudget';
 import { usePatrimoine } from './usePatrimoine';
 import { usePortfolio } from './usePortfolio';
-import { readAIConfig } from '../utils/aiConfig';
+import { readAISettings, configuredProviders, toAIConfig } from '../utils/aiConfig';
 import {
   buildFinancialSummary,
   buildSystemPrompt,
@@ -11,7 +11,7 @@ import {
   type FinancialSummary,
 } from '../utils/financeQAAnalysis';
 import { buildWealthSummary } from '../utils/wealthQAAnalysis';
-import { callLLM, type ChatMessage } from '../services/llmClient';
+import { callLLM, callLLMWithFallback, type ChatMessage } from '../services/llmClient';
 import { toast } from '../lib/toast';
 
 /** Résumé financier vide : permet de répondre sur le seul patrimoine, sans transactions. */
@@ -56,7 +56,7 @@ function spliceContinuation(first: string, next: string): string {
 
 /** Gère la conversation avec l'assistant IA financier (Gemini/OpenAI/OpenRouter/Nvidia) et l'historique de chat. */
 export function useFinanceQA() {
-  const { transactions } = useTransactions();
+  const { transactions, requestFullLoad } = useTransactions();
   const { budgets } = useBudget();
   const {
     placements,
@@ -71,17 +71,24 @@ export function useFinanceQA() {
   const [loading, setLoading] = useState(false);
   const historyRef = useRef<ChatMessage[]>([]);
 
+  // Par défaut seuls les 18 derniers mois sont chargés : l'assistant doit
+  // raisonner sur tout l'historique.
+  useEffect(() => {
+    requestFullLoad();
+  }, [requestFullLoad]);
+
   const send = useCallback(
     async (question: string) => {
       if (!question.trim() || loading) return;
       setMessages((prev) => [...prev, { role: 'user', content: question }]);
       setLoading(true);
       try {
-        const config = readAIConfig();
+        const settings = readAISettings();
 
-        if (!config.apiKey) throw new Error('Clé API non configurée. Va dans ⚙ pour configurer.');
+        if (!configuredProviders(settings).length)
+          throw new Error('Clé API non configurée. Va dans ⚙ pour configurer.');
 
-        const summary = buildFinancialSummary(transactions, budgets);
+        const summary = buildFinancialSummary(transactions, budgets, question);
         const wealth = buildWealthSummary({
           placements,
           savingsBalances,
@@ -104,7 +111,19 @@ export function useFinanceQA() {
         } else {
           const systemPrompt = buildSystemPrompt(summary ?? EMPTY_FINANCIAL_SUMMARY, wealth);
           const recentHistory = historyRef.current.slice(-12);
-          answer = await callLLM(config, systemPrompt, question, recentHistory);
+          const warnings: string[] = [];
+          const result = await callLLMWithFallback(
+            settings,
+            systemPrompt,
+            question,
+            recentHistory,
+            (msg) => {
+              if (warnings.includes(msg)) return;
+              warnings.push(msg);
+              toast.error(msg);
+            },
+          );
+          answer = result.text;
 
           // Garde anti-troncature : une seule relance si la réponse semble
           // coupée en plein milieu (limite de tokens, réseau…). En cas d'échec
@@ -112,7 +131,7 @@ export function useFinanceQA() {
           if (isAnswerProbablyTruncated(answer)) {
             try {
               const continuation = await callLLM(
-                config,
+                toAIConfig(settings, result.provider),
                 systemPrompt,
                 "Ta réponse précédente a été coupée en plein milieu. Termine-la : reprends la dernière phrase exactement où elle s'est arrêtée, en français, sans rien répéter ni ajouter d'introduction. Réponds en 5 lignes maximum.",
                 [
@@ -126,6 +145,7 @@ export function useFinanceQA() {
               // On conserve la réponse partielle plutôt que rien.
             }
           }
+          for (const w of warnings) answer = `${answer}\n\n_⚠ ${w}_`;
         }
 
         const userMsg: ChatMessage = { role: 'user', content: question };

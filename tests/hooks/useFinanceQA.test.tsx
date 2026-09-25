@@ -2,8 +2,10 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { useFinanceQA, ChatMessage } from '../../public/src/hooks/useFinanceQA';
 
+const requestFullLoad = vi.fn();
+
 vi.mock('../../public/src/hooks/useTransactions', () => ({
-  useTransactions: () => ({ transactions: [] }),
+  useTransactions: () => ({ transactions: [], requestFullLoad }),
 }));
 
 vi.mock('../../public/src/hooks/useBudget', () => ({
@@ -26,5 +28,10 @@ describe('useFinanceQA', () => {
     });
 
     expect(result.current.messages).toEqual(initialMsgs);
+  });
+
+  it("demande le chargement de tout l'historique des transactions", () => {
+    renderHook(() => useFinanceQA());
+    expect(requestFullLoad).toHaveBeenCalled();
   });
 });
