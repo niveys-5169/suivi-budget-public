@@ -1,5 +1,13 @@
-import type { AIConfig, AIProvider } from '../utils/aiConfig';
+import {
+  PROVIDER_META,
+  configuredProviders,
+  toAIConfig,
+  type AIConfig,
+  type AIProvider,
+  type AISettings,
+} from '../utils/aiConfig';
 import type { FinancialSummary } from '../utils/financeQAAnalysis';
+import { searchWeb as braveSearch } from './webSearch';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -12,10 +20,10 @@ export const GEMINI_MODELS = [
   'gemini-1.5-flash',
   'gemini-3.1-flash-lite',
 ];
-export const OPENAI_MODEL = 'gpt-4o-mini';
-export const OPENROUTER_DEFAULT_MODEL = 'google/gemini-2.0-flash-001';
-export const NVIDIA_DEFAULT_MODEL = 'meta/llama-3.1-8b-instruct';
-export const NVIDIA_DEFAULT_BASE_URL = 'https://integrate.api.nvidia.com/v1';
+export const OPENAI_MODEL = PROVIDER_META.openai.defaultModel;
+export const OPENROUTER_DEFAULT_MODEL = PROVIDER_META.openrouter.defaultModel;
+export const NVIDIA_DEFAULT_MODEL = PROVIDER_META.nvidia.defaultModel;
+export const NVIDIA_DEFAULT_BASE_URL = PROVIDER_META.nvidia.defaultBaseUrl;
 
 /** Délai maximal d'attente d'une réponse LLM avant abandon (ms). */
 export const AI_REQUEST_TIMEOUT_MS = 30_000;
@@ -41,14 +49,46 @@ interface AIErrorResponse {
   error?: { message?: string };
 }
 
+interface OpenAIToolCall {
+  id: string;
+  type: 'function';
+  function: { name: string; arguments: string };
+}
+
+interface OpenAIMessage {
+  role: string;
+  content: string | null;
+  tool_calls?: OpenAIToolCall[];
+  tool_call_id?: string;
+}
+
 interface OpenAIRequestBody {
   model: string;
-  messages: { role: string; content: string }[];
+  messages: OpenAIMessage[];
   max_tokens: number;
   temperature?: number;
   top_p?: number;
   plugins?: { id: string }[];
+  tools?: unknown[];
+  tool_choice?: 'auto';
 }
+
+/** Outil de recherche web exposé aux modèles qui gèrent le tool calling. */
+const WEB_SEARCH_TOOL = {
+  type: 'function',
+  function: {
+    name: 'recherche_web',
+    description:
+      "Recherche sur internet des informations à jour (taux d'épargne, inflation, cours de bourse, actualité, fiscalité…). Ne sert pas pour les données personnelles de l'utilisateur, déjà fournies.",
+    parameters: {
+      type: 'object',
+      properties: { requete: { type: 'string', description: 'Requête de recherche.' } },
+      required: ['requete'],
+    },
+  },
+};
+/** Nombre maximal d'allers-retours outil → modèle avant réponse forcée. */
+const MAX_TOOL_ROUNDS = 3;
 
 /** Libellés lisibles par fournisseur, utilisés dans les messages d'erreur. */
 const PROVIDER_LABELS: Record<AIProvider, string> = {
@@ -200,6 +240,11 @@ export async function callGemini(
   };
 
   const label = PROVIDER_LABELS.gemini;
+  const baseUrl = (config.baseUrl || PROVIDER_META.gemini.defaultBaseUrl).replace(/\/+$/, '');
+  // Le modèle choisi passe en premier, la liste intégrée sert de secours.
+  const models = config.model
+    ? [config.model, ...GEMINI_MODELS.filter((m) => m !== config.model)]
+    : GEMINI_MODELS;
 
   // Un « essai » = parcours de la liste de modèles de secours. Le retry externe
   // ne relance que sur erreur transitoire (429/5xx/réseau) ; les erreurs d'auth
@@ -207,8 +252,8 @@ export async function callGemini(
   return requestWithRetry(async () => {
     let lastError = new AIError(`Aucun modèle ${label} disponible.`);
 
-    for (const model of GEMINI_MODELS) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    for (const model of models) {
+      const url = `${baseUrl}/models/${model}:generateContent`;
       const resp = await fetchWithTimeout(
         url,
         {
@@ -256,6 +301,8 @@ export interface CallOptions {
   top_p?: number;
   /** OpenRouter uniquement : active le plugin de recherche web. */
   webSearch?: boolean;
+  /** Expose l'outil `recherche_web` au modèle (tool calling) et l'exécute. */
+  searchWeb?: (query: string) => Promise<string>;
 }
 
 export async function callOpenAICompatible(
@@ -272,9 +319,10 @@ export async function callOpenAICompatible(
     temperature = 0.2,
     top_p = 0.8,
     webSearch = false,
+    searchWeb,
   } = options;
 
-  const messages = [
+  const messages: OpenAIMessage[] = [
     { role: 'system', content: systemPrompt },
     ...history.map((msg) => ({ role: msg.role, content: msg.content })),
     { role: 'user', content: question },
@@ -283,42 +331,72 @@ export async function callOpenAICompatible(
   const url = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
   const label = PROVIDER_LABELS[config.provider] ?? 'IA';
 
-  const body: OpenAIRequestBody = {
-    model,
-    messages,
-    max_tokens: model.includes('nvidia') || baseUrl.includes('nvidia') ? 1024 : 2048,
-    temperature,
-    top_p,
-    ...(webSearch ? { plugins: [{ id: 'web' }] } : {}),
+  const maxTokens = model.includes('nvidia') || baseUrl.includes('nvidia') ? 1024 : 2048;
+
+  const request = (withTools: boolean) => {
+    const body: OpenAIRequestBody = {
+      model,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+      top_p,
+      ...(webSearch ? { plugins: [{ id: 'web' }] } : {}),
+      ...(withTools ? { tools: [WEB_SEARCH_TOOL], tool_choice: 'auto' as const } : {}),
+    };
+
+    return requestWithRetry(async () => {
+      const resp = await fetchWithTimeout(
+        url,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            Authorization: `Bearer ${config.apiKey}`,
+            ...extraHeaders,
+          },
+          body: JSON.stringify(body),
+        },
+        label,
+      );
+
+      if (!resp.ok) {
+        const err = (await resp.json().catch(() => ({}))) as AIErrorResponse;
+        const { message, retryable } = describeHttpError(resp.status, label, err.error?.message);
+        throw new AIError(message, { retryable, status: resp.status });
+      }
+
+      const data = await resp.json();
+      return data?.choices?.[0]?.message as OpenAIMessage | undefined;
+    });
   };
 
-  return requestWithRetry(async () => {
-    const resp = await fetchWithTimeout(
-      url,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          Authorization: `Bearer ${config.apiKey}`,
-          ...extraHeaders,
-        },
-        body: JSON.stringify(body),
-      },
-      label,
-    );
+  // Boucle de tool calling : le modèle peut demander des recherches web, dont
+  // on lui renvoie les résultats, jusqu'à MAX_TOOL_ROUNDS fois.
+  for (let round = 0; ; round++) {
+    const withTools = !!searchWeb && round < MAX_TOOL_ROUNDS;
+    const message = await request(withTools);
+    const toolCalls = message?.tool_calls ?? [];
 
-    if (!resp.ok) {
-      const err = (await resp.json().catch(() => ({}))) as AIErrorResponse;
-      const { message, retryable } = describeHttpError(resp.status, label, err.error?.message);
-      throw new AIError(message, { retryable, status: resp.status });
+    if (withTools && searchWeb && toolCalls.length) {
+      messages.push({ role: 'assistant', content: message?.content ?? '', tool_calls: toolCalls });
+      for (const call of toolCalls) {
+        let result: string;
+        try {
+          const { requete } = JSON.parse(call.function.arguments || '{}') as { requete?: string };
+          result = requete ? await searchWeb(requete) : 'Requête vide.';
+        } catch (err) {
+          result = `Recherche impossible : ${err instanceof Error ? err.message : 'erreur inconnue'}.`;
+        }
+        messages.push({ role: 'tool', tool_call_id: call.id, content: result });
+      }
+      continue;
     }
 
-    const data = await resp.json();
-    const text = data?.choices?.[0]?.message?.content;
+    const text = message?.content;
     if (!text) throw new AIError(`Réponse vide de ${label}. Réessaie ou change de modèle.`);
     return sanitizeLLMText(text);
-  });
+  }
 }
 
 /**
@@ -333,12 +411,17 @@ export async function callLLM(
   history: ChatMessage[] = [],
   onWebUnavailable?: (message: string) => void,
 ): Promise<string> {
-  // Recherche web (Gemini, OpenRouter) : si le fournisseur la refuse (modèle
-  // incompatible 400, crédits insuffisants 402), on retente sans web plutôt
-  // que de priver l'utilisateur de réponse, et on le signale via le callback.
-  if (config.provider === 'gemini' || config.provider === 'openrouter') {
+  // Recherche web (Gemini, OpenRouter, NVIDIA via Brave Search) : si le
+  // fournisseur la refuse (modèle incompatible 400, crédits insuffisants 402),
+  // on retente sans web plutôt que de priver l'utilisateur de réponse, et on
+  // le signale via le callback.
+  if (config.provider === 'nvidia' && !config.searchApiKey) {
+    onWebUnavailable?.(
+      'Réponse sans accès internet : ajoute une clé Brave Search dans ⚙ pour NVIDIA.',
+    );
+  } else if (config.provider !== 'openai') {
     try {
-      return await callProvider(config, systemPrompt, question, history, true);
+      return await callProvider(config, systemPrompt, question, history, true, onWebUnavailable);
     } catch (err) {
       if (!(err instanceof AIError && (err.status === 400 || err.status === 402))) throw err;
       const label = PROVIDER_LABELS[config.provider];
@@ -349,7 +432,7 @@ export async function callLLM(
       onWebUnavailable?.(`Réponse sans accès internet : ${reason}.`);
     }
   }
-  return callProvider(config, systemPrompt, question, history, false);
+  return callProvider(config, systemPrompt, question, history, false, onWebUnavailable);
 }
 
 async function callProvider(
@@ -358,6 +441,7 @@ async function callProvider(
   question: string,
   history: ChatMessage[],
   webSearch: boolean,
+  onWebUnavailable?: (message: string) => void,
 ): Promise<string> {
   if (config.provider === 'gemini') {
     return callGemini(config, systemPrompt, history, question, webSearch);
@@ -371,7 +455,7 @@ async function callProvider(
   };
 
   if (config.provider === 'openrouter') {
-    options.baseUrl = config.baseUrl || 'https://openrouter.ai/api/v1';
+    options.baseUrl = config.baseUrl || PROVIDER_META.openrouter.defaultBaseUrl;
     options.model = config.model || OPENROUTER_DEFAULT_MODEL;
     options.extraHeaders = { 'HTTP-Referer': window.location.origin, 'X-Title': 'Suivi Budget' };
   } else if (config.provider === 'nvidia') {
@@ -385,12 +469,65 @@ async function callProvider(
         ? '/api/ai/nvidia/v1'
         : config.baseUrl || NVIDIA_DEFAULT_BASE_URL;
     options.model = config.model || NVIDIA_DEFAULT_MODEL;
+    // NVIDIA ne cherche pas lui-même : il demande l'outil, l'app interroge Brave.
+    options.webSearch = false;
+    if (webSearch) {
+      options.searchWeb = async (query) => {
+        try {
+          return await braveSearch(query, config.searchApiKey);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : 'erreur inconnue';
+          onWebUnavailable?.(`Recherche web impossible : ${reason}.`);
+          throw err;
+        }
+      };
+    }
   } else if (config.provider === 'openai') {
-    options.baseUrl = config.baseUrl || 'https://api.openai.com/v1';
+    options.baseUrl = config.baseUrl || PROVIDER_META.openai.defaultBaseUrl;
     options.model = config.model || OPENAI_MODEL;
   }
 
   return callOpenAICompatible(config, systemPrompt, history, question, options);
+}
+
+/**
+ * Appelle les fournisseurs configurés dans l'ordre de secours (Gemini →
+ * NVIDIA → OpenRouter → OpenAI) jusqu'au premier qui répond. Les avertissements
+ * (web indisponible…) ne sont relayés que pour le fournisseur qui a répondu,
+ * suivis d'une mention si un secours a pris le relais.
+ */
+export async function callLLMWithFallback(
+  settings: AISettings,
+  systemPrompt: string,
+  question: string,
+  history: ChatMessage[] = [],
+  onWarning?: (message: string) => void,
+): Promise<{ text: string; provider: AIProvider }> {
+  const chain = configuredProviders(settings);
+  if (!chain.length) throw new AIError('Clé API non configurée. Va dans ⚙ pour configurer.');
+
+  const failures: string[] = [];
+  for (const provider of chain) {
+    const warnings: string[] = [];
+    try {
+      const text = await callLLM(
+        toAIConfig(settings, provider),
+        systemPrompt,
+        question,
+        history,
+        (w) => warnings.push(w),
+      );
+      warnings.forEach((w) => onWarning?.(w));
+      if (failures.length) {
+        onWarning?.(`Réponse fournie par ${PROVIDER_LABELS[provider]} (${failures.join(' ; ')}).`);
+      }
+      return { text, provider };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'erreur inconnue';
+      failures.push(`${PROVIDER_LABELS[provider]} : ${reason}`);
+    }
+  }
+  throw new AIError(`Aucun fournisseur IA n'a répondu. ${failures.join(' ; ')}`);
 }
 
 export type { FinancialSummary };

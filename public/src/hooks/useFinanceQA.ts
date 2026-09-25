@@ -3,7 +3,7 @@ import { useTransactions } from './useTransactions';
 import { useBudget } from './useBudget';
 import { usePatrimoine } from './usePatrimoine';
 import { usePortfolio } from './usePortfolio';
-import { readAIConfig } from '../utils/aiConfig';
+import { readAISettings, configuredProviders, toAIConfig } from '../utils/aiConfig';
 import {
   buildFinancialSummary,
   buildSystemPrompt,
@@ -11,7 +11,7 @@ import {
   type FinancialSummary,
 } from '../utils/financeQAAnalysis';
 import { buildWealthSummary } from '../utils/wealthQAAnalysis';
-import { callLLM, type ChatMessage } from '../services/llmClient';
+import { callLLM, callLLMWithFallback, type ChatMessage } from '../services/llmClient';
 import { toast } from '../lib/toast';
 
 /** Résumé financier vide : permet de répondre sur le seul patrimoine, sans transactions. */
@@ -83,9 +83,10 @@ export function useFinanceQA() {
       setMessages((prev) => [...prev, { role: 'user', content: question }]);
       setLoading(true);
       try {
-        const config = readAIConfig();
+        const settings = readAISettings();
 
-        if (!config.apiKey) throw new Error('Clé API non configurée. Va dans ⚙ pour configurer.');
+        if (!configuredProviders(settings).length)
+          throw new Error('Clé API non configurée. Va dans ⚙ pour configurer.');
 
         const summary = buildFinancialSummary(transactions, budgets, question);
         const wealth = buildWealthSummary({
@@ -110,11 +111,19 @@ export function useFinanceQA() {
         } else {
           const systemPrompt = buildSystemPrompt(summary ?? EMPTY_FINANCIAL_SUMMARY, wealth);
           const recentHistory = historyRef.current.slice(-12);
-          let webWarning = null as string | null;
-          answer = await callLLM(config, systemPrompt, question, recentHistory, (msg) => {
-            webWarning = msg;
-            toast.error(msg);
-          });
+          const warnings: string[] = [];
+          const result = await callLLMWithFallback(
+            settings,
+            systemPrompt,
+            question,
+            recentHistory,
+            (msg) => {
+              if (warnings.includes(msg)) return;
+              warnings.push(msg);
+              toast.error(msg);
+            },
+          );
+          answer = result.text;
 
           // Garde anti-troncature : une seule relance si la réponse semble
           // coupée en plein milieu (limite de tokens, réseau…). En cas d'échec
@@ -122,7 +131,7 @@ export function useFinanceQA() {
           if (isAnswerProbablyTruncated(answer)) {
             try {
               const continuation = await callLLM(
-                config,
+                toAIConfig(settings, result.provider),
                 systemPrompt,
                 "Ta réponse précédente a été coupée en plein milieu. Termine-la : reprends la dernière phrase exactement où elle s'est arrêtée, en français, sans rien répéter ni ajouter d'introduction. Réponds en 5 lignes maximum.",
                 [
@@ -136,7 +145,7 @@ export function useFinanceQA() {
               // On conserve la réponse partielle plutôt que rien.
             }
           }
-          if (webWarning) answer = `${answer}\n\n_⚠ ${webWarning}_`;
+          for (const w of warnings) answer = `${answer}\n\n_⚠ ${w}_`;
         }
 
         const userMsg: ChatMessage = { role: 'user', content: question };

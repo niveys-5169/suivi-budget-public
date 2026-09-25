@@ -4,8 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePWAUpdate } from '../../hooks/usePWAUpdate';
 import { usePreferences } from '../../hooks/usePreferences';
 import { useSyncTransactions } from '../../hooks/useSyncTransactions';
-import { PROVIDER_DEFAULTS } from '../constants/aiProviders';
-import { saveAISettings } from '../../services/firebase-api';
+import { AIProvidersForm } from '../../components/advanced/AIProvidersForm';
 import {
   Button,
   Card,
@@ -15,7 +14,6 @@ import {
   ListItem,
   Section,
   SegmentedControl,
-  Select,
   Sheet,
   Stack,
   Text,
@@ -31,13 +29,6 @@ const DENSITIES = [
   { value: 'comfortable', label: 'Confort' },
   { value: 'compact', label: 'Compact' },
 ] as const;
-
-const PROVIDERS = [
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'nvidia', label: 'Nvidia' },
-];
 
 export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose }) => {
   const { signOut } = useAuth();
@@ -59,28 +50,6 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
     localStorage.setItem('github_repo', githubConfig.repo);
     setGithubSaveStatus('saved');
     setTimeout(() => setGithubSaveStatus('idle'), 2000);
-  };
-
-  const [aiConfig, setAiConfig] = useState(() => ({
-    provider: localStorage.getItem('ai_provider') || 'gemini',
-    apiKey: localStorage.getItem('ai_api_key') || '',
-    model: localStorage.getItem('ai_model') || '',
-    baseUrl: localStorage.getItem('ai_base_url') || '',
-  }));
-  const [aiSaveStatus, setAiSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-
-  const getModelPlaceholder = () => PROVIDER_DEFAULTS[aiConfig.provider] || '';
-
-  const saveAiConfig = () => {
-    setAiSaveStatus('saving');
-    localStorage.setItem('ai_provider', aiConfig.provider);
-    localStorage.setItem('ai_api_key', aiConfig.apiKey);
-    const finalModel = aiConfig.model.trim() || getModelPlaceholder();
-    localStorage.setItem('ai_model', finalModel);
-    localStorage.setItem('ai_base_url', aiConfig.baseUrl);
-    saveAISettings(aiConfig.provider, aiConfig.apiKey, finalModel, aiConfig.baseUrl);
-    setAiSaveStatus('saved');
-    setTimeout(() => setAiSaveStatus('idle'), 2000);
   };
 
   const handleClearCache = async () => {
@@ -140,63 +109,7 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
 
           <Section title="Assistant IA">
             <Card>
-              <Stack gap="md">
-                <Field label="Fournisseur">
-                  {(p) => (
-                    <Select
-                      {...p}
-                      value={aiConfig.provider}
-                      onChange={(e) =>
-                        setAiConfig((prev) => ({ ...prev, provider: e.target.value }))
-                      }
-                    >
-                      {PROVIDERS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </Select>
-                  )}
-                </Field>
-                <Field label="Clé API">
-                  {(p) => (
-                    <Input
-                      {...p}
-                      type="password"
-                      autoComplete="off"
-                      value={aiConfig.apiKey}
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
-                    />
-                  )}
-                </Field>
-                <Field label="Modèle" hint={`Par défaut : ${getModelPlaceholder()}`}>
-                  {(p) => (
-                    <Input
-                      {...p}
-                      value={aiConfig.model}
-                      placeholder={getModelPlaceholder()}
-                      autoComplete="off"
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, model: e.target.value }))}
-                    />
-                  )}
-                </Field>
-                <Field label="URL de base" hint="Optionnelle.">
-                  {(p) => (
-                    <Input
-                      {...p}
-                      value={aiConfig.baseUrl}
-                      inputMode="url"
-                      autoComplete="off"
-                      onChange={(e) =>
-                        setAiConfig((prev) => ({ ...prev, baseUrl: e.target.value }))
-                      }
-                    />
-                  )}
-                </Field>
-                <Button variant="primary" block onClick={saveAiConfig}>
-                  {aiSaveStatus === 'saved' ? 'Enregistré' : 'Enregistrer'}
-                </Button>
-              </Stack>
+              <AIProvidersForm />
             </Card>
           </Section>
 

@@ -10,6 +10,7 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { db, auth, functions } from './firebase';
 import { withRetry } from '../utils/withRetry';
+import { migrateLegacyAISettings, sanitizeAISettings, type AISettings } from '../utils/aiConfig';
 
 export const collectionRef = (db: Firestore, name: string) => collection(db, name);
 export const docRef = (db: Firestore, col: string, id: string) => doc(db, col, id);
@@ -58,20 +59,26 @@ export async function saveGitHubSettings(owner: string, repo: string) {
   }
 }
 
-export async function getAISettings() {
+/**
+ * Réglages IA synchronisés (Firestore `user_settings.ai_settings`). Migre
+ * l'ancien format à plat (`ai_provider`, `ai_api_key`…) s'il est seul présent.
+ */
+export async function getAISettings(): Promise<AISettings | null> {
   const userId = auth.currentUser?.uid;
   if (!userId) return null;
   try {
     const docSnap = await getDoc(doc(db, 'user_settings', userId));
     if (docSnap.exists()) {
       const data = docSnap.data();
+      if (data.ai_settings) return sanitizeAISettings(data.ai_settings);
       if (data.ai_provider) {
-        return {
-          provider: data.ai_provider as string,
-          apiKey: data.ai_api_key || '',
-          model: (data.ai_model as string) || null,
-          baseUrl: (data.ai_base_url as string) || null,
-        };
+        return migrateLegacyAISettings({
+          provider: data.ai_provider,
+          apiKey: data.ai_api_key,
+          model: data.ai_model,
+          baseUrl: data.ai_base_url,
+          searchApiKey: data.search_api_key,
+        });
       }
     }
   } catch (e) {
@@ -80,31 +87,17 @@ export async function getAISettings() {
   return null;
 }
 
-export async function saveAISettings(
-  provider: string,
-  apiKey: string,
-  model: string,
-  baseUrl: string,
-) {
+/** Enregistre les réglages IA dans Firestore. Lève en cas d'échec. */
+export async function saveAISettings(settings: AISettings): Promise<void> {
   const userId = auth.currentUser?.uid;
-  if (!userId) return;
-  try {
-    await withRetry(() =>
-      setDoc(
-        doc(db, 'user_settings', userId),
-        {
-          ai_provider: provider,
-          ai_api_key: apiKey,
-          ai_model: model,
-          ai_base_url: baseUrl,
-          updated_at: new Date(),
-        },
-        { merge: true },
-      ),
-    );
-  } catch (e) {
-    console.warn('Error saving AI settings:', e);
-  }
+  if (!userId) throw new Error('Non connecté : réglages enregistrés sur cet appareil seulement.');
+  await withRetry(() =>
+    setDoc(
+      doc(db, 'user_settings', userId),
+      { ai_settings: sanitizeAISettings(settings), updated_at: new Date() },
+      { merge: true },
+    ),
+  );
 }
 
 /**
