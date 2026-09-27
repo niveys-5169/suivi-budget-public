@@ -7,6 +7,7 @@ import { useBudgetExclusions } from '../../../hooks/useBudgetExclusions';
 import { useTransactions } from '../../../hooks/useTransactions';
 import { useBalances } from '../../../hooks/useBalances';
 import { usePreferences } from '../../../hooks/usePreferences';
+import { sortBudgetCategories, mergeManualOrder } from '../../../utils/budgetSort';
 import { useAnnualEnvelopes } from '../../../hooks/useAnnualEnvelopes';
 import { updateBudget } from '../../../api/budgets';
 import { BankinBudgetMain } from './BankinBudgetMain';
@@ -59,13 +60,9 @@ export const BankinBudgetsContainer: React.FC = () => {
       .sort();
   }, [balances]);
 
-  // Fusionne l'ordre d'une grille (revenus OU dépenses) avec l'ordre manuel global,
-  // sans perturber l'ordre déjà mémorisé pour l'autre grille.
   const handleReorder = useCallback(
     (reorderedIds: string[]) => {
-      const reorderedSet = new Set(reorderedIds);
-      const rest = budgetManualOrder.filter((id) => !reorderedSet.has(id));
-      setBudgetManualOrder([...rest, ...reorderedIds]);
+      setBudgetManualOrder(mergeManualOrder(budgetManualOrder, reorderedIds));
     },
     [budgetManualOrder, setBudgetManualOrder],
   );
@@ -305,23 +302,8 @@ export const BankinBudgetsContainer: React.FC = () => {
       }
     });
 
-    const sortCategories = (list: CategoryDetail[]) => {
-      if (budgetSortMode === 'alpha') {
-        list.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
-      } else if (budgetSortMode === 'manual') {
-        const orderIndex = new Map(budgetManualOrder.map((id, i) => [id, i]));
-        list.sort((a, b) => {
-          const ia = orderIndex.has(a.id) ? orderIndex.get(a.id)! : Infinity;
-          const ib = orderIndex.has(b.id) ? orderIndex.get(b.id)! : Infinity;
-          if (ia !== ib) return ia - ib;
-          return a.nom.localeCompare(b.nom, 'fr');
-        });
-      } else {
-        list.sort((a, b) => b.montant - a.montant);
-      }
-    };
-    sortCategories(incomeCategories);
-    sortCategories(expenseCategories);
+    sortBudgetCategories(incomeCategories, budgetSortMode, budgetManualOrder);
+    sortBudgetCategories(expenseCategories, budgetSortMode, budgetManualOrder);
 
     const netBalance = totalReceived - totalSpent;
 

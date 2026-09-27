@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { CHART_COLORS } from '../../lib/colors';
 import { Settings2, Target } from 'lucide-react';
 import { deleteField } from 'firebase/firestore';
@@ -22,9 +22,18 @@ import { useBudgetExclusions } from '../../hooks/useBudgetExclusions';
 import { useTransactions } from '../../hooks/useTransactions';
 import { useBalances } from '../../hooks/useBalances';
 import { useAnnualEnvelopes } from '../../hooks/useAnnualEnvelopes';
+import { usePreferences } from '../../hooks/usePreferences';
+import { sortBudgetCategories, mergeManualOrder } from '../../utils/budgetSort';
+import { SegmentedControl } from '../../ui';
 import { AnnualEnvelopeSection } from '../../components/budgets-v2/AnnualEnvelopeSection';
 import type { Transaction } from '../../types/banking.types';
 import type { CategoryDetail } from '../../components/budgets-v2/bankin/BankinBudgetsContainer';
+
+const SORT_SEGMENTS = [
+  { value: 'montant' as const, label: 'Montant' },
+  { value: 'alpha' as const, label: 'A–Z' },
+  { value: 'manual' as const, label: 'Manuel' },
+];
 
 export const BudgetsScreen: React.FC = () => {
   const { budgets, monthKey, setMonthKey, viewMode, setViewMode } = useBudget();
@@ -32,6 +41,8 @@ export const BudgetsScreen: React.FC = () => {
   const { transactions, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
   const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
+  const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
+    usePreferences();
   const [viewingCategory, setViewingCategory] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [showExclusions, setShowExclusions] = useState(false);
@@ -144,8 +155,8 @@ export const BudgetsScreen: React.FC = () => {
     });
 
     return {
-      incomeCategories: incomeCategories.sort((a, b) => b.depense - a.depense),
-      expenseCategories: expenseCategories.sort((a, b) => b.depense - a.depense),
+      incomeCategories: sortBudgetCategories(incomeCategories, budgetSortMode, budgetManualOrder),
+      expenseCategories: sortBudgetCategories(expenseCategories, budgetSortMode, budgetManualOrder),
       totalSpent,
       budgetSpent: totalSpent - envelopeSpent,
       totalReceived,
@@ -153,7 +164,23 @@ export const BudgetsScreen: React.FC = () => {
       netBalance: totalReceived - totalSpent,
       txByCategory,
     };
-  }, [budgets, transactions, monthKey, viewMode, excluded, envelopeKeys]);
+  }, [
+    budgets,
+    transactions,
+    monthKey,
+    viewMode,
+    excluded,
+    envelopeKeys,
+    budgetSortMode,
+    budgetManualOrder,
+  ]);
+
+  const handleReorder = useCallback(
+    (reorderedIds: string[]) => {
+      setBudgetManualOrder(mergeManualOrder(budgetManualOrder, reorderedIds));
+    },
+    [budgetManualOrder, setBudgetManualOrder],
+  );
 
   const masteryProgress =
     budgetData.totalExpenseBudget > 0
@@ -293,6 +320,16 @@ export const BudgetsScreen: React.FC = () => {
             />
           ) : (
             <>
+              <div className="px-4 py-2 mb-2 flex items-center justify-end gap-2">
+                <span className="text-caption font-semibold text-label-tertiary">Trier :</span>
+                <SegmentedControl
+                  label="Trier les catégories"
+                  segments={SORT_SEGMENTS}
+                  value={budgetSortMode}
+                  onChange={setBudgetSortMode}
+                />
+              </div>
+
               <MBudgetGrid
                 title="Revenus & Rentrées"
                 color={CHART_COLORS.emerald}
@@ -300,6 +337,8 @@ export const BudgetsScreen: React.FC = () => {
                 onCategoryClick={(id) => setViewingCategory(id)}
                 onToggleSens={handleToggleSens}
                 expectedPct={expectedProgress}
+                isManualSort={budgetSortMode === 'manual'}
+                onReorder={handleReorder}
               />
 
               <MBudgetGrid
@@ -309,6 +348,8 @@ export const BudgetsScreen: React.FC = () => {
                 onCategoryClick={(id) => setViewingCategory(id)}
                 onToggleSens={handleToggleSens}
                 expectedPct={expectedProgress}
+                isManualSort={budgetSortMode === 'manual'}
+                onReorder={handleReorder}
               />
             </>
           )}
