@@ -20,6 +20,8 @@ export interface RawHistoryEntry {
   value?: number | string;
   type?: string;
   owner?: string;
+  /** Enveloppe d'une position portefeuille (ex: PEA, CTO, PER). */
+  envelope?: string;
 }
 
 export function normalizeType(type: string): WealthCategory {
@@ -28,6 +30,18 @@ export function normalizeType(type: string): WealthCategory {
   if (['savings', 'épargne', 'epargne', 'livret'].includes(t)) return 'epargne';
   if (['retirement', 'per', 'retraite'].includes(t)) return 'retraite';
   return 'investissements';
+}
+
+/** Une enveloppe portefeuille est-elle un PER/retraite ? (règle partagée live & historique) */
+export function isRetirementEnvelope(envelope: string): boolean {
+  const e = (envelope || '').toLowerCase();
+  return e.includes('per') || e.includes('retraite');
+}
+
+/** Catégorie d'une entrée d'historique : une position portefeuille en enveloppe PER est de la retraite. */
+function entryCategory(type: string, envelope: string): WealthCategory {
+  const cat = normalizeType(type);
+  return cat === 'investissements' && isRetirementEnvelope(envelope) ? 'retraite' : cat;
 }
 
 // --- Dédup du portefeuille titres ---------------------------------------------
@@ -131,8 +145,8 @@ export function buildWealthTimeline(
 
   const uniqueDates = [...new Set(sorted.map((h) => h.date))].sort();
 
-  // Map: assetId → { montant, type, owner }
-  const lastKnown = new Map<string, { montant: number; type: string; owner: string }>();
+  // Map: assetId → { montant, cat, owner }
+  const lastKnown = new Map<string, { montant: number; cat: WealthCategory; owner: string }>();
 
   const points: WealthPoint[] = [];
   const selectedOwners = options?.ownerFilter?.map((o) => o.toLowerCase()) || [];
@@ -159,7 +173,11 @@ export function buildWealthTimeline(
         }
       }
 
-      lastKnown.set(pid, { montant: amountVal, type: h.type || '', owner });
+      lastKnown.set(pid, {
+        montant: amountVal,
+        cat: entryCategory(h.type || '', h.envelope || ''),
+        owner,
+      });
     }
 
     const byCat: Record<WealthCategory, number> = {
@@ -174,7 +192,7 @@ export function buildWealthTimeline(
     const skipSavings = makeSavingsDedup(lastKnown.keys());
 
     let total = 0;
-    for (const [assetId, { montant, type, owner }] of lastKnown) {
+    for (const [assetId, { montant, cat, owner }] of lastKnown) {
       if (skipPortfolio(assetId) || skipSavings(assetId)) continue;
 
       // Double vérification pour l'owner (nécessaire pour le fill-forward filtré)
@@ -184,7 +202,6 @@ export function buildWealthTimeline(
         }
       }
 
-      const cat = normalizeType(type);
       byCat[cat] += montant;
       total += montant;
     }
