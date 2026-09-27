@@ -5,15 +5,17 @@ import { AnnualEnvelopeFormModal } from '../../../public/src/components/budgets-
 
 const saveEnvelope = vi.fn();
 const removeBudgetCategory = vi.fn();
+const convertToMonthly = vi.fn();
 
 vi.mock('../../../public/src/hooks/useBudget', () => ({
-  useBudget: () => ({ saveEnvelope, removeBudgetCategory }),
+  useBudget: () => ({ saveEnvelope, removeBudgetCategory, convertToMonthly }),
 }));
 
 describe('AnnualEnvelopeFormModal', () => {
   beforeEach(() => {
     saveEnvelope.mockReset().mockResolvedValue(undefined);
     removeBudgetCategory.mockReset().mockResolvedValue(undefined);
+    convertToMonthly.mockReset().mockResolvedValue(undefined);
   });
 
   it('crée une enveloppe en trois champs et affiche la provision', async () => {
@@ -60,5 +62,29 @@ describe('AnnualEnvelopeFormModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(removeBudgetCategory).toHaveBeenCalledWith('Vacances');
+  });
+
+  it('repasse une enveloppe en budget mensuel', async () => {
+    const onClose = vi.fn();
+    render(
+      <AnnualEnvelopeFormModal
+        isOpen
+        onClose={onClose}
+        categories={['Vacances']}
+        envelope={{
+          categorie: 'Vacances',
+          montant: 3000,
+          depense: 0,
+          reste: 3000,
+          echeanceKey: '2027-07',
+          moisEcheance: 7,
+          provisionMensuelle: 250,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Passer en budget mensuel/ }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(convertToMonthly).toHaveBeenCalledWith('Vacances', 250);
   });
 });
