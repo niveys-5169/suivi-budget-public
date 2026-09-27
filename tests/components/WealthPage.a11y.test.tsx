@@ -60,9 +60,6 @@ vi.mock('../../public/src/components/dashboard/v2/PlacementSnapshotModal', () =>
 vi.mock('../../public/src/components/dashboard/v2/HistoryManagementModal', () => ({
   HistoryManagementModal: () => null,
 }));
-vi.mock('../../public/src/components/OwnerScopeToggle', () => ({
-  OwnerScopeToggle: () => <div data-testid="owner-scope" />,
-}));
 
 describe('WealthPage — accessibility', () => {
   beforeEach(() => {

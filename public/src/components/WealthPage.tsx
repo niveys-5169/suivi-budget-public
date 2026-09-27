@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import { AnimatePresence } from 'framer-motion';
 import { useWealthScope } from '../hooks/useWealthScope';
@@ -11,7 +11,7 @@ import {
   type LegacyPlacementFields,
 } from '../hooks/usePlacements';
 import type { PlacementSnapshot } from '../types/patrimoine';
-import { OwnerScopeToggle } from './OwnerScopeToggle';
+import { WealthFilterBar } from './WealthFilterBar';
 import { WealthTotalCard } from './WealthTotalCard';
 import { WealthAllocationBars } from './WealthAllocationBars';
 import { WealthAccountsList } from './WealthAccountsList';
@@ -131,17 +131,6 @@ export const WealthPage: React.FC = () => {
     return ownerScope === 'all' ? [] : (ownerScope as string[]);
   }, [ownerScope]);
 
-  const handleChartOwnersChange = useCallback(
-    (owners: string[]) => {
-      if (owners.length === 0) {
-        setOwnerScope('all');
-      } else {
-        setOwnerScope(owners);
-      }
-    },
-    [setOwnerScope],
-  );
-
   // Montant précédent remis à zéro au changement d'actif, puis rechargé.
   const [snapshotFor, setSnapshotFor] = useState(selectedAsset);
   if (selectedAsset !== snapshotFor) {
@@ -179,26 +168,6 @@ export const WealthPage: React.FC = () => {
     return filteredAssets;
   }, [filteredAssets]);
 
-  const chartOwners = useMemo(() => {
-    const all = [
-      ...(ownerMapping?.owners || []),
-      ...placementHistory.map((h) => h.owner || '(sans propriétaire)'),
-    ];
-    const seen = new Set<string>();
-    return all.filter((o) => {
-      if (!o) return false;
-      const key = o.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [ownerMapping, placementHistory]);
-
-  const handleChartTypesChange = useCallback(
-    (types: CategoryKey[]) => setWealthTypeScope(types),
-    [setWealthTypeScope],
-  );
-
   if (loading)
     return (
       <div className="pt-6 md:pt-12 px-4 md:px-6 space-y-8" aria-busy="true">
@@ -221,7 +190,6 @@ export const WealthPage: React.FC = () => {
   const marketAmount = segments.find((s) => s.type === 'investissements')?.amount || 0;
 
   const dynamicOwners = [
-    { id: 'all', label: 'Tous' },
     { id: 'nicolas', label: 'Nicolas' },
     { id: 'sienna', label: 'Sienna' },
     { id: 'romane', label: 'Romane' },
@@ -252,14 +220,16 @@ export const WealthPage: React.FC = () => {
               <Plus size={16} aria-hidden="true" />
               {t({ id: 'wealth.action.addAsset' })}
             </Button>
-            <OwnerScopeToggle
-              mode={ownerScope === 'all' ? 'all' : 'custom'}
-              selectedOwnerIds={ownerScope === 'all' ? [] : ownerScope}
-              onChange={(mode, ids) => setOwnerScope(mode === 'all' ? 'all' : ids)}
-              owners={dynamicOwners}
-            />
           </>
         }
+      />
+
+      <WealthFilterBar
+        owners={dynamicOwners}
+        ownerScope={ownerScope}
+        onOwnerScopeChange={setOwnerScope}
+        typeScope={wealthTypeScope}
+        onTypeScopeChange={setWealthTypeScope}
       />
 
       <div className="flex items-center justify-end gap-2 px-4 md:px-6 py-4 border-b border-separator">
@@ -345,11 +315,8 @@ export const WealthPage: React.FC = () => {
         <section className="px-2 md:px-4">
           <WealthEvolutionBudgetChart
             history={placementHistory}
-            owners={chartOwners}
             selectedOwners={chartSelectedOwners}
-            onOwnersChange={handleChartOwnersChange}
             selectedTypes={wealthTypeScope === 'all' ? [] : (wealthTypeScope as CategoryKey[])}
-            onTypesChange={handleChartTypesChange}
           />
         </section>
 
