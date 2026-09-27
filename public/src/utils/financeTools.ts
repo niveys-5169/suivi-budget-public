@@ -176,6 +176,32 @@ export interface SimulationArgs {
   montant?: number;
   date?: string;
   categorie?: string;
+  /** Paiement fractionné : nombre de mensualités (1 = comptant). */
+  nb_mensualites?: number;
+  /** Frais totaux du paiement fractionné, en euros. */
+  frais?: number;
+}
+
+const MAX_INSTALLMENTS = 48;
+
+/** Même jour `months` mois plus tard, borné au dernier jour du mois. */
+function addMonths(dateKey: string, months: number): string {
+  const [y = NaN, m = NaN, d = NaN] = dateKey.split('-').map(Number);
+  const lastDay = new Date(y, m - 1 + months + 1, 0).getDate();
+  return toDateKey(new Date(y, m - 1 + months, Math.min(d, lastDay)));
+}
+
+/** Dépense nette mensuelle moyenne d'une catégorie sur les 12 mois complets avant `monthKey`. */
+function averageMonthlySpent(txs: Transaction[], key: string, monthKey: string): number {
+  const [y = NaN, m = NaN] = monthKey.split('-').map(Number);
+  const start = toMonthKey(new Date(y - 1, m - 1, 1));
+  let total = 0;
+  for (const tx of txs) {
+    if (tx.categorie === 'Virement interne' || categoryKey(tx.categorie) !== key) continue;
+    const mk = getAssignedMonthKey(tx);
+    if (mk >= start && mk < monthKey) total -= Number(tx.montant) || 0;
+  }
+  return total / 12;
 }
 
 export function simulerDepense(args: SimulationArgs, ctx: FinanceToolsContext) {
@@ -185,18 +211,32 @@ export function simulerDepense(args: SimulationArgs, ctx: FinanceToolsContext) {
     throw new Error('"montant" doit être un nombre positif.');
   }
   const todayKey = toDateKey(today);
+  const currentMonth = toMonthKey(today);
   const date = optionalString(args.date) ?? todayKey;
   if (!DATE_RE.test(date)) throw new Error('"date" doit être au format YYYY-MM-DD.');
   const categorie = optionalString(args.categorie);
+  const n = Math.min(Math.max(Math.floor(Number(args.nb_mensualites)) || 1, 1), MAX_INSTALLMENTS);
+  const frais = Math.max(Number(args.frais) || 0, 0);
   const raisons: string[] = [];
 
-  // Trésorerie : l'achat est retranché du solde projeté à partir de sa date.
+  // Échéancier : mensualités égales, la dernière absorbe l'arrondi.
+  const coutTotal = round(montant + frais);
+  const mensualite = round(coutTotal / n);
+  const echeances = Array.from({ length: n }, (_, i) => ({
+    date: addMonths(date, i),
+    montant: i === n - 1 ? round(coutTotal - mensualite * (n - 1)) : mensualite,
+  }));
+
+  // Trésorerie : chaque échéance est retranchée du solde projeté à partir de sa date.
   const days = ctx.forecast.days;
-  const lowest = (shift: number) => {
+  const lowest = (withPurchase: boolean) => {
     let point = { date: days[0]?.date ?? todayKey, solde: Infinity };
     let negatif: string | null = null;
     for (const d of days) {
-      const solde = d.date >= date ? d.balance - shift : d.balance;
+      const paid = withPurchase
+        ? echeances.reduce((s, e) => (e.date <= d.date ? s + e.montant : s), 0)
+        : 0;
+      const solde = d.balance - paid;
       if (solde < point.solde) point = { date: d.date, solde };
       if (negatif === null && solde < 0) negatif = d.date;
     }
@@ -205,8 +245,8 @@ export function simulerDepense(args: SimulationArgs, ctx: FinanceToolsContext) {
       date_passage_negatif: negatif,
     };
   };
-  const avant = lowest(0);
-  const apres = lowest(montant);
+  const avant = lowest(false);
+  const apres = lowest(true);
   const horizon = days[days.length - 1]?.date ?? todayKey;
   if (apres.date_passage_negatif) {
     raisons.push(`Les comptes courants passeraient sous zéro le ${apres.date_passage_negatif}.`);
@@ -225,37 +265,73 @@ export function simulerDepense(args: SimulationArgs, ctx: FinanceToolsContext) {
     const line = status.budgets_du_mois.find((l) => categoryKey(l.categorie) === key);
     const env = status.enveloppes.find((e) => categoryKey(e.categorie) === key);
     if (line) {
+      // Mois passés/en cours : dépense réelle ; mois futurs : dépense habituelle.
+      const habituel = averageMonthlySpent(ctx.transactions, key, currentMonth);
+      const parMois = echeances.map((e) => {
+        const mois = e.date.slice(0, 7);
+        const depensePrevue =
+          mois <= currentMonth
+            ? (buildMonthBudgetStatus(
+                ctx.transactions,
+                ctx.baseBudgets,
+                mois,
+                today,
+              ).budgets_du_mois.find((l) => categoryKey(l.categorie) === key)?.depense_mois ?? 0)
+            : habituel;
+        return {
+          mois,
+          depense_prevue_hors_achat: round(depensePrevue),
+          echeance: e.montant,
+          reste_apres: round(line.budget_mensuel - depensePrevue - e.montant),
+        };
+      });
+      const depassements = parMois.filter((p) => p.reste_apres < 0);
       budget = {
         type: 'mensuel',
         categorie: line.categorie,
-        mois: status.mois,
         budget: line.budget_mensuel,
+        depense_mensuelle_habituelle: round(habituel),
         reste_avant: line.reste_mois,
-        reste_apres: round(line.reste_mois - montant),
+        reste_apres: parMois[0]!.reste_apres,
+        ...(n > 1 ? { par_mois: parMois } : {}),
       };
+      if (depassements.length) {
+        const pire = Math.min(...depassements.map((p) => p.reste_apres));
+        raisons.push(
+          n > 1
+            ? `Le budget « ${line.categorie} » serait dépassé ${depassements.length} mois sur ${n} (jusqu'à ${round(-pire)} €).`
+            : `Le budget « ${line.categorie} » serait dépassé de ${round(-pire)} €.`,
+        );
+      }
     } else if (env) {
+      const dansLeCycle = echeances
+        .filter((e) => e.date.slice(0, 7) <= env.echeance)
+        .reduce((s, e) => s + e.montant, 0);
       budget = {
         type: 'enveloppe',
         categorie: env.categorie,
         echeance: env.echeance,
         montant: env.montant,
         reste_avant: env.reste,
-        reste_apres: round(env.reste - montant),
+        reste_apres: round(env.reste - dansLeCycle),
       };
-    }
-    if (budget && (budget.reste_apres as number) < 0) {
-      raisons.push(
-        `Le budget « ${budget.categorie} » serait dépassé de ${round(-(budget.reste_apres as number))} €.`,
-      );
+      if ((budget.reste_apres as number) < 0) {
+        raisons.push(
+          `L'enveloppe « ${env.categorie} » serait dépassée de ${round(-(budget.reste_apres as number))} €.`,
+        );
+      }
     }
   }
 
-  // Marge annuelle : solde net projeté de l'année (moyennes des 12 derniers mois).
+  // Marge annuelle : seules les échéances de l'année en cours pèsent dessus.
   const projection = buildYearEndProjection(ctx.transactions, today);
+  const payeCetteAnnee = echeances
+    .filter((e) => e.date.startsWith(String(today.getFullYear())))
+    .reduce((s, e) => s + e.montant, 0);
   const marge = projection
     ? {
         solde_net_annuel_projete_avant: projection.solde_net_annuel_projete,
-        solde_net_annuel_projete_apres: round(projection.solde_net_annuel_projete - montant),
+        solde_net_annuel_projete_apres: round(projection.solde_net_annuel_projete - payeCetteAnnee),
       }
     : null;
   if (marge && marge.solde_net_annuel_projete_apres < 0) {
@@ -269,6 +345,13 @@ export function simulerDepense(args: SimulationArgs, ctx: FinanceToolsContext) {
     date,
     verdict,
     raisons,
+    paiement: {
+      nb_mensualites: n,
+      mensualite,
+      frais: round(frais),
+      cout_total: coutTotal,
+      ...(n > 1 ? { echeances } : {}),
+    },
     tresorerie: {
       horizon,
       solde_actuel: round(days[0]?.balance ?? 0),
@@ -278,7 +361,7 @@ export function simulerDepense(args: SimulationArgs, ctx: FinanceToolsContext) {
     budget_categorie: categorie ? (budget ?? 'aucun budget pour cette catégorie') : null,
     marge_annuelle: marge,
     hypotheses:
-      'Trésorerie projetée avec les seules échéances récurrentes (hors dépenses variables comme les courses) ; marge annuelle basée sur la moyenne des 12 derniers mois.',
+      "Trésorerie projetée avec les seules échéances récurrentes (hors dépenses variables comme les courses), jusqu'à l'horizon ; mois futurs du budget estimés avec la dépense habituelle de la catégorie ; marge annuelle basée sur la moyenne des 12 derniers mois.",
   };
 }
 
@@ -339,13 +422,23 @@ export function buildFinanceTools(ctx: FinanceToolsContext): LLMTool[] {
     {
       name: 'simuler_depense',
       description:
-        "Simule l'impact d'une dépense ponctuelle (achat envisagé) : trésorerie des comptes courants jusqu'à la fin d'année (point bas, passage sous zéro), budget ou enveloppe de la catégorie, marge annuelle ; renvoie un verdict indicatif (oui / oui_mais / non) et ses raisons. À utiliser pour toute question « puis-je me permettre », « est-ce que cet achat pose problème ».",
+        "Simule l'impact d'un achat envisagé, payé comptant ou en plusieurs fois : trésorerie des comptes courants jusqu'à la fin d'année (point bas, passage sous zéro), budget ou enveloppe de la catégorie mois par mois, marge annuelle ; renvoie un verdict indicatif (oui / oui_mais / non) et ses raisons. À utiliser pour toute question « puis-je me permettre », « est-ce que cet achat pose problème », et pour comparer des options (comptant, 3x, 4x, 10x, achat décalé).",
       parameters: {
         type: 'object',
         properties: {
           montant: { type: 'number', description: 'Montant de la dépense en euros (positif).' },
           date: { type: 'string', description: 'Date prévue (YYYY-MM-DD). Défaut : aujourd’hui.' },
           categorie: { type: 'string', description: 'Catégorie de budget concernée, si connue.' },
+          nb_mensualites: {
+            type: 'number',
+            description:
+              'Paiement fractionné : nombre de mensualités (3, 4, 10…). Défaut : 1 (comptant).',
+          },
+          frais: {
+            type: 'number',
+            description:
+              'Frais totaux du paiement fractionné en euros, si connus. Défaut : 0 (sans frais).',
+          },
         },
         required: ['montant'],
       },

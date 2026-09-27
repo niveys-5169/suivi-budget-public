@@ -180,6 +180,24 @@ export const EVAL_CASES: EvalCase[] = [
       /\bnon\b|pas (possible|raisonnable|conseill)|d[ée]conseill|d[ée]couvert|n[ée]gati|sous z[ée]ro/i,
     ],
   },
+  {
+    id: 'lisser-achat',
+    question:
+      'Je voudrais acheter un vélo électrique à 1 200 € (catégorie Shopping). Propose-moi une solution pour lisser la dépense.',
+    reference: [
+      {
+        tool: 'simuler_depense',
+        args: { montant: 1200, categorie: 'Shopping', nb_mensualites: 10 },
+        expected: {
+          paiement: { mensualite: 120 },
+          tresorerie: { apres: { date_passage_negatif: null } },
+        },
+      },
+    ],
+    numbers: [],
+    mustMatch: [/\b(3|4|10)\s?(x|fois)\b/i],
+    mustNotMatch: [/augmenter (vos|tes) revenus|r[ée]duire d'autres d[ée]penses/i],
+  },
 ];
 
 /** Extrait les nombres d'une réponse en français ("11 790,57 €" donne 11790.57). */
