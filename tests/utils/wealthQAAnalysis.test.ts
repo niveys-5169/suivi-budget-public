@@ -115,4 +115,73 @@ describe('buildWealthSummary', () => {
     const summary = buildWealthSummary(makeInput({ portfolioValue: 7000 }));
     expect(summary!.par_owner['Nicolas']!.actuel.investissements).toBe(7000);
   });
+
+  it('détaille chaque actif et chaque position boursière pour les questions d’investissement', () => {
+    const placements: Placement[] = [
+      {
+        id: 'p1',
+        nom: 'Assurance-vie Linxea',
+        owner: 'Romane',
+        type: 'assurance_vie',
+        montant: 8000,
+        commentaire: 'fonds euros 3%',
+      },
+    ];
+    const savingsBalances = [
+      { id: 's1', compte: 'Livret A', owner: 'Nicolas', current_balance: 2000 } as SavingsBalance,
+    ];
+    const holdings = [
+      {
+        docId: 'h1',
+        isin: 'IE00B4L5Y983',
+        name: 'iShares MSCI World',
+        ticker: 'IWDA',
+        quantity: 100,
+        avgPrice: 80,
+        totalCost: 8000,
+        currentValue: 10000,
+        lastPrice: 100,
+        account: 'PEA Boursorama',
+        owner: 'Nicolas',
+        currency: 'EUR',
+        unrealizedGain: 2000,
+        unrealizedGainPct: 25,
+        updatedAt: null,
+      },
+    ];
+
+    const summary = buildWealthSummary(makeInput({ placements, savingsBalances, holdings }));
+    const detail = summary!.detail;
+
+    // Trié par montant décroissant, poids en % du patrimoine total (20 000 €).
+    expect(detail.map((l) => l.nom)).toEqual([
+      'iShares MSCI World',
+      'Assurance-vie Linxea',
+      'Livret A',
+    ]);
+    expect(detail[0]).toMatchObject({
+      owner: 'Nicolas',
+      segment: 'investissements',
+      enveloppe: 'PEA Boursorama',
+      montant: 10000,
+      poids_pct: 50,
+      isin: 'IE00B4L5Y983',
+      ticker: 'IWDA',
+      quantite: 100,
+      pru: 80,
+      cours: 100,
+      prix_de_revient: 8000,
+      plus_value: 2000,
+      plus_value_pct: 25,
+    });
+    expect(detail[1]).toMatchObject({
+      owner: 'Romane',
+      segment: 'investissements',
+      enveloppe: 'assurance_vie',
+      montant: 8000,
+      poids_pct: 40,
+      commentaire: 'fonds euros 3%',
+    });
+    expect(detail[2]).toMatchObject({ segment: 'epargne', montant: 2000, poids_pct: 10 });
+  });
 });

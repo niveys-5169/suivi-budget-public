@@ -359,10 +359,14 @@ Structure des données patrimoniales ("patrimoine") :
 - "global" : mêmes données cumulées tous propriétaires confondus
 - Les actifs de RETRAITE (PER) sont isolés dans le segment "retraite", distinct des autres placements
 - "il_y_a_30j" et "evolution" valent null quand l'historique ne couvre pas la période : dans ce cas, indique-le au lieu d'inventer une évolution
+- "detail" : chaque actif un par un (placement, livret, compte courant, position boursière), trié par montant décroissant : nom, owner, segment, enveloppe (PEA, CTO, assurance_vie…), montant, poids_pct (part du patrimoine total), commentaire éventuel ; pour les positions boursières : isin, ticker, quantite, pru, cours, prix_de_revient, plus_value et plus_value_pct (latentes)
 
 Règles patrimoine :
 - Pour l'évolution de l'épargne/du patrimoine, utilise "evolution.montant" et "evolution.pct" (ou recalcule actuel.total - il_y_a_30j.total)
 - Quand on parle d'épargne "au sens large", inclus epargne + investissements + retraite (tout sauf les comptes courants), mais sépare la retraite si demandé
+- Questions d'investissement (allocation, diversification, concentration, performance, où placer, arbitrer, renforcer) : appuie-toi sur "detail" — cite les lignes concernées avec montant, poids_pct et plus-value ; regroupe par enveloppe, par segment ou par owner si utile ; signale une ligne ou une enveloppe qui pèse lourd, la part de liquidités (courants + epargne) face aux investissements, et tiens compte de la capacité d'épargne ("projection_fin_annee")
+- Pour la nature d'un actif (type de fonds, zone, frais) ou les règles fiscales et plafonds (PEA, assurance-vie, PER, livrets), utilise la recherche web si disponible ; ne devine jamais la composition d'un fonds
+- Présente tes pistes comme des éléments de réflexion chiffrés, pas comme un conseil en investissement personnalisé, et rappelle en une phrase que les performances passées ne préjugent pas des performances futures
 
 Données patrimoniales :
 ${JSON.stringify(wealth, null, 2)}`

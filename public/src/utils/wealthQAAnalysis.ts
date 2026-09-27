@@ -21,11 +21,35 @@ export interface OwnerWealthSummary {
   evolution: { montant: number; pct: number } | null;
 }
 
+/** Un actif du patrimoine (placement, compte ou position boursière), pour les questions d'investissement. */
+export interface WealthDetailLine {
+  nom: string;
+  owner: string;
+  segment: WealthCategory;
+  /** Compte/enveloppe de détention (PEA, CTO…) ou type de placement. */
+  enveloppe: string;
+  montant: number;
+  /** Poids dans le patrimoine total, en %. */
+  poids_pct: number;
+  commentaire?: string;
+  // Positions boursières uniquement.
+  isin?: string;
+  ticker?: string;
+  quantite?: number;
+  pru?: number;
+  cours?: number;
+  prix_de_revient?: number;
+  plus_value?: number;
+  plus_value_pct?: number;
+}
+
 export interface WealthSummary {
   date_reference: string; // ISO YYYY-MM-DD (aujourd'hui)
   date_comparaison: string; // ISO YYYY-MM-DD (T-30j)
   par_owner: Record<string, OwnerWealthSummary>;
   global: OwnerWealthSummary;
+  /** Actifs un par un, triés par montant décroissant. */
+  detail: WealthDetailLine[];
   note: string;
 }
 
@@ -87,23 +111,37 @@ function isRetirementEnvelope(accountName: string): boolean {
 interface LiveAggregation {
   breakdowns: Record<string, WealthBreakdown>; // clé = owner en minuscule
   displayNames: Record<string, string>; // clé minuscule -> libellé affiché
+  lines: Omit<WealthDetailLine, 'poids_pct'>[];
 }
+
+const MAX_DETAIL_LINES = 80;
 
 /** Agrège les valeurs LIVE (placements + soldes + portefeuille) par propriétaire et par segment. */
 function buildLiveByOwner(input: WealthSummaryInput): LiveAggregation {
   const defaultOwner = input.ownerMapping.default_owner || 'Nicolas';
   const breakdowns: Record<string, WealthBreakdown> = {};
   const displayNames: Record<string, string> = {};
+  const lines: LiveAggregation['lines'] = [];
 
-  const register = (display: string, cat: WealthCategory, value: number) => {
+  const register = (
+    display: string,
+    cat: WealthCategory,
+    value: number,
+    line: Omit<WealthDetailLine, 'owner' | 'segment' | 'montant' | 'poids_pct'>,
+  ) => {
     const key = display.toLowerCase();
     if (!breakdowns[key]) breakdowns[key] = emptyBreakdown();
     if (!displayNames[key]) displayNames[key] = display;
     addToBreakdown(breakdowns[key], cat, value);
+    lines.push({ ...line, owner: display, segment: cat, montant: round2(value) });
   };
 
   for (const p of input.placements) {
-    register(p.owner || defaultOwner, normalizeType(p.type), Number(p.montant) || 0);
+    register(p.owner || defaultOwner, normalizeType(p.type), Number(p.montant) || 0, {
+      nom: p.nom,
+      enveloppe: p.type,
+      ...(p.commentaire ? { commentaire: p.commentaire } : {}),
+    });
   }
   for (const b of input.savingsBalances) {
     const compte = b.compte || b.id;
@@ -111,6 +149,7 @@ function buildLiveByOwner(input: WealthSummaryInput): LiveAggregation {
       resolveOwner(compte, b.owner, input.ownerMapping, true),
       'epargne',
       Number(b.current_balance || b.solde) || 0,
+      { nom: compte, enveloppe: 'épargne' },
     );
   }
   for (const b of input.accountBalances || []) {
@@ -119,6 +158,7 @@ function buildLiveByOwner(input: WealthSummaryInput): LiveAggregation {
       resolveOwner(compte, b.owner, input.ownerMapping, false),
       'courants',
       Number(b.current_balance || b.solde) || 0,
+      { nom: compte, enveloppe: 'compte courant' },
     );
   }
   const holdings = input.holdings || [];
@@ -129,6 +169,18 @@ function buildLiveByOwner(input: WealthSummaryInput): LiveAggregation {
         h.owner || defaultOwner,
         isRetirementEnvelope(accountName) ? 'retraite' : 'investissements',
         Number(h.currentValue) || 0,
+        {
+          nom: h.name,
+          enveloppe: accountName,
+          isin: h.isin,
+          ...(h.ticker ? { ticker: h.ticker } : {}),
+          quantite: h.quantity,
+          pru: round2(h.avgPrice),
+          cours: round2(h.lastPrice),
+          prix_de_revient: round2(h.totalCost),
+          plus_value: round2(h.unrealizedGain),
+          plus_value_pct: round2(h.unrealizedGainPct),
+        },
       );
     }
   } else {
@@ -139,11 +191,14 @@ function buildLiveByOwner(input: WealthSummaryInput): LiveAggregation {
       ['cto', 'pea', 'assurance_vie', 'per'].includes((p.type || '').toLowerCase()),
     );
     if ((input.portfolioValue ?? 0) > 0 && !hasMarketPlacements) {
-      register(defaultOwner, 'investissements', input.portfolioValue as number);
+      register(defaultOwner, 'investissements', input.portfolioValue as number, {
+        nom: 'Portefeuille bourse (détail des positions non chargé)',
+        enveloppe: 'bourse',
+      });
     }
   }
 
-  return { breakdowns, displayNames };
+  return { breakdowns, displayNames, lines };
 }
 
 /**
@@ -236,6 +291,15 @@ export function buildWealthSummary(input: WealthSummaryInput): WealthSummary | n
   );
   const globalPast = historicalBreakdown(input.placementHistory, cutoffTs);
 
+  const detail = live.lines
+    .filter((l) => l.montant !== 0)
+    .sort((a, b) => b.montant - a.montant)
+    .slice(0, MAX_DETAIL_LINES)
+    .map((l) => ({
+      ...l,
+      poids_pct: globalActuel.total > 0 ? round2((l.montant / globalActuel.total) * 100) : 0,
+    }));
+
   return {
     date_reference: now.toISOString().slice(0, 10),
     date_comparaison: cutoff.toISOString().slice(0, 10),
@@ -245,6 +309,7 @@ export function buildWealthSummary(input: WealthSummaryInput): WealthSummary | n
       il_y_a_30j: globalPast,
       evolution: computeEvolution(globalActuel, globalPast),
     },
+    detail,
     note:
       'Montants en euros. Segments : courants (comptes courants), epargne (livrets/épargne), ' +
       'investissements (CTO/PEA/assurance-vie/bourse), retraite (PER — actifs de retraite isolés). ' +
