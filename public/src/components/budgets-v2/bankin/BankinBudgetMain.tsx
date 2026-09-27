@@ -15,7 +15,7 @@ import { fmt } from '../../../utils/format';
 import { getExpectedPaceProgress } from '../../../utils/date';
 import { MonthNavigator } from '../../shared/MonthNavigator';
 import { BankinBudgetGrid } from './BankinBudgetGrid';
-import { SegmentedControl } from '../../../ui';
+import { SegmentedControl, Button } from '../../../ui';
 
 import { CategoryDetail } from './BankinBudgetsContainer';
 import { BudgetSortMode } from '../../../hooks/usePreferences';
@@ -45,8 +45,9 @@ interface Props {
   sortMode?: BudgetSortMode;
   onSortModeChange?: (mode: BudgetSortMode) => void;
   onReorder?: (orderedIds: string[]) => void;
-  /** Rendu juste avant la grille des dépenses (ex. enveloppes annuelles). */
-  beforeExpenses?: React.ReactNode;
+  /** Provision mensuelle des enveloppes annuelles, comprise dans `totalBudget`. */
+  envelopeProvision?: number;
+  onShowEnvelopes?: () => void;
 }
 
 export const BankinBudgetMain: React.FC<Props> = ({
@@ -67,7 +68,8 @@ export const BankinBudgetMain: React.FC<Props> = ({
   sortMode = 'montant',
   onSortModeChange,
   onReorder,
-  beforeExpenses,
+  envelopeProvision = 0,
+  onShowEnvelopes,
 }) => {
   const remaining = Math.max(0, totalBudget - budgetSpent);
   const isOver = totalBudget > 0 && budgetSpent > totalBudget;
@@ -185,6 +187,13 @@ export const BankinBudgetMain: React.FC<Props> = ({
               </span>
             </div>
           </div>
+          {envelopeProvision > 0 && onShowEnvelopes && (
+            <div className="flex justify-center mt-2">
+              <Button variant="plain" size="sm" onClick={onShowEnvelopes}>
+                Dont {fmt(envelopeProvision)}/mois mis de côté pour les enveloppes →
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -317,8 +326,6 @@ export const BankinBudgetMain: React.FC<Props> = ({
             />
           </div>
         )}
-
-        {beforeExpenses}
 
         {/* Dépenses */}
         <div className="space-y-4">

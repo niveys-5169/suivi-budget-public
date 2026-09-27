@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import { Sheet, Field, Input, Select, Chip, Button, Text } from '../../ui';
+import { Sheet, Field, Input, Select, Button, Text } from '../../ui';
 import { useBudget } from '../../hooks/useBudget';
 import { formatCurrency } from '../../lib/formatters';
 import type { AnnualEnvelope } from '../../utils/annualEnvelope';
-
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-
-const monthShort = (m: number) =>
-  new Date(2026, m - 1).toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '');
+import { MonthPicker } from './MonthPicker';
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +11,9 @@ interface Props {
   /** Enveloppe à modifier ; absente = création. */
   envelope?: AnnualEnvelope;
   categories: string[];
+  /** Conversion d'un budget mensuel : catégorie verrouillée et montant annuel proposé. */
+  initialCategorie?: string;
+  initialMontant?: number;
 }
 
 /**
@@ -26,10 +25,13 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
   onClose,
   envelope,
   categories,
+  initialCategorie,
+  initialMontant,
 }) => {
-  const { saveEnvelope, removeBudgetCategory } = useBudget();
-  const [categorie, setCategorie] = useState(envelope?.categorie ?? '');
-  const [montant, setMontant] = useState(envelope ? String(envelope.montant) : '');
+  const { saveEnvelope, removeBudgetCategory, convertToMonthly } = useBudget();
+  const [categorie, setCategorie] = useState(envelope?.categorie ?? initialCategorie ?? '');
+  const initial = envelope?.montant ?? initialMontant;
+  const [montant, setMontant] = useState(initial ? String(initial) : '');
   const [mois, setMois] = useState<number | null>(envelope?.moisEcheance ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,19 +53,32 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
     }
   };
 
-  const handleDelete = async () => {
-    if (!envelope) return;
+  const runAction = async (action: () => Promise<void>, failure: string) => {
     setSaving(true);
     setError(null);
     try {
-      await removeBudgetCategory(envelope.categorie);
+      await action();
       onClose();
     } catch {
-      setError("Impossible de supprimer l'enveloppe.");
+      setError(failure);
     } finally {
       setSaving(false);
     }
   };
+
+  const handleDelete = () =>
+    envelope &&
+    runAction(
+      () => removeBudgetCategory(envelope.categorie),
+      "Impossible de supprimer l'enveloppe.",
+    );
+
+  const handleToMonthly = () =>
+    envelope &&
+    runAction(
+      () => convertToMonthly(envelope.categorie, Math.round(envelope.montant / 12)),
+      "Impossible de passer l'enveloppe en budget mensuel.",
+    );
 
   return (
     <Sheet
@@ -80,7 +95,7 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
             <Select
               {...p}
               value={categorie}
-              disabled={Boolean(envelope)}
+              disabled={Boolean(envelope || initialCategorie)}
               onChange={(e) => setCategorie(e.target.value)}
             >
               <option value="">Choisir…</option>
@@ -105,23 +120,7 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
           )}
         </Field>
 
-        <div className="flex flex-col gap-2" role="group" aria-label="Mois de l'événement">
-          <Text variant="footnote" tone="secondary">
-            Mois de l&apos;événement
-          </Text>
-          <div className="grid grid-cols-4 gap-2">
-            {MONTHS.map((m) => (
-              <Chip
-                key={m}
-                selected={mois === m}
-                onClick={() => setMois(m)}
-                className="justify-center"
-              >
-                {monthShort(m)}
-              </Chip>
-            ))}
-          </div>
-        </div>
+        <MonthPicker value={mois} onChange={setMois} />
 
         {Number.isFinite(amount) && amount > 0 && (
           <Text variant="footnote" tone="accent">
@@ -132,6 +131,11 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
           <Text variant="footnote" tone="negative" role="alert">
             {error}
           </Text>
+        )}
+        {envelope && (
+          <Button variant="plain" size="sm" onClick={handleToMonthly} disabled={saving}>
+            Passer en budget mensuel ({formatCurrency(Math.round(envelope.montant / 12))}/mois)
+          </Button>
         )}
       </Sheet.Body>
 

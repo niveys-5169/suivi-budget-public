@@ -61,6 +61,7 @@ describe('BankinBudgetsContainer', () => {
     mockBudgets = DEFAULT_BUDGETS;
     mockTransactions = DEFAULT_TRANSACTIONS;
     mockBaseBudgets = [];
+    localStorage.clear();
     mockUpdateBudget.mockReset();
   });
 
@@ -180,15 +181,36 @@ describe('BankinBudgetsContainer', () => {
       ];
     });
 
-    it('sort les vacances de la grille et les affiche en enveloppe', () => {
+    it('onglet Budgets : vacances hors grille, lien vers les enveloppes', () => {
       render(<BankinBudgetsContainer />);
 
       const categoryNames = screen.getAllByTestId('category-name').map((el) => el.textContent);
       expect(categoryNames.some((n) => /vacances/i.test(n ?? ''))).toBe(false);
+      expect(screen.queryByText('Enveloppes annuelles')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /250.*enveloppes/ })).toBeInTheDocument();
+    });
+
+    it('onglet Enveloppes : liste, résumé, sans le choix Mois/Année', () => {
+      render(<BankinBudgetsContainer />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Enveloppes' }));
 
       expect(screen.getByText('Enveloppes annuelles')).toBeInTheDocument();
       expect(screen.getByText(/400\s€ \/ 3\s000\s€/)).toBeInTheDocument();
       expect(screen.getByText(/Juillet 2026/)).toBeInTheDocument();
+      expect(screen.getByText('À mettre de côté chaque mois')).toBeInTheDocument();
+      expect(screen.queryByText('Année')).not.toBeInTheDocument();
+      expect(screen.queryAllByTestId('category-name')).toHaveLength(0);
+    });
+
+    it('le lien sous la jauge ouvre l’onglet Enveloppes et le choix est mémorisé', () => {
+      const { unmount } = render(<BankinBudgetsContainer />);
+      fireEvent.click(screen.getByRole('button', { name: /250.*enveloppes/ }));
+      expect(screen.getByText('Enveloppes annuelles')).toBeInTheDocument();
+      unmount();
+
+      render(<BankinBudgetsContainer />);
+      expect(screen.getByText('Enveloppes annuelles')).toBeInTheDocument();
     });
 
     it('garde la provision dans le budget total sans compter l’acompte dans la jauge', () => {

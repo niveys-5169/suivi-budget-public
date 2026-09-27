@@ -24,10 +24,22 @@ import { useBalances } from '../../hooks/useBalances';
 import { useAnnualEnvelopes } from '../../hooks/useAnnualEnvelopes';
 import { usePreferences } from '../../hooks/usePreferences';
 import { sortBudgetCategories, mergeManualOrder } from '../../utils/budgetSort';
-import { SegmentedControl } from '../../ui';
-import { AnnualEnvelopeSection } from '../../components/budgets-v2/AnnualEnvelopeSection';
+import { SegmentedControl, Button } from '../../ui';
+import { motion } from 'framer-motion';
+import { formatCurrency } from '../../lib/formatters';
+import { AnnualEnvelopesTab } from '../../components/budgets-v2/AnnualEnvelopesTab';
+import { useBudgetTab } from '../../hooks/useBudgetTab';
 import type { Transaction } from '../../types/banking.types';
 import type { CategoryDetail } from '../../components/budgets-v2/bankin/BankinBudgetsContainer';
+
+const TAB_SEGMENTS = [
+  { value: 'budgets' as const, label: 'Budgets' },
+  { value: 'enveloppes' as const, label: 'Enveloppes' },
+];
+
+/** Glissement horizontal minimal (px) ou vitesse (px/s) pour changer d'onglet. */
+const SWIPE_OFFSET = 80;
+const SWIPE_VELOCITY = 500;
 
 const SORT_SEGMENTS = [
   { value: 'montant' as const, label: 'Montant' },
@@ -41,6 +53,7 @@ export const BudgetsScreen: React.FC = () => {
   const { transactions, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
   const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
+  const { tab, setTab } = useBudgetTab();
   const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
     usePreferences();
   const [viewingCategory, setViewingCategory] = useState<string | null>(null);
@@ -182,6 +195,9 @@ export const BudgetsScreen: React.FC = () => {
     [budgetManualOrder, setBudgetManualOrder],
   );
 
+  const envelopeProvision = envelopes.reduce((s, e) => s + e.provisionMensuelle, 0);
+  const fmtEur = (n: number) => formatCurrency(n, 'EUR', 'fr-FR', { maximumFractionDigits: 0 });
+
   const masteryProgress =
     budgetData.totalExpenseBudget > 0
       ? (budgetData.budgetSpent / budgetData.totalExpenseBudget) * 100
@@ -271,88 +287,129 @@ export const BudgetsScreen: React.FC = () => {
           />
 
           <div className="px-4 py-2">
-            <div className="flex p-1 bg-raised border border-separator rounded-xl">
-              <button
-                onClick={() => setViewMode('monthly')}
-                className={`flex-1 py-2 text-caption font-semibold rounded-lg transition-all
-              ${viewMode === 'monthly' ? 'bg-gold text-bg' : 'text-label-tertiary'}`}
-              >
-                Mois
-              </button>
-              <button
-                onClick={() => setViewMode('annual')}
-                className={`flex-1 py-2 text-caption font-semibold rounded-lg transition-all
-              ${viewMode === 'annual' ? 'bg-gold text-bg' : 'text-label-tertiary'}`}
-              >
-                Année
-              </button>
-            </div>
+            <SegmentedControl
+              label="Budgets ou enveloppes"
+              segments={TAB_SEGMENTS}
+              value={tab}
+              onChange={setTab}
+              block
+            />
           </div>
+
+          {tab === 'budgets' && (
+            <div className="px-4 py-2">
+              <div className="flex p-1 bg-raised border border-separator rounded-xl">
+                <button
+                  onClick={() => setViewMode('monthly')}
+                  className={`flex-1 py-2 text-caption font-semibold rounded-lg transition-all
+              ${viewMode === 'monthly' ? 'bg-gold text-bg' : 'text-label-tertiary'}`}
+                >
+                  Mois
+                </button>
+                <button
+                  onClick={() => setViewMode('annual')}
+                  className={`flex-1 py-2 text-caption font-semibold rounded-lg transition-all
+              ${viewMode === 'annual' ? 'bg-gold text-bg' : 'text-label-tertiary'}`}
+                >
+                  Année
+                </button>
+              </div>
+            </div>
+          )}
 
           <MMonthNavigator monthKey={monthKey} onChange={setMonthKey} />
 
-          <MBudgetHero
-            netBalance={budgetData.netBalance}
-            label={`Solde net ${viewMode === 'monthly' ? 'du mois' : 'YTD'}`}
-            totalReceived={budgetData.totalReceived}
-            totalSpent={budgetData.totalSpent}
-          />
-
-          <MMasteryBar
-            progress={masteryProgress}
-            viewMode={viewMode}
-            totalBudget={budgetData.totalExpenseBudget}
-            totalSpent={budgetData.budgetSpent}
-            expectedProgress={expectedProgress}
-          />
-
-          {viewMode === 'monthly' && (
-            <div className="px-4 py-2">
-              <AnnualEnvelopeSection envelopes={envelopes} categories={categories} />
-            </div>
-          )}
-
-          {budgetData.incomeCategories.length === 0 && budgetData.expenseCategories.length === 0 ? (
-            <EmptyState
-              icon={<Target size={28} />}
-              title="Aucun budget"
-              description="Aucune transaction ni enveloppe sur cette période."
-            />
-          ) : (
-            <>
-              <div className="px-4 py-2 mb-2 flex items-center justify-end gap-2">
-                <span className="text-caption font-semibold text-label-tertiary">Trier :</span>
-                <SegmentedControl
-                  label="Trier les catégories"
-                  segments={SORT_SEGMENTS}
-                  value={budgetSortMode}
-                  onChange={setBudgetSortMode}
-                />
+          <motion.div
+            // Swipe horizontal entre les deux onglets ; coupé pendant le tri manuel
+            // pour ne pas voler le glisser-déposer des cartes.
+            drag={tab === 'budgets' && budgetSortMode === 'manual' ? false : 'x'}
+            dragDirectionLock
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.2}
+            onDragEnd={(_, info) => {
+              if (info.offset.x < -SWIPE_OFFSET || info.velocity.x < -SWIPE_VELOCITY)
+                setTab('enveloppes');
+              else if (info.offset.x > SWIPE_OFFSET || info.velocity.x > SWIPE_VELOCITY)
+                setTab('budgets');
+            }}
+            className="touch-pan-y"
+          >
+            {tab === 'enveloppes' ? (
+              <div className="px-4 py-2">
+                <AnnualEnvelopesTab envelopes={envelopes} categories={categories} />
               </div>
+            ) : (
+              <>
+                <MBudgetHero
+                  netBalance={budgetData.netBalance}
+                  label={`Solde net ${viewMode === 'monthly' ? 'du mois' : 'YTD'}`}
+                  totalReceived={budgetData.totalReceived}
+                  totalSpent={budgetData.totalSpent}
+                />
 
-              <MBudgetGrid
-                title="Revenus & Rentrées"
-                color={CHART_COLORS.emerald}
-                categories={budgetData.incomeCategories}
-                onCategoryClick={(id) => setViewingCategory(id)}
-                onToggleSens={handleToggleSens}
-                expectedPct={expectedProgress}
-                isManualSort={budgetSortMode === 'manual'}
-                onReorder={handleReorder}
-              />
+                <MMasteryBar
+                  progress={masteryProgress}
+                  viewMode={viewMode}
+                  totalBudget={budgetData.totalExpenseBudget}
+                  totalSpent={budgetData.budgetSpent}
+                  expectedProgress={expectedProgress}
+                />
 
-              <MBudgetGrid
-                title="Dépenses & Budgets"
-                color={CHART_COLORS.gold}
-                categories={budgetData.expenseCategories}
-                onCategoryClick={(id) => setViewingCategory(id)}
-                onToggleSens={handleToggleSens}
-                expectedPct={expectedProgress}
-                isManualSort={budgetSortMode === 'manual'}
-                onReorder={handleReorder}
-              />
-            </>
-          )}
+                {viewMode === 'monthly' && envelopeProvision > 0 && (
+                  <div className="flex justify-center px-4">
+                    <Button variant="plain" size="sm" onClick={() => setTab('enveloppes')}>
+                      Dont {fmtEur(envelopeProvision)}/mois pour les enveloppes →
+                    </Button>
+                  </div>
+                )}
+
+                {budgetData.incomeCategories.length === 0 &&
+                budgetData.expenseCategories.length === 0 ? (
+                  <EmptyState
+                    icon={<Target size={28} />}
+                    title="Aucun budget"
+                    description="Aucune transaction ni enveloppe sur cette période."
+                  />
+                ) : (
+                  <>
+                    <div className="px-4 py-2 mb-2 flex items-center justify-end gap-2">
+                      <span className="text-caption font-semibold text-label-tertiary">
+                        Trier :
+                      </span>
+                      <SegmentedControl
+                        label="Trier les catégories"
+                        segments={SORT_SEGMENTS}
+                        value={budgetSortMode}
+                        onChange={setBudgetSortMode}
+                      />
+                    </div>
+
+                    <MBudgetGrid
+                      title="Revenus & Rentrées"
+                      color={CHART_COLORS.emerald}
+                      categories={budgetData.incomeCategories}
+                      onCategoryClick={(id) => setViewingCategory(id)}
+                      onToggleSens={handleToggleSens}
+                      expectedPct={expectedProgress}
+                      isManualSort={budgetSortMode === 'manual'}
+                      onReorder={handleReorder}
+                    />
+
+                    <MBudgetGrid
+                      title="Dépenses & Budgets"
+                      color={CHART_COLORS.gold}
+                      categories={budgetData.expenseCategories}
+                      onCategoryClick={(id) => setViewingCategory(id)}
+                      onToggleSens={handleToggleSens}
+                      expectedPct={expectedProgress}
+                      isManualSort={budgetSortMode === 'manual'}
+                      onReorder={handleReorder}
+                    />
+                  </>
+                )}
+              </>
+            )}
+          </motion.div>
         </>
       )}
 

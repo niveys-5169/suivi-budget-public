@@ -14,7 +14,10 @@ import { BankinBudgetMain } from './BankinBudgetMain';
 import { BankinBudgetCategoryDetail } from './BankinBudgetCategoryDetail';
 import { BudgetManagerPanel } from '../BudgetManagerPanel';
 import { RAVEditor } from '../RAVEditor';
-import { AnnualEnvelopeSection } from '../AnnualEnvelopeSection';
+import { AnnualEnvelopesTab } from '../AnnualEnvelopesTab';
+import { MonthNavigator } from '../../shared/MonthNavigator';
+import { useBudgetTab } from '../../../hooks/useBudgetTab';
+import { SegmentedControl } from '../../../ui';
 import { TransactionFormModal } from '../../TransactionFormModal';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { categoryKey, preferDisplayLabel } from '../../../utils/budgetHelpers';
@@ -34,6 +37,11 @@ export interface CategoryDetail extends Partial<BudgetConsumption> {
   color?: string;
 }
 
+const TAB_SEGMENTS = [
+  { value: 'budgets' as const, label: 'Budgets' },
+  { value: 'enveloppes' as const, label: 'Enveloppes' },
+];
+
 type ViewState = { type: 'main' } | { type: 'category'; categoryId: string };
 
 export const BankinBudgetsContainer: React.FC = () => {
@@ -42,6 +50,7 @@ export const BankinBudgetsContainer: React.FC = () => {
   const { transactions, togglePointe, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
   const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
+  const { tab, setTab } = useBudgetTab();
   const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
     usePreferences();
   const [viewState, setViewState] = useState<ViewState>({ type: 'main' });
@@ -402,26 +411,36 @@ export const BankinBudgetsContainer: React.FC = () => {
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-4 px-4 md:px-10 py-4">
-          {/* Toggle View Mode */}
-          <div className="bg-surface p-1 rounded-xl border border-separator flex items-center">
-            <button
-              onClick={() => setViewMode('monthly')}
-              aria-pressed={viewMode === 'monthly'}
-              className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
-                viewMode === 'monthly' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
-              }`}
-            >
-              Mois
-            </button>
-            <button
-              onClick={() => setViewMode('annual')}
-              aria-pressed={viewMode === 'annual'}
-              className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
-                viewMode === 'annual' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
-              }`}
-            >
-              Année
-            </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <SegmentedControl
+              label="Budgets ou enveloppes"
+              segments={TAB_SEGMENTS}
+              value={tab}
+              onChange={setTab}
+            />
+            {/* Toggle View Mode — sans objet pour les enveloppes (cycle propre) */}
+            {tab === 'budgets' && (
+              <div className="bg-surface p-1 rounded-xl border border-separator flex items-center">
+                <button
+                  onClick={() => setViewMode('monthly')}
+                  aria-pressed={viewMode === 'monthly'}
+                  className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
+                    viewMode === 'monthly' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
+                  }`}
+                >
+                  Mois
+                </button>
+                <button
+                  onClick={() => setViewMode('annual')}
+                  aria-pressed={viewMode === 'annual'}
+                  className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
+                    viewMode === 'annual' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
+                  }`}
+                >
+                  Année
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -465,30 +484,36 @@ export const BankinBudgetsContainer: React.FC = () => {
         {showManager && <BudgetManagerPanel onClose={() => setShowManager(false)} />}
       </AnimatePresence>
 
-      <BankinBudgetMain
-        netBalance={budgetData.netBalance}
-        totalSpent={budgetData.totalSpent}
-        budgetSpent={budgetData.budgetSpent}
-        totalReceived={budgetData.totalReceived}
-        totalBudget={budgetData.totalExpenseBudget}
-        totalIncomeBudget={budgetData.totalIncomeBudget}
-        incomeCategories={budgetData.incomeCategories}
-        expenseCategories={budgetData.expenseCategories}
-        currentMonth={currentMonth}
-        onMonthChange={handleMonthChange}
-        chartData={budgetData.totalChartData}
-        onCategoryClick={(id) => setViewState({ type: 'category', categoryId: id })}
-        onToggleSens={handleToggleSens}
-        viewMode={viewMode}
-        sortMode={budgetSortMode}
-        onSortModeChange={setBudgetSortMode}
-        onReorder={handleReorder}
-        beforeExpenses={
-          viewMode === 'monthly' && (
-            <AnnualEnvelopeSection envelopes={envelopes} categories={txCategories} />
-          )
-        }
-      />
+      {tab === 'enveloppes' ? (
+        <div className="space-y-6 px-4 py-6">
+          <MonthNavigator month={currentMonth} onChange={handleMonthChange} />
+          <AnnualEnvelopesTab envelopes={envelopes} categories={txCategories} />
+        </div>
+      ) : (
+        <BankinBudgetMain
+          netBalance={budgetData.netBalance}
+          totalSpent={budgetData.totalSpent}
+          budgetSpent={budgetData.budgetSpent}
+          totalReceived={budgetData.totalReceived}
+          totalBudget={budgetData.totalExpenseBudget}
+          totalIncomeBudget={budgetData.totalIncomeBudget}
+          incomeCategories={budgetData.incomeCategories}
+          expenseCategories={budgetData.expenseCategories}
+          currentMonth={currentMonth}
+          onMonthChange={handleMonthChange}
+          chartData={budgetData.totalChartData}
+          onCategoryClick={(id) => setViewState({ type: 'category', categoryId: id })}
+          onToggleSens={handleToggleSens}
+          viewMode={viewMode}
+          sortMode={budgetSortMode}
+          onSortModeChange={setBudgetSortMode}
+          onReorder={handleReorder}
+          envelopeProvision={
+            viewMode === 'monthly' ? envelopes.reduce((s, e) => s + e.provisionMensuelle, 0) : 0
+          }
+          onShowEnvelopes={() => setTab('enveloppes')}
+        />
+      )}
     </div>
   );
 };

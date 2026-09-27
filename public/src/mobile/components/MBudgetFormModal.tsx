@@ -8,6 +8,8 @@ import { CategoryIcon } from '../../components/CategoryIcon';
 import { MoneyInput } from '../../components/shared/MoneyInput';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
 import type { BudgetBase } from '../../types/banking.types';
+import { MonthPicker } from '../../components/budgets-v2/MonthPicker';
+import { getEcheanceMonth } from '../../utils/annualEnvelope';
 
 interface MBudgetFormModalProps {
   categoryName: string;
@@ -26,6 +28,10 @@ export const MBudgetFormModal: React.FC<MBudgetFormModalProps> = ({
   const [montant, setMontant] = useState<number | null>(currentBudget ? defaults.montant : null);
   const [type, setType] = useState<'mensuel' | 'annuel' | 'ponctuel'>(defaults.type);
   const [sens, setSens] = useState<'auto' | 'entree' | 'sortie'>(defaults.sens);
+  // Mois de l'événement d'une enveloppe (type « annuel »).
+  const [mois, setMois] = useState<number | null>(
+    defaults.moisAttendus.length > 0 ? getEcheanceMonth(defaults) : null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +39,10 @@ export const MBudgetFormModal: React.FC<MBudgetFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (type === 'annuel' && mois === null) {
+      setError("Choisis le mois de l'événement");
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
 
@@ -47,6 +57,7 @@ export const MBudgetFormModal: React.FC<MBudgetFormModalProps> = ({
       type,
       montant: montant ?? 0,
       sens,
+      moisAttendus: type === 'annuel' && mois !== null ? [mois] : defaults.moisAttendus,
       periode: { ...defaults.periode, type: periodeTypeFor(type) },
     };
     const parsed = budgetFormSchema.safeParse(values);
@@ -111,11 +122,13 @@ export const MBudgetFormModal: React.FC<MBudgetFormModalProps> = ({
                     : 'bg-white/5 border border-separator text-label-tertiary hover:bg-white/10'
                 }`}
               >
-                {t === 'mensuel' ? 'Mois' : t === 'annuel' ? 'Année' : 'Ponctuel'}
+                {t === 'mensuel' ? 'Mensuel' : t === 'annuel' ? 'Enveloppe' : 'Ponctuel'}
               </button>
             ))}
           </div>
         </fieldset>
+
+        {type === 'annuel' && <MonthPicker value={mois} onChange={setMois} />}
 
         {/* Sens du flux */}
         <fieldset className="space-y-2">
@@ -141,7 +154,7 @@ export const MBudgetFormModal: React.FC<MBudgetFormModalProps> = ({
         {/* Amount Input */}
         <div className="space-y-2">
           <label htmlFor="montant" className="text-caption font-bold text-label-tertiary">
-            Montant {type === 'annuel' ? '(annuel)' : '(mensuel)'}
+            Montant {type === 'annuel' ? "(pour l'année)" : '(mensuel)'}
           </label>
           <MoneyInput
             id="montant"

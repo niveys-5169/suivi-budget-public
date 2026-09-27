@@ -14,6 +14,7 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  deleteField,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -62,6 +63,8 @@ interface BudgetContextType {
   removeBudgetCategory: (categorie: string) => Promise<void>;
   /** Crée ou met à jour une enveloppe annuelle (dépense attendue au mois `moisEcheance`). */
   saveEnvelope: (categorie: string, montant: number, moisEcheance: number) => Promise<void>;
+  /** Repasse une catégorie en budget mensuel de dépense (montant mensuel). */
+  convertToMonthly: (categorie: string, montant: number) => Promise<void>;
 }
 
 const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
@@ -333,6 +336,40 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     [handleFsError, updateAnnualDefault],
   );
 
+  const convertToMonthly = useCallback(
+    async (categorie: string, montant: number) => {
+      try {
+        await withRetry(() =>
+          setDoc(
+            doc(db, 'budgets', budgetDocKey(categorie)),
+            {
+              categorie,
+              nom: categorie,
+              montant,
+              type: 'mensuel',
+              actif: true,
+              isIncome: false,
+              moisAttendus: deleteField(),
+              periode: { type: 'mois_courant' },
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          ),
+        );
+      } catch (err) {
+        handleFsError(err, {
+          context: 'budget.convertToMonthly',
+          extras: { categorie, montant },
+          fallbackKey: 'error.fs.fallback.budget.updateBase',
+        });
+        throw err;
+      }
+      // Garde la vue « Année » cohérente (l'override annuel y est prioritaire).
+      await updateAnnualDefault(categorie, montant * 12);
+    },
+    [handleFsError, updateAnnualDefault],
+  );
+
   const removeBudgetCategory = useCallback(
     async (categorie: string) => {
       const matching = budgets.filter((b) => (b.categorie || b.id) === categorie);
@@ -376,6 +413,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateBaseBudget,
       removeBudgetCategory,
       saveEnvelope,
+      convertToMonthly,
     }),
     [
       viewMode,
@@ -392,6 +430,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateBaseBudget,
       removeBudgetCategory,
       saveEnvelope,
+      convertToMonthly,
     ],
   );
 

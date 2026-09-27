@@ -24,6 +24,15 @@ import {
 import { useTransactions } from '../../hooks/useTransactions';
 import { BudgetProjectionBadge } from './BudgetProjectionBadge';
 import { BudgetBase } from '../../types/banking.types';
+import { SegmentedControl } from '../../ui';
+import { AnnualEnvelopeFormModal } from './AnnualEnvelopeFormModal';
+
+type BudgetKind = 'mensuel' | 'enveloppe';
+
+const KIND_SEGMENTS = [
+  { value: 'mensuel' as const, label: 'Mensuel' },
+  { value: 'enveloppe' as const, label: 'Enveloppe' },
+];
 
 interface BudgetManagerPanelProps {
   onClose: () => void;
@@ -42,6 +51,7 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
   const { formatMessage: t } = useIntl();
   const {
     budgets,
+    baseBudgets,
     viewMode,
     setViewMode,
     monthKey,
@@ -50,6 +60,7 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
     updateAnnualDefault,
     removeBudgetCategory,
     getBudgetCategoryCandidates,
+    convertToMonthly,
   } = useBudgetContext();
   const { transactions } = useTransactions();
 
@@ -60,6 +71,7 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
   const [draft, setDraft] = useState<DraftBudget>({ categorie: '', montant: '', isIncome: false });
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toEnvelope, setToEnvelope] = useState<{ categorie: string; montant: number } | null>(null);
   const editInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -108,10 +120,16 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
     setSavingId(b.id);
     setError(null);
     const cat = b.categorie || b.id;
+    const isIncome = b.isIncome || b.type === 'revenu';
     try {
-      if (viewMode === 'annual') {
-        // Fix the base budget type + value (so monthly display = next/12)
-        await updateBaseBudget(cat, next, 'annuel', b.isIncome || b.type === 'revenu');
+      // Le type n'est jamais déduit de la vue : il ne change que via le sélecteur
+      // Mensuel / Enveloppe. On convertit seulement le montant saisi.
+      if (b.type === 'annuel') {
+        const annual = viewMode === 'annual' ? next : next * 12;
+        await updateBaseBudget(cat, annual, 'annuel', isIncome);
+        await updateAnnualDefault(cat, annual);
+      } else if (viewMode === 'annual') {
+        await updateBaseBudget(cat, next / 12, 'mensuel', isIncome);
         // Also write the annual override so the annual view refreshes immediately
         await updateAnnualDefault(cat, next);
       } else {
@@ -148,6 +166,26 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
     }
   };
 
+  const changeKind = async (b: BudgetBase, kind: BudgetKind) => {
+    const cat = b.categorie || b.id;
+    const base = baseBudgets.find((x) => x.id === b.id) ?? b;
+    const isEnvelopeNow = base.type === 'annuel';
+    if (kind === 'enveloppe' && !isEnvelopeNow) {
+      // Montant annuel proposé ; le mois de l'événement se choisit dans la fenêtre.
+      setToEnvelope({ categorie: cat, montant: Math.round((Number(base.montant) || 0) * 12) });
+    } else if (kind === 'mensuel' && isEnvelopeNow) {
+      setSavingId(b.id);
+      setError(null);
+      try {
+        await convertToMonthly(cat, Math.round((Number(base.montant) || 0) / 12));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t({ id: 'budget.manager.error.save' }));
+      } finally {
+        setSavingId(null);
+      }
+    }
+  };
+
   const handleDelete = async (categorie: string) => {
     setSavingId(categorie);
     setError(null);
@@ -180,10 +218,11 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
     setAdding(true);
     setError(null);
     try {
+      // Toujours un budget mensuel ; les enveloppes se créent via le sélecteur.
       await updateBaseBudget(
         cat,
-        val,
-        draft.isIncome ? 'revenu' : viewMode === 'annual' ? 'annuel' : 'mensuel',
+        viewMode === 'annual' ? val / 12 : val,
+        draft.isIncome ? 'revenu' : 'mensuel',
         draft.isIncome,
       );
       setDraft({ categorie: '', montant: '', isIncome: false });
@@ -360,19 +399,25 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
                       />
                     )}
                   </div>
-                  <div
-                    className={`text-caption font-semibold mt-1 ml-4 ${isIncome ? 'text-positive' : 'text-label/30'}`}
-                  >
-                    {isIncome
-                      ? b.type === 'annuel'
-                        ? t({ id: 'budget.manager.label.incomeAnnual' })
-                        : t({ id: 'budget.manager.label.incomeMonthly' })
-                      : b.type === 'annuel'
-                        ? t({ id: 'budget.manager.label.targetAnnual' })
-                        : b.type === 'ponctuel'
-                          ? t({ id: 'budget.manager.label.targetOneoff' })
-                          : t({ id: 'budget.manager.label.targetMonthly' })}
-                  </div>
+                  {isIncome || b.type === 'ponctuel' ? (
+                    <div
+                      className={`text-caption font-semibold mt-1 ml-4 ${isIncome ? 'text-positive' : 'text-label/30'}`}
+                    >
+                      {isIncome
+                        ? b.type === 'annuel'
+                          ? t({ id: 'budget.manager.label.incomeAnnual' })
+                          : t({ id: 'budget.manager.label.incomeMonthly' })
+                        : t({ id: 'budget.manager.label.targetOneoff' })}
+                    </div>
+                  ) : (
+                    <SegmentedControl
+                      label={`Type du budget ${label}`}
+                      segments={KIND_SEGMENTS}
+                      value={b.type === 'annuel' ? 'enveloppe' : 'mensuel'}
+                      onChange={(kind) => changeKind(b, kind)}
+                      className="mt-2 ml-4"
+                    />
+                  )}
                 </div>
 
                 {isEditing ? (
@@ -570,6 +615,16 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
           </p>
         </div>
       </div>
+
+      {toEnvelope && (
+        <AnnualEnvelopeFormModal
+          isOpen
+          onClose={() => setToEnvelope(null)}
+          categories={[toEnvelope.categorie]}
+          initialCategorie={toEnvelope.categorie}
+          initialMontant={toEnvelope.montant}
+        />
+      )}
     </motion.div>
   );
 };
