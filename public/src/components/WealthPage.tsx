@@ -5,6 +5,10 @@ import { useWealthScope } from '../hooks/useWealthScope';
 import { useWealthAggregates } from '../hooks/useWealthAggregates';
 import { usePatrimoine } from '../hooks/usePatrimoine';
 import { usePortfolio } from '../hooks/usePortfolio';
+import { useCredits } from '../hooks/useCredits';
+import { useRecurrences } from '../hooks/useRecurrences';
+import type { Credit } from '../types/banking.types';
+import { mensualitesEnCours, tauxEndettement } from '../utils/creditSchedule';
 import {
   getLastPlacementSnapshot,
   type Placement,
@@ -20,6 +24,8 @@ import { WealthEvolutionBudgetChart } from './WealthEvolutionBudgetChart';
 import { WealthEvolutionTable } from './WealthEvolutionTable';
 import { WealthPositionsChart } from './WealthPositionsChart';
 import { PlacementFormModal } from './PlacementFormModal';
+import { CreditFormModal } from './CreditFormModal';
+import { WealthCreditsSection } from './WealthCreditsSection';
 import { AssetDetailModal, type AssetDetailTarget } from './shared/AssetDetailModal';
 import { resolveHoldingAssetId } from '../utils/historyAssetResolver';
 import { hideLoader } from '../utils/loader';
@@ -106,6 +112,31 @@ export const WealthPage: React.FC = () => {
   const { loading, ownerMapping, placementHistory, placements, savingsBalances, accountBalances } =
     usePatrimoine();
 
+  const { credits } = useCredits();
+  const { incomes: incomeRecurrences } = useRecurrences();
+  // Taux d'endettement du foyer : tous les crédits / tous les revenus récurrents,
+  // quel que soit le filtre propriétaire.
+  const tauxEndettementFoyer = useMemo(
+    () =>
+      tauxEndettement(
+        mensualitesEnCours(credits, new Date()),
+        incomeRecurrences.reduce((sum, r) => sum + Math.abs(r.expectedAmount), 0),
+      ),
+    [credits, incomeRecurrences],
+  );
+  // Même règle de filtrage par propriétaire que pour les actifs (useWealthAggregates).
+  const filteredCredits = useMemo(
+    () =>
+      ownerScope === 'all'
+        ? credits
+        : credits.filter((c) =>
+            ownerScope.some((s) => s.toLowerCase() === (c.owner || '').toLowerCase()),
+          ),
+    [credits, ownerScope],
+  );
+  const [selectedCredit, setSelectedCredit] = useState<Credit | undefined>(undefined);
+  const [isAddingCredit, setIsAddingCredit] = useState(false);
+
   // Variation sur 1 mois : même timeline que l'Évolution, filtrée par
   // propriétaire ET par type des deux côtés (départ comme fin).
   const evolution1M = useWealthEvolution(placementHistory, '1M', ownerScope, undefined, liveByCat);
@@ -188,6 +219,9 @@ export const WealthPage: React.FC = () => {
   const cashAmount = segments.find((s) => s.type === 'cash')?.amount || 0;
   const savingsAmount = segments.find((s) => s.type === 'savings')?.amount || 0;
   const marketAmount = segments.find((s) => s.type === 'investissements')?.amount || 0;
+  // Crédits : owner-filtré mais jamais type-filtré, comme l'ancre de l'évolution.
+  const amountAllTypes = (type: string) =>
+    segmentsAllTypes.find((s) => s.type === type)?.amount || 0;
 
   const dynamicOwners = [
     { id: 'nicolas', label: 'Nicolas' },
@@ -302,6 +336,17 @@ export const WealthPage: React.FC = () => {
             </Card>
           </div>
         </div>
+
+        <WealthCreditsSection
+          credits={filteredCredits}
+          totalPatrimoine={segmentsAllTypes.reduce((sum, s) => sum + s.amount, 0)}
+          cashAmount={amountAllTypes('cash')}
+          savingsAmount={amountAllTypes('savings')}
+          investAmount={amountAllTypes('investissements')}
+          tauxEndettementFoyer={tauxEndettementFoyer}
+          onAddCredit={() => setIsAddingCredit(true)}
+          onEditCredit={(credit) => setSelectedCredit(credit)}
+        />
 
         <section className="px-2 md:px-4">
           <WealthEvolutionTable
@@ -578,6 +623,17 @@ export const WealthPage: React.FC = () => {
         <PositionsImportModal
           existingHistory={placementHistory}
           onClose={() => setShowImportModal(false)}
+        />
+      )}
+
+      {(selectedCredit || isAddingCredit) && (
+        <CreditFormModal
+          credit={selectedCredit}
+          onClose={() => {
+            setSelectedCredit(undefined);
+            setIsAddingCredit(false);
+          }}
+          onSave={() => {}}
         />
       )}
     </div>

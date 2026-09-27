@@ -38,6 +38,28 @@ export const placementFormSchema = z.object({
 
 export type PlacementFormValues = z.infer<typeof placementFormSchema>;
 
+export const creditFormSchema = z.object({
+  nom: requiredString('Nom du crédit requis'),
+  owner: z.string(),
+  capitalInitial: finiteNumber('Capital requis').refine((v) => v > 0, {
+    message: 'Le capital doit être > 0',
+  }),
+  tauxAnnuel: finiteNumber('Taux requis').refine((v) => v >= 0, {
+    message: 'Le taux doit être ≥ 0',
+  }),
+  dureeMois: z
+    .number({ message: 'Durée requise' })
+    .int('Durée entière requise')
+    .min(1, 'Durée ≥ 1 mois'),
+  dateDebut: dateISO,
+  assuranceMensuelle: finiteNumber('Assurance invalide').refine((v) => v >= 0, {
+    message: "L'assurance doit être ≥ 0",
+  }),
+  commentaire: z.string(),
+});
+
+export type CreditFormValues = z.infer<typeof creditFormSchema>;
+
 export const budgetFormSchema = z
   .object({
     nom: requiredString('Désignation requise'),
