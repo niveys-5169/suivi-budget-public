@@ -16,6 +16,8 @@ import {
   deleteDoc,
   deleteField,
   serverTimestamp,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { state as globalStore } from '../store';
@@ -28,6 +30,11 @@ import { budgetDocKey } from '../utils/budgetKey';
 import { dedupeBudgetsByCategory } from '../utils/budgetHelpers';
 import { resolveEffectiveBudgets } from '../utils/budgetResolution';
 import { FALLBACK_CATEGORIES } from '../constants/categories';
+import {
+  applyCustomCategories,
+  EMPTY_CUSTOM_CATEGORIES,
+  type CustomCategories,
+} from '../utils/customCategories';
 
 interface MonthlyBudget extends BudgetBase {
   month: string;
@@ -61,6 +68,12 @@ interface BudgetContextType {
     isIncome?: boolean,
   ) => Promise<void>;
   removeBudgetCategory: (categorie: string) => Promise<void>;
+  /** Catégories masquées par l'utilisateur (à exclure des listes de choix). */
+  removedCategories: string[];
+  /** Ajoute une catégorie à la liste (la ré-affiche si elle avait été supprimée). */
+  addCategory: (categorie: string) => Promise<void>;
+  /** Masque une catégorie des listes de choix ; les transactions la conservent. */
+  deleteCategory: (categorie: string) => Promise<void>;
   /** Crée ou met à jour une enveloppe annuelle (dépense attendue au mois `moisEcheance`). */
   saveEnvelope: (categorie: string, montant: number, moisEcheance: number) => Promise<void>;
   /** Repasse une catégorie en budget mensuel de dépense (montant mensuel). */
@@ -87,6 +100,8 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [monthly, setMonthly] = useState<MonthlyBudget[]>([]);
   const [annual, setAnnual] = useState<AnnualBudget[]>([]);
   const [loading, setLoading] = useState(true);
+  const [customCategories, setCustomCategories] =
+    useState<CustomCategories>(EMPTY_CUSTOM_CATEGORIES);
 
   const computedBudgets = useMemo(
     () => resolveEffectiveBudgets(budgets, monthly, annual, monthKey, viewMode),
@@ -101,6 +116,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setBudgets([]);
       setMonthly([]);
       setAnnual([]);
+      setCustomCategories(EMPTY_CUSTOM_CATEGORIES);
       setLoading(false);
       return;
     }
@@ -193,6 +209,17 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       ),
     );
 
+    unsubs.push(
+      onSnapshot(
+        doc(db, 'users', user.uid, 'preferences', 'categories'),
+        (snap) => {
+          const d = snap.data() as Partial<CustomCategories> | undefined;
+          setCustomCategories({ added: d?.added ?? [], removed: d?.removed ?? [] });
+        },
+        () => setCustomCategories(EMPTY_CUSTOM_CATEGORIES),
+      ),
+    );
+
     return () => unsubs.forEach((u) => u());
   }, [user, authLoading]);
 
@@ -203,10 +230,43 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const getBudgetCategoryCandidates = useCallback(() => {
     const fromBudgets = new Set(budgets.map((b) => b.categorie));
     const fromPreset = Object.values(FALLBACK_CATEGORIES).flat();
-    return Array.from(new Set([...fromPreset, ...fromBudgets]))
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [budgets]);
+    return applyCustomCategories([...fromPreset, ...fromBudgets], customCategories);
+  }, [budgets, customCategories]);
+
+  const saveCustomCategories = useCallback(
+    async (patch: Record<string, unknown>, context: string, categorie: string) => {
+      if (!user) return;
+      try {
+        await withRetry(() =>
+          setDoc(doc(db, 'users', user.uid, 'preferences', 'categories'), patch, { merge: true }),
+        );
+      } catch (err) {
+        handleFsError(err, { context, extras: { categorie } });
+        throw err;
+      }
+    },
+    [user, handleFsError],
+  );
+
+  const addCategory = useCallback(
+    (categorie: string) =>
+      saveCustomCategories(
+        { added: arrayUnion(categorie), removed: arrayRemove(categorie) },
+        'categories.add',
+        categorie,
+      ),
+    [saveCustomCategories],
+  );
+
+  const deleteCategory = useCallback(
+    (categorie: string) =>
+      saveCustomCategories(
+        { added: arrayRemove(categorie), removed: arrayUnion(categorie) },
+        'categories.delete',
+        categorie,
+      ),
+    [saveCustomCategories],
+  );
 
   const updateMonthlyBudget = useCallback(
     async (categorie: string, montant: number) => {
@@ -412,6 +472,9 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateAnnualDefault,
       updateBaseBudget,
       removeBudgetCategory,
+      removedCategories: customCategories.removed,
+      addCategory,
+      deleteCategory,
       saveEnvelope,
       convertToMonthly,
     }),
@@ -429,6 +492,9 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateAnnualDefault,
       updateBaseBudget,
       removeBudgetCategory,
+      customCategories.removed,
+      addCategory,
+      deleteCategory,
       saveEnvelope,
       convertToMonthly,
     ],

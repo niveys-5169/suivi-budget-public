@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Settings, Trash2, BotMessageSquare, ExternalLink, History } from 'lucide-react';
+import { Send, Settings, Trash2, BotMessageSquare, History } from 'lucide-react';
 import { usePersistentFinanceQA } from '../hooks/usePersistentFinanceQA';
 import { ConversationHistoryPanel } from './ConversationHistoryPanel';
 import type { ChatMessage } from '../hooks/useFinanceQA';
@@ -9,8 +9,7 @@ import { Modal } from './shared/Modal';
 import { PageHeader } from './shared/PageHeader';
 import { Card } from './shared/Card';
 import { Button } from './shared/Button';
-import { AISettingsForm } from './advanced/AISettingsForm';
-import { useNavigate } from 'react-router-dom';
+import { AIProvidersForm } from './advanced/AIProvidersForm';
 
 // --- Markdown renderer (safe — HTML-escaped first) ---
 function renderMarkdown(text: string): string {
@@ -40,37 +39,20 @@ interface AISettingsModalProps {
   onClose: () => void;
 }
 
-const AISettingsModal: React.FC<AISettingsModalProps> = ({ onClose }) => {
-  const navigate = useNavigate();
-
-  return (
-    <Modal
-      isOpen
-      onClose={onClose}
-      title="Paramètres IA"
-      subtitle="Assistant & Intelligence"
-      size="md"
-      variant="centered"
-    >
-      <div className="p-8 space-y-8">
-        <AISettingsForm onSave={onClose} showTitle={false} />
-
-        <div className="pt-6 border-t border-separator">
-          <button
-            onClick={() => {
-              onClose();
-              navigate('/advanced?tab=api');
-            }}
-            className="flex items-center gap-2 text-caption font-semibold text-label/20 hover:text-gold transition-colors"
-          >
-            <ExternalLink size={12} />
-            Accéder au laboratoire complet
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-};
+const AISettingsModal: React.FC<AISettingsModalProps> = ({ onClose }) => (
+  <Modal
+    isOpen
+    onClose={onClose}
+    title="Paramètres IA"
+    subtitle="Assistant & Intelligence"
+    size="md"
+    variant="centered"
+  >
+    <div className="p-8">
+      <AIProvidersForm onSaved={onClose} />
+    </div>
+  </Modal>
+);
 
 // --- Message bubble ---
 const MessageBubble: React.FC<{ msg: ChatMessage }> = ({ msg }) => {

@@ -25,7 +25,11 @@ vi.mock('../../../public/src/hooks/useMonthlySavingsPosition', () => ({
 // `useFormOptions` (catégories / comptes de la modale d'édition) s'appuie sur
 // ces deux hooks, qui exigent leurs providers.
 vi.mock('../../../public/src/hooks/useBudget', () => ({
-  useBudget: () => ({ budgets: [], getBudgetCategoryCandidates: () => ['Loyer', 'Netflix'] }),
+  useBudget: () => ({
+    budgets: [],
+    getBudgetCategoryCandidates: () => ['Loyer', 'Netflix'],
+    removedCategories: [],
+  }),
 }));
 
 vi.mock('../../../public/src/hooks/useBalances', () => ({

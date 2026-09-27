@@ -49,7 +49,7 @@ export const ExcludedEmailsPage: React.FC = () => {
 
   return (
     <PageShell title="Emails exclus" description="Gérez les messages exclus du reparse Gmail.">
-      <BackButton onBack={() => navigate('/advanced')} />
+      <BackButton onBack={() => navigate('/settings?section=import')} />
       <div className="mt-8 overflow-hidden rounded-xl bg-white/5 border border-separator">
         <table className="min-w-full border-collapse text-sm text-left">
           <thead>

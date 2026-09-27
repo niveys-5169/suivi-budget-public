@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, RotateCcw, Shapes } from 'lucide-react';
+import { Search, RotateCcw, Shapes, Plus, Trash2 } from 'lucide-react';
 import { Modal } from './shared/Modal';
 import { CategoryIcon } from './CategoryIcon';
 import { useCategoryMeta } from '../context/CategoryMetaContext';
@@ -7,18 +7,21 @@ import { useBudgetContext } from '../context/BudgetContext';
 import { getCategoryMeta, BUILTIN_CATEGORY_META } from '../constants/categoryMetadata';
 import { CATEGORY_ICON_GROUPS, CATEGORY_COLORS } from '../constants/categoryIcons';
 import { toast } from '../lib/toast';
+import { confirm } from '../lib/confirm';
 
 /**
- * Éditeur d'icônes/couleurs de catégories.
- * Liste les catégories connues et permet d'affecter à chacune une icône Lucide + couleur,
- * persistées dans Firestore (users/{uid}/preferences/categoryMeta) via useCategoryMeta.
+ * Éditeur des catégories : ajout, suppression (masquage) et icône/couleur.
+ * Les icônes sont persistées dans users/{uid}/preferences/categoryMeta (useCategoryMeta),
+ * les ajouts/suppressions dans users/{uid}/preferences/categories (BudgetContext).
  */
 export const CategoryIconEditor: React.FC = () => {
   const { overrides, setMeta, resetMeta, loading } = useCategoryMeta();
-  const { getBudgetCategoryCandidates } = useBudgetContext();
+  const { getBudgetCategoryCandidates, removedCategories, addCategory, deleteCategory } =
+    useBudgetContext();
   const [editing, setEditing] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
 
-  // Union : catégories budget (preset + utilisées) ∪ intégrées ∪ surchargées.
+  // Union : catégories budget (preset + utilisées) ∪ intégrées ∪ surchargées, hors supprimées.
   const categories = useMemo(() => {
     const set = new Set<string>([
       ...getBudgetCategoryCandidates(),
@@ -26,23 +29,75 @@ export const CategoryIconEditor: React.FC = () => {
       ...Object.keys(overrides),
     ]);
     return Array.from(set)
-      .filter(Boolean)
+      .filter((c) => Boolean(c) && !removedCategories.includes(c))
       .sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [getBudgetCategoryCandidates, overrides]);
+  }, [getBudgetCategoryCandidates, overrides, removedCategories]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    const key = name.toLocaleLowerCase('fr');
+    if (categories.some((c) => c.toLocaleLowerCase('fr') === key)) {
+      toast.error(`« ${name} » existe déjà`);
+      return;
+    }
+    try {
+      await addCategory(name);
+      setNewName('');
+      toast.success(`Catégorie « ${name} » ajoutée ✓`);
+    } catch {
+      // Erreur déjà signalée par le gestionnaire Firestore.
+    }
+  };
+
+  const handleDelete = async (cat: string) => {
+    if (
+      !(await confirm({
+        message: `Supprimer la catégorie « ${cat} » ? Elle ne sera plus proposée dans les listes ; les transactions existantes la conservent (utilisez « Fusion de catégories » pour les réaffecter).`,
+        danger: true,
+      }))
+    )
+      return;
+    try {
+      await deleteCategory(cat);
+      toast.success(`Catégorie « ${cat} » supprimée`);
+    } catch {
+      // Erreur déjà signalée par le gestionnaire Firestore.
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
         <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-4">
           <Shapes size={20} className="text-gold" />
-          Icônes des catégories
+          Catégories
         </h2>
         <p className="text-caption font-medium text-label/40 leading-relaxed max-w-2xl">
-          Choisissez une icône et une couleur pour chaque catégorie. Les catégories sans
-          personnalisation utilisent une icône générique « ? ». Les changements sont synchronisés
-          sur tous vos appareils.
+          Ajoutez ou supprimez des catégories, et choisissez une icône et une couleur pour chacune.
+          Les catégories sans personnalisation utilisent une icône générique « ? ». Les changements
+          sont synchronisés sur tous vos appareils.
         </p>
       </div>
+
+      <form onSubmit={handleAdd} className="flex gap-2">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Nouvelle catégorie…"
+          aria-label="Nom de la nouvelle catégorie"
+          className="flex-1 min-w-0 px-4 py-2 rounded-xl bg-white/5 border border-separator text-base text-label placeholder:text-label/30 focus:outline-none focus:border-gold/40"
+        />
+        <button
+          type="submit"
+          disabled={!newName.trim()}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-caption font-semibold bg-gold text-bg hover:bg-gold/90 disabled:opacity-40 transition-colors"
+        >
+          <Plus size={16} />
+          Ajouter
+        </button>
+      </form>
 
       {loading ? (
         <p className="text-caption text-label/40">Chargement…</p>
@@ -66,6 +121,13 @@ export const CategoryIconEditor: React.FC = () => {
                   className="px-4 py-2 rounded-lg text-caption font-bold bg-white/5 text-label/70 hover:bg-gold/10 hover:text-gold transition-colors"
                 >
                   Modifier
+                </button>
+                <button
+                  onClick={() => handleDelete(cat)}
+                  aria-label={`Supprimer ${cat}`}
+                  className="p-2 rounded-lg text-label/40 hover:bg-negative/10 hover:text-negative transition-colors"
+                >
+                  <Trash2 size={16} />
                 </button>
               </li>
             );

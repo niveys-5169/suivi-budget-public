@@ -14,7 +14,7 @@ import type { MessageId } from '../../i18n/messages/fr';
  * libellés en capitales d'un côté, en dur de l'autre.
  *
  * Cinq onglets au maximum : au-delà les libellés ne tiennent plus sur la
- * largeur d'un iPhone. L'Assistant (/qa) et le Lab (/advanced) restent
+ * largeur d'un iPhone. L'Assistant (/qa) et les Paramètres (/settings) restent
  * accessibles par la Sidebar sur desktop et par URL directe sur mobile.
  */
 export const BottomNav: React.FC = () => {

@@ -43,7 +43,7 @@ export interface OwnerMapping {
 }
 
 import { useGlobalData } from '../context/GlobalDataContext';
-import { cleanupHistoryDuplicates, reportDuplicates } from '../utils/cleanupDuplicates';
+import { reportDuplicates } from '../utils/cleanupDuplicates';
 import { buildWealthTimeline } from '../utils/wealthTimeline';
 import { computeWealthTotals } from '../utils/wealthSnapshot';
 import { withRetry } from '../utils/withRetry';
@@ -261,8 +261,6 @@ export const usePatrimoine = () => {
     [placementHistory],
   );
 
-  const cleanupDuplicates = useCallback(async () => cleanupHistoryDuplicates(), []);
-
   const reportHistoryDuplicates = useCallback(async () => reportDuplicates(), []);
 
   return {
@@ -281,7 +279,6 @@ export const usePatrimoine = () => {
     removePlacement,
     updateOwnerMapping,
     saveSnapshot,
-    cleanupDuplicates,
     reportHistoryDuplicates,
   };
 };

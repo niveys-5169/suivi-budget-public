@@ -1,8 +1,7 @@
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { toMillis } from './firestoreDate';
 import type { FirestoreDateLike } from '../types/banking.types';
-import { withRetry } from './withRetry';
 
 export interface DuplicateGroup {
   key: string; // assetId|date
@@ -51,55 +50,6 @@ export async function analyzeHistoryDuplicates(): Promise<DuplicateGroup[]> {
   });
 
   return duplicates;
-}
-
-/**
- * Removes duplicate entries, keeping the newest one and summing older values into it
- * Strategy: Keep the newest entry with accumulated montant from all duplicates
- */
-export async function cleanupHistoryDuplicates(): Promise<{
-  removed: number;
-  updated: number;
-  duplicateGroups: DuplicateGroup[];
-}> {
-  const duplicates = await analyzeHistoryDuplicates();
-
-  if (duplicates.length === 0) {
-    return { removed: 0, updated: 0, duplicateGroups: [] };
-  }
-
-  const batch = writeBatch(db);
-  let removed = 0;
-  let updated = 0;
-
-  duplicates.forEach((group) => {
-    const [newest, ...oldEntries] = group.entries;
-    if (!newest) return;
-
-    // Sum all montants
-    const totalMontant = group.entries.reduce((sum, e) => sum + e.montant, 0);
-
-    // Update newest with total
-    if (totalMontant !== newest.montant) {
-      batch.update(doc(db, 'placement_history', newest.id), {
-        montant: totalMontant,
-        updatedAt: new Date(),
-        mergedFrom: oldEntries.map((e) => e.id),
-      });
-      updated++;
-    }
-
-    // Delete old entries
-    oldEntries.forEach((entry) => {
-      batch.delete(doc(db, 'placement_history', entry.id));
-      removed++;
-    });
-  });
-
-  await withRetry(() => batch.commit());
-
-  console.log(`✅ Cleanup complete: ${removed} removed, ${updated} updated`);
-  return { removed, updated, duplicateGroups: duplicates };
 }
 
 /**

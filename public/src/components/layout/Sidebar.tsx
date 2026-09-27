@@ -7,7 +7,7 @@ import {
   BarChart3,
   TrendingUp,
   PieChart,
-  FlaskConical,
+  Settings,
   MessageSquare,
   RefreshCw,
 } from 'lucide-react';
@@ -94,7 +94,7 @@ export const Sidebar: React.FC = () => {
         className="mt-auto flex flex-col gap-1 px-2 pb-4"
       >
         <SidebarLink to="/qa" icon={MessageSquare} label={t({ id: 'nav.assistant' })} />
-        <SidebarLink to="/advanced" icon={FlaskConical} label={t({ id: 'nav.lab' })} />
+        <SidebarLink to="/settings" icon={Settings} label={t({ id: 'nav.settings' })} />
       </nav>
 
       <Separator />

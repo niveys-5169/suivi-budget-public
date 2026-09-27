@@ -99,7 +99,7 @@ export const FusionPage: React.FC = () => {
       title="Fusion de catégories"
       description="Regroupez plusieurs catégories en une seule et mettez à jour les transactions en masse."
     >
-      <BackButton onBack={() => navigate('/advanced')} />
+      <BackButton onBack={() => navigate('/settings?section=categories')} />
       <div className="mt-8 overflow-hidden rounded-xl bg-white/5 border border-separator">
         <table className="min-w-full border-collapse text-sm text-left">
           <thead>

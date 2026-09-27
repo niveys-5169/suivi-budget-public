@@ -41,13 +41,16 @@ export function deriveAccountOptions(balances: BalanceLike[]): string[] {
  * l'identique dans `HomeScreen` et `TransactionsScreen`.
  */
 export function useFormOptions(): { categories: string[]; accounts: string[] } {
-  const { getBudgetCategoryCandidates } = useBudget();
+  const { getBudgetCategoryCandidates, removedCategories } = useBudget();
   const { filteredTransactions } = useTransactions();
   const { balances } = useBalances();
 
   const categories = useMemo(
-    () => deriveCategoryOptions(getBudgetCategoryCandidates(), filteredTransactions),
-    [getBudgetCategoryCandidates, filteredTransactions],
+    () =>
+      deriveCategoryOptions(getBudgetCategoryCandidates(), filteredTransactions).filter(
+        (c) => !removedCategories.includes(c),
+      ),
+    [getBudgetCategoryCandidates, filteredTransactions, removedCategories],
   );
 
   const accounts = useMemo(() => deriveAccountOptions(balances), [balances]);

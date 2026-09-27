@@ -42,7 +42,7 @@ export const TronityPage: React.FC = () => {
       title="Tronity"
       description="Configurez les tarifs et options d'importation Tronity."
     >
-      <BackButton onBack={() => navigate('/advanced')} />
+      <BackButton onBack={() => navigate('/settings?section=import')} />
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="space-y-6 p-8 rounded-xl bg-white/5 border border-separator">
           <div className="flex items-center gap-4 text-gold">

@@ -15,7 +15,6 @@ const en: Record<MessageId, string> = {
   'nav.flux': 'Activity',
   'nav.audit': 'Audit',
   'nav.assistant': 'Assistant',
-  'nav.lab': 'Lab',
   'nav.sidebar.aria': 'AURUM sidebar',
   'nav.sidebar.title': 'AURUM',
   'nav.sidebar.subtitle': 'Private Wealth Management',

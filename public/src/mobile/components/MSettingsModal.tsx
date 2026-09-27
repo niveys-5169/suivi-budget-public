@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
-import { RefreshCcw, Trash2, LogOut, CloudDownload } from 'lucide-react';
+import {
+  RefreshCcw,
+  Trash2,
+  LogOut,
+  CloudDownload,
+  BrainCircuit,
+  ChevronRight,
+} from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePWAUpdate } from '../../hooks/usePWAUpdate';
 import { usePreferences } from '../../hooks/usePreferences';
 import { useSyncTransactions } from '../../hooks/useSyncTransactions';
-import { AIProvidersForm } from '../../components/advanced/AIProvidersForm';
+import { GitHubSettingsForm } from '../../components/settings/GitHubSettingsForm';
+import { MAIConfigSheet } from './MAIConfigSheet';
+import { configuredProviders, PROVIDER_META, readAISettings } from '../../utils/aiConfig';
 import {
-  Button,
   Card,
-  Field,
-  Input,
   List,
   ListItem,
   Section,
@@ -38,19 +44,8 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
   const [isClearing, setIsClearing] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
 
-  const [githubConfig, setGithubConfig] = useState(() => ({
-    owner: localStorage.getItem('github_owner') || 'niveys-5169',
-    repo: localStorage.getItem('github_repo') || 'Suivi-Budget',
-  }));
-  const [githubSaveStatus, setGithubSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-
-  const saveGithubConfig = () => {
-    setGithubSaveStatus('saving');
-    localStorage.setItem('github_owner', githubConfig.owner);
-    localStorage.setItem('github_repo', githubConfig.repo);
-    setGithubSaveStatus('saved');
-    setTimeout(() => setGithubSaveStatus('idle'), 2000);
-  };
+  const [isAIConfigOpen, setIsAIConfigOpen] = useState(false);
+  const aiProviders = configuredProviders(readAISettings());
 
   const handleClearCache = async () => {
     setIsClearing(true);
@@ -108,46 +103,30 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
           </Section>
 
           <Section title="Assistant IA">
-            <Card>
-              <AIProvidersForm />
-            </Card>
+            <List>
+              <ListItem
+                leading={
+                  <Tile>
+                    <BrainCircuit size={18} />
+                  </Tile>
+                }
+                title="Configuration IA"
+                subtitle={
+                  aiProviders.length
+                    ? aiProviders.map((p) => PROVIDER_META[p].label).join(' → ')
+                    : 'Aucun fournisseur configuré'
+                }
+                trailing={
+                  <ChevronRight size={16} className="text-label-tertiary" aria-hidden="true" />
+                }
+                onClick={() => setIsAIConfigOpen(true)}
+              />
+            </List>
           </Section>
 
           <Section title="Source des données">
             <Card>
-              <Stack gap="md">
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Propriétaire">
-                    {(p) => (
-                      <Input
-                        {...p}
-                        value={githubConfig.owner}
-                        placeholder="niveys-5169"
-                        autoComplete="off"
-                        onChange={(e) =>
-                          setGithubConfig((prev) => ({ ...prev, owner: e.target.value }))
-                        }
-                      />
-                    )}
-                  </Field>
-                  <Field label="Dépôt">
-                    {(p) => (
-                      <Input
-                        {...p}
-                        value={githubConfig.repo}
-                        placeholder="Suivi-Budget"
-                        autoComplete="off"
-                        onChange={(e) =>
-                          setGithubConfig((prev) => ({ ...prev, repo: e.target.value }))
-                        }
-                      />
-                    )}
-                  </Field>
-                </div>
-                <Button variant="primary" block onClick={saveGithubConfig}>
-                  {githubSaveStatus === 'saved' ? 'Enregistré' : 'Enregistrer'}
-                </Button>
-              </Stack>
+              <GitHubSettingsForm />
             </Card>
           </Section>
 
@@ -202,6 +181,9 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
           </Section>
         </Stack>
       </Sheet.Body>
+      {isAIConfigOpen && (
+        <MAIConfigSheet closeOnSave={false} onClose={() => setIsAIConfigOpen(false)} />
+      )}
     </Sheet>
   );
 };

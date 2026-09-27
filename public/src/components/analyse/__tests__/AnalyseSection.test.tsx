@@ -73,6 +73,7 @@ vi.mock('../../../hooks/useBudget', () => ({
   useBudget: () => ({
     budgets: [],
     getBudgetCategoryCandidates: vi.fn(() => []),
+    removedCategories: [],
   }),
 }));
 
