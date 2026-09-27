@@ -73,10 +73,20 @@ interface OpenAIRequestBody {
   tool_choice?: 'auto';
 }
 
-/** Outil de recherche web exposé aux modèles qui gèrent le tool calling. */
-const WEB_SEARCH_TOOL = {
-  type: 'function',
-  function: {
+/**
+ * Outil exposé au modèle (function calling). `parameters` est un JSON Schema ;
+ * `run` reçoit les arguments décodés et renvoie le résultat sérialisé.
+ */
+export interface LLMTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  run: (args: Record<string, unknown>) => Promise<string> | string;
+}
+
+/** Outil de recherche web (NVIDIA via Brave Search). */
+function webSearchTool(search: (query: string) => Promise<string>): LLMTool {
+  return {
     name: 'recherche_web',
     description:
       "Recherche sur internet des informations à jour (taux d'épargne, inflation, cours de bourse, actualité, fiscalité…). Ne sert pas pour les données personnelles de l'utilisateur, déjà fournies.",
@@ -85,10 +95,24 @@ const WEB_SEARCH_TOOL = {
       properties: { requete: { type: 'string', description: 'Requête de recherche.' } },
       required: ['requete'],
     },
-  },
-};
+    run: ({ requete }) =>
+      typeof requete === 'string' && requete ? search(requete) : 'Requête vide.',
+  };
+}
+
+/** Exécute un appel d'outil ; une erreur est renvoyée au modèle plutôt que levée. */
+async function runTool(tools: LLMTool[], name: string, args: Record<string, unknown>) {
+  const tool = tools.find((t) => t.name === name);
+  if (!tool) return `Outil inconnu : ${name}.`;
+  try {
+    return await tool.run(args);
+  } catch (err) {
+    return `Erreur de l'outil ${name} : ${err instanceof Error ? err.message : 'erreur inconnue'}.`;
+  }
+}
+
 /** Nombre maximal d'allers-retours outil → modèle avant réponse forcée. */
-const MAX_TOOL_ROUNDS = 3;
+const MAX_TOOL_ROUNDS = 5;
 
 /** Libellés lisibles par fournisseur, utilisés dans les messages d'erreur. */
 const PROVIDER_LABELS: Record<AIProvider, string> = {
@@ -211,14 +235,25 @@ async function requestWithRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw lastError;
 }
 
+interface GeminiPart {
+  text?: string;
+  functionCall?: { name: string; args?: Record<string, unknown> };
+}
+
+interface GeminiContent {
+  role: string;
+  parts: (GeminiPart | { functionResponse: { name: string; response: unknown } })[];
+}
+
 export async function callGemini(
   config: AIConfig,
   systemPrompt: string,
   history: ChatMessage[],
   question: string,
   webSearch = false,
+  tools: LLMTool[] = [],
 ): Promise<string> {
-  const contents = [
+  const initialContents: GeminiContent[] = [
     ...history.map((msg) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: msg.content }],
@@ -226,7 +261,16 @@ export async function callGemini(
     { role: 'user', parts: [{ text: question }] },
   ];
 
-  const body = {
+  // Ancrage Google Search et function calling ne se combinent pas sur tous les
+  // modèles : le web (question sur une info externe) prend le pas sur les outils.
+  const useTools = !webSearch && tools.length > 0;
+  const functionDeclarations = tools.map(({ name, description, parameters }) => ({
+    name,
+    description,
+    parameters,
+  }));
+
+  const buildBody = (contents: GeminiContent[], round: number) => ({
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents,
     generationConfig: {
@@ -237,7 +281,16 @@ export async function callGemini(
     },
     // Ancrage Google Search : le modèle décide seul s'il a besoin du web.
     ...(webSearch ? { tools: [{ google_search: {} }] } : {}),
-  };
+    ...(useTools
+      ? {
+          tools: [{ functionDeclarations }],
+          // Dernier tour : on force une réponse texte.
+          ...(round >= MAX_TOOL_ROUNDS
+            ? { toolConfig: { functionCallingConfig: { mode: 'NONE' } } }
+            : {}),
+        }
+      : {}),
+  });
 
   const label = PROVIDER_LABELS.gemini;
   const baseUrl = (config.baseUrl || PROVIDER_META.gemini.defaultBaseUrl).replace(/\/+$/, '');
@@ -252,41 +305,63 @@ export async function callGemini(
   return requestWithRetry(async () => {
     let lastError = new AIError(`Aucun modèle ${label} disponible.`);
 
-    for (const model of models) {
+    models: for (const model of models) {
       const url = `${baseUrl}/models/${model}:generateContent`;
-      const resp = await fetchWithTimeout(
-        url,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey },
-          body: JSON.stringify(body),
-        },
-        label,
-      );
+      const contents = [...initialContents];
 
-      if (!resp.ok) {
-        const err = (await resp.json().catch(() => ({}))) as AIErrorResponse;
-        const { message, retryable } = describeHttpError(resp.status, label, err.error?.message);
-        const aiErr = new AIError(message, { retryable, status: resp.status });
-        // 404 = modèle inconnu → on tente le suivant. Auth/quota/panne → on
-        // arrête (relayé au retry externe si transitoire).
-        if (resp.status === 404) {
-          lastError = aiErr;
+      // Boucle de function calling : le modèle demande des outils, on lui
+      // renvoie leurs résultats, jusqu'à MAX_TOOL_ROUNDS fois.
+      for (let round = 0; ; round++) {
+        const resp = await fetchWithTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey },
+            body: JSON.stringify(buildBody(contents, round)),
+          },
+          label,
+        );
+
+        if (!resp.ok) {
+          const err = (await resp.json().catch(() => ({}))) as AIErrorResponse;
+          const { message, retryable } = describeHttpError(resp.status, label, err.error?.message);
+          const aiErr = new AIError(message, { retryable, status: resp.status });
+          // 404 = modèle inconnu → on tente le suivant. Auth/quota/panne → on
+          // arrête (relayé au retry externe si transitoire).
+          if (resp.status === 404 && round === 0) {
+            lastError = aiErr;
+            continue models;
+          }
+          throw aiErr;
+        }
+
+        const data = await resp.json();
+        const content = data?.candidates?.[0]?.content as GeminiContent | undefined;
+        // Avec l'ancrage web, la réponse peut être répartie sur plusieurs parts.
+        const parts = (content?.parts ?? []) as GeminiPart[];
+        const calls = parts.filter((p) => p.functionCall).map((p) => p.functionCall!);
+
+        if (useTools && calls.length && content && round < MAX_TOOL_ROUNDS) {
+          contents.push(content);
+          const responses = await Promise.all(
+            calls.map(async (call) => ({
+              functionResponse: {
+                name: call.name,
+                response: { resultat: await runTool(tools, call.name, call.args ?? {}) },
+              },
+            })),
+          );
+          contents.push({ role: 'user', parts: responses });
           continue;
         }
-        throw aiErr;
-      }
 
-      const data = await resp.json();
-      const candidate = data?.candidates?.[0];
-      // Avec l'ancrage web, la réponse peut être répartie sur plusieurs parts.
-      const parts: { text?: string }[] = candidate?.content?.parts ?? [];
-      const text = parts.map((p) => p.text ?? '').join('');
-      if (!text) {
-        lastError = new AIError('Réponse vide de Gemini. Réessaie ou change de modèle.');
-        continue;
+        const text = parts.map((p) => p.text ?? '').join('');
+        if (!text) {
+          lastError = new AIError('Réponse vide de Gemini. Réessaie ou change de modèle.');
+          continue models;
+        }
+        return sanitizeLLMText(text);
       }
-      return sanitizeLLMText(text);
     }
 
     throw lastError;
@@ -301,8 +376,8 @@ export interface CallOptions {
   top_p?: number;
   /** OpenRouter uniquement : active le plugin de recherche web. */
   webSearch?: boolean;
-  /** Expose l'outil `recherche_web` au modèle (tool calling) et l'exécute. */
-  searchWeb?: (query: string) => Promise<string>;
+  /** Outils exposés au modèle (tool calling) et exécutés par l'app. */
+  tools?: LLMTool[];
 }
 
 export async function callOpenAICompatible(
@@ -319,7 +394,7 @@ export async function callOpenAICompatible(
     temperature = 0.2,
     top_p = 0.8,
     webSearch = false,
-    searchWeb,
+    tools = [],
   } = options;
 
   const messages: OpenAIMessage[] = [
@@ -332,6 +407,10 @@ export async function callOpenAICompatible(
   const label = PROVIDER_LABELS[config.provider] ?? 'IA';
 
   const maxTokens = model.includes('nvidia') || baseUrl.includes('nvidia') ? 1024 : 2048;
+  const toolDefinitions = tools.map(({ name, description, parameters }) => ({
+    type: 'function',
+    function: { name, description, parameters },
+  }));
 
   const request = (withTools: boolean) => {
     const body: OpenAIRequestBody = {
@@ -341,7 +420,7 @@ export async function callOpenAICompatible(
       temperature,
       top_p,
       ...(webSearch ? { plugins: [{ id: 'web' }] } : {}),
-      ...(withTools ? { tools: [WEB_SEARCH_TOOL], tool_choice: 'auto' as const } : {}),
+      ...(withTools ? { tools: toolDefinitions, tool_choice: 'auto' as const } : {}),
     };
 
     return requestWithRetry(async () => {
@@ -371,23 +450,23 @@ export async function callOpenAICompatible(
     });
   };
 
-  // Boucle de tool calling : le modèle peut demander des recherches web, dont
-  // on lui renvoie les résultats, jusqu'à MAX_TOOL_ROUNDS fois.
+  // Boucle de tool calling : le modèle peut demander des outils, dont on lui
+  // renvoie les résultats, jusqu'à MAX_TOOL_ROUNDS fois.
   for (let round = 0; ; round++) {
-    const withTools = !!searchWeb && round < MAX_TOOL_ROUNDS;
+    const withTools = tools.length > 0 && round < MAX_TOOL_ROUNDS;
     const message = await request(withTools);
     const toolCalls = message?.tool_calls ?? [];
 
-    if (withTools && searchWeb && toolCalls.length) {
+    if (withTools && toolCalls.length) {
       messages.push({ role: 'assistant', content: message?.content ?? '', tool_calls: toolCalls });
       for (const call of toolCalls) {
-        let result: string;
+        let args: Record<string, unknown> = {};
         try {
-          const { requete } = JSON.parse(call.function.arguments || '{}') as { requete?: string };
-          result = requete ? await searchWeb(requete) : 'Requête vide.';
-        } catch (err) {
-          result = `Recherche impossible : ${err instanceof Error ? err.message : 'erreur inconnue'}.`;
+          args = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>;
+        } catch {
+          // Arguments illisibles : l'outil répondra avec ses valeurs par défaut.
         }
+        const result = await runTool(tools, call.function.name, args);
         messages.push({ role: 'tool', tool_call_id: call.id, content: result });
       }
       continue;
@@ -397,6 +476,13 @@ export async function callOpenAICompatible(
     if (!text) throw new AIError(`Réponse vide de ${label}. Réessaie ou change de modèle.`);
     return sanitizeLLMText(text);
   }
+}
+
+export interface LLMCallOptions {
+  /** Autorise la recherche web (défaut : true). */
+  webSearch?: boolean;
+  /** Outils métier exposés au modèle (function calling). */
+  tools?: LLMTool[];
 }
 
 /**
@@ -410,29 +496,45 @@ export async function callLLM(
   question: string,
   history: ChatMessage[] = [],
   onWebUnavailable?: (message: string) => void,
+  { webSearch = true, tools = [] }: LLMCallOptions = {},
 ): Promise<string> {
-  // Recherche web (Gemini, OpenRouter, NVIDIA via Brave Search) : si le
-  // fournisseur la refuse (modèle incompatible 400, crédits insuffisants 402),
-  // on retente sans web plutôt que de priver l'utilisateur de réponse, et on
-  // le signale via le callback.
-  if (config.provider === 'nvidia' && !config.searchApiKey) {
+  let web = webSearch && config.provider !== 'openai';
+  if (web && config.provider === 'nvidia' && !config.searchApiKey) {
     onWebUnavailable?.(
       'Réponse sans accès internet : ajoute une clé Brave Search dans ⚙ pour NVIDIA.',
     );
-  } else if (config.provider !== 'openai') {
-    try {
-      return await callProvider(config, systemPrompt, question, history, true, onWebUnavailable);
-    } catch (err) {
-      if (!(err instanceof AIError && (err.status === 400 || err.status === 402))) throw err;
-      const label = PROVIDER_LABELS[config.provider];
+    web = false;
+  }
+  if (!web && !tools.length) {
+    return callProvider(config, systemPrompt, question, history, false, [], onWebUnavailable);
+  }
+  // Recherche web ou outils : si le fournisseur les refuse (modèle incompatible
+  // 400, crédits insuffisants 402), on retente sans plutôt que de priver
+  // l'utilisateur de réponse, et on le signale via le callback.
+  try {
+    return await callProvider(
+      config,
+      systemPrompt,
+      question,
+      history,
+      web,
+      tools,
+      onWebUnavailable,
+    );
+  } catch (err) {
+    if (!(err instanceof AIError && (err.status === 400 || err.status === 402))) throw err;
+    const label = PROVIDER_LABELS[config.provider];
+    if (web) {
       const reason =
         err.status === 402
           ? `crédits ${label} insuffisants pour la recherche web`
           : `modèle ${label} incompatible avec la recherche web`;
       onWebUnavailable?.(`Réponse sans accès internet : ${reason}.`);
+    } else {
+      onWebUnavailable?.(`Réponse sans outils de calcul : modèle ${label} incompatible.`);
     }
   }
-  return callProvider(config, systemPrompt, question, history, false, onWebUnavailable);
+  return callProvider(config, systemPrompt, question, history, false, [], onWebUnavailable);
 }
 
 async function callProvider(
@@ -441,10 +543,11 @@ async function callProvider(
   question: string,
   history: ChatMessage[],
   webSearch: boolean,
+  tools: LLMTool[],
   onWebUnavailable?: (message: string) => void,
 ): Promise<string> {
   if (config.provider === 'gemini') {
-    return callGemini(config, systemPrompt, history, question, webSearch);
+    return callGemini(config, systemPrompt, history, question, webSearch, tools);
   }
 
   const options: CallOptions = {
@@ -452,6 +555,7 @@ async function callProvider(
     baseUrl: config.baseUrl ?? undefined,
     extraHeaders: {},
     webSearch,
+    tools,
   };
 
   if (config.provider === 'openrouter') {
@@ -472,15 +576,18 @@ async function callProvider(
     // NVIDIA ne cherche pas lui-même : il demande l'outil, l'app interroge Brave.
     options.webSearch = false;
     if (webSearch) {
-      options.searchWeb = async (query) => {
-        try {
-          return await braveSearch(query, config.searchApiKey);
-        } catch (err) {
-          const reason = err instanceof Error ? err.message : 'erreur inconnue';
-          onWebUnavailable?.(`Recherche web impossible : ${reason}.`);
-          throw err;
-        }
-      };
+      options.tools = [
+        ...tools,
+        webSearchTool(async (query) => {
+          try {
+            return await braveSearch(query, config.searchApiKey);
+          } catch (err) {
+            const reason = err instanceof Error ? err.message : 'erreur inconnue';
+            onWebUnavailable?.(`Recherche web impossible : ${reason}.`);
+            return `Recherche impossible : ${reason}.`;
+          }
+        }),
+      ];
     }
   } else if (config.provider === 'openai') {
     options.baseUrl = config.baseUrl || PROVIDER_META.openai.defaultBaseUrl;
@@ -502,6 +609,7 @@ export async function callLLMWithFallback(
   question: string,
   history: ChatMessage[] = [],
   onWarning?: (message: string) => void,
+  options: LLMCallOptions = {},
 ): Promise<{ text: string; provider: AIProvider }> {
   const chain = configuredProviders(settings);
   if (!chain.length) throw new AIError('Clé API non configurée. Va dans ⚙ pour configurer.');
@@ -516,6 +624,7 @@ export async function callLLMWithFallback(
         question,
         history,
         (w) => warnings.push(w),
+        options,
       );
       warnings.forEach((w) => onWarning?.(w));
       if (failures.length) {

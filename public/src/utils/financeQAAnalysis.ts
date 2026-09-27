@@ -1,6 +1,11 @@
 import type { Transaction, BudgetBase } from '../types/banking.types';
 import type { WealthSummary } from './wealthQAAnalysis';
+import type { BudgetSummary } from './budgetQAAnalysis';
 import { formatCurrency } from '../lib/formatters';
+import {
+  PATRIMONIAL_FLOW_CATEGORY_ALIASES,
+  normalizeFlowCategory,
+} from '../constants/transactionFlowCategories';
 
 const FRENCH_STOP_WORDS = new Set([
   'a',
@@ -132,6 +137,99 @@ export interface FinancialSummary {
     categorie: string;
     montant: number;
   }[];
+  /** Absent si aucune transaction datée. */
+  projection_fin_annee?: YearEndProjection;
+}
+
+export interface YearEndProjection {
+  annee: string;
+  /** Mois de l'année entièrement écoulés (le mois en cours est exclu). */
+  mois_ecoules: number;
+  /** Mois restants jusqu'au 31/12, mois en cours inclus. */
+  mois_restants: number;
+  /** Cumul des mois écoulés de l'année (dépenses négatives). */
+  cumul_mois_ecoules: { recettes: number; depenses: number; solde_net: number };
+  /** Moyenne des mois ayant des opérations sur les 12 derniers mois complets. */
+  moyenne_mensuelle: { recettes: number; depenses: number; solde_net: number; nb_mois: number };
+  /** cumul_mois_ecoules.solde_net + moyenne_mensuelle.solde_net × mois_restants. */
+  solde_net_annuel_projete: number;
+}
+
+const PATRIMONIAL_FLOWS = new Set<string>(
+  PATRIMONIAL_FLOW_CATEGORY_ALIASES.map(normalizeFlowCategory),
+);
+
+/**
+ * Projection déterministe de fin d'année (hors virements internes et flux
+ * d'épargne) : permet au LLM de répondre à « puis-je me permettre X € ? »
+ * sans avoir à refaire les calculs lui-même.
+ */
+export function buildYearEndProjection(
+  txs: Transaction[],
+  today = new Date(),
+): YearEndProjection | undefined {
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const year = today.getFullYear();
+  const currentMonth = `${year}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const byMonth: Record<string, { recettes: number; depenses: number }> = {};
+
+  for (const tx of txs) {
+    const month = (tx.date || '').slice(0, 7);
+    if (!month || month >= currentMonth) continue;
+    if (PATRIMONIAL_FLOWS.has(normalizeFlowCategory(tx.categorie))) continue;
+    const montant = tx.montant ?? 0;
+    const m = (byMonth[month] ??= { recettes: 0, depenses: 0 });
+    if (montant < 0) m.depenses += montant;
+    else m.recettes += montant;
+  }
+
+  const months = Object.keys(byMonth).sort();
+  if (!months.length) return undefined;
+
+  const windowStart = `${year - 1}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const recent = months.filter((m) => m >= windowStart);
+  const last12 = recent.length ? recent : months.slice(-12);
+  const sum = (keys: string[], field: 'recettes' | 'depenses') =>
+    keys.reduce((acc, k) => acc + byMonth[k]![field], 0);
+  const avgRecettes = sum(last12, 'recettes') / last12.length;
+  const avgDepenses = sum(last12, 'depenses') / last12.length;
+
+  const ytd = months.filter((m) => m.startsWith(`${year}-`));
+  const cumulRecettes = sum(ytd, 'recettes');
+  const cumulDepenses = sum(ytd, 'depenses');
+  const moisEcoules = today.getMonth();
+  const moisRestants = 12 - moisEcoules;
+  const avgNet = avgRecettes + avgDepenses;
+
+  return {
+    annee: String(year),
+    mois_ecoules: moisEcoules,
+    mois_restants: moisRestants,
+    cumul_mois_ecoules: {
+      recettes: round(cumulRecettes),
+      depenses: round(cumulDepenses),
+      solde_net: round(cumulRecettes + cumulDepenses),
+    },
+    moyenne_mensuelle: {
+      recettes: round(avgRecettes),
+      depenses: round(avgDepenses),
+      solde_net: round(avgNet),
+      nb_mois: last12.length,
+    },
+    solde_net_annuel_projete: round(cumulRecettes + cumulDepenses + avgNet * moisRestants),
+  };
+}
+
+/**
+ * La recherche web n'est utile que pour des informations externes (taux,
+ * marchés, fiscalité, actualité…). Sur une question portant sur la situation
+ * de l'utilisateur, elle fait dériver le modèle (ex. « budget » → budget de
+ * l'État) : on ne l'active donc que sur ces sujets.
+ */
+export function questionNeedsWebSearch(question: string): boolean {
+  return /\b(taux|livret|lep|pel|inflation|bourse|actions?|etf|marches?|indices?|cac|actualites?|news|loi|impots?|fiscal\w*|tmi|bareme|smic|internet|web|en ligne|recherche)\b/.test(
+    normalizeText(question),
+  );
 }
 
 /** Nombre maximal de transactions détaillées envoyées au LLM. */
@@ -243,12 +341,14 @@ export function buildFinancialSummary(
       categorie: tx.categorie || '',
       montant: Math.round((tx.montant ?? 0) * 100) / 100,
     })),
+    projection_fin_annee: buildYearEndProjection(txs),
   };
 }
 
 export function buildSystemPrompt(
   summary: FinancialSummary,
   wealth?: WealthSummary | null,
+  budget?: BudgetSummary | null,
 ): string {
   const wealthSection = wealth
     ? `
@@ -268,6 +368,20 @@ Données patrimoniales :
 ${JSON.stringify(wealth, null, 2)}`
     : '';
 
+  const budgetSection = budget
+    ? `
+
+Structure des données budgétaires ("budgets"), mêmes calculs que les écrans Budgets / Enveloppes / Prévisionnel :
+- "budgets_du_mois" : chaque budget mensuel de dépense du mois en cours — budget, dépensé (net des remboursements), reste, % consommé, projection fin de mois au rythme actuel, statut (ok / a_surveiller / depasse), et cumul sur l'année (budget × 12)
+- "total_budgets_mois" : somme des budgets mensuels (hors enveloppes)
+- "enveloppes" : budgets annuels provisionnés (vacances, taxe foncière…) suivis sur un cycle de 12 mois se terminant au mois "echeance" : montant, dépensé sur le cycle, reste à dépenser, provision mensuelle
+- "engagements_a_venir" : échéances récurrentes attendues (abonnements, loyer, crédits, salaires…) jusqu'à "jusqu_au" — montants signés (négatif = sortie), totaux
+- "tresorerie" : solde actuel des comptes courants, solde projeté à "engagements_a_venir.jusqu_au" en appliquant uniquement ces échéances récurrentes (hors dépenses variables comme les courses), point bas et première date de passage sous zéro
+
+Données budgétaires :
+${JSON.stringify(budget, null, 2)}`
+    : '';
+
   const today = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD, heure locale
 
   return `Tu es un assistant financier personnel. Tu analyses les données financières de l'utilisateur et tu réponds à ses questions.
@@ -277,6 +391,7 @@ Date du jour : ${today}. Utilise-la pour interpréter "ce mois-ci", "l'an dernie
 Sources :
 - Les chiffres personnels de l'utilisateur (dépenses, revenus, soldes, patrimoine) proviennent UNIQUEMENT des données ci-dessous : n'en invente jamais
 - Les agrégats ("totaux_par_categorie", "par_mois", "par_annee"…) couvrent TOUT l'historique des transactions
+- Si des outils de calcul sont disponibles (totaux, etat_budgets, simuler_depense), utilise-les pour TOUT chiffre précis (total sur une période, une catégorie ou un marchand, comparaison de périodes, état des budgets d'un mois, impact d'un achat) plutôt que de calculer toi-même à partir du JSON ; appelle-les autant de fois que nécessaire (ex. une fois par période à comparer). N'annonce pas que tu vas les appeler : appelle-les, puis réponds
 - Pour les informations externes (taux du Livret A, inflation, cours de bourse, actualité, fiscalité…), utilise la recherche web si elle est disponible et cite brièvement la source ; sinon, précise que l'information peut être datée
 
 Structure des données :
@@ -284,9 +399,16 @@ Structure des données :
 - "par_mois" : totaux mensuels toutes catégories confondues (clé YYYY-MM)
 - "par_annee" : totaux annuels (clé YYYY)
 - "revenus_par_categorie_par_mois" : recettes ventilées par catégorie puis par mois
-- "budgets_par_categorie" : objectifs de dépense/recette par catégorie (montant = plafond mensuel défini par l'utilisateur)
+- "budgets_par_categorie" : définition brute des budgets (pour leur consommation, utilise la section "budgets" ci-dessous)
 - "analyse_textuelle" : signaux calculés depuis libellés + commentaires
 - "transactions_detaillees" : extrait de transactions — celles dont le libellé correspond aux mots de la question (tout l'historique), puis les plus récentes (ne pas utiliser pour les totaux)
+- "projection_fin_annee" : cumul des mois écoulés de l'année, moyenne mensuelle (12 derniers mois complets) et solde net annuel projeté, hors virements internes et flux d'épargne (déjà calculés : réutilise ces chiffres)
+
+Interprétation des questions :
+- "budget", "mes finances", "fin d'année", "problème", "dette"… concernent TOUJOURS la situation personnelle de l'utilisateur, jamais le budget de l'État, l'économie ou l'actualité
+- Tu as accès à toutes ses données : ne lui demande JAMAIS ses revenus, dépenses, budgets ou objectifs, et ne réponds jamais de façon générique ("il faudrait analyser…", "si votre budget est serré…")
+- Quand l'utilisateur donne un prix, utilise-le tel quel : ne cherche pas de prix de marché
+- Question du type "puis-je me permettre / est-ce que cet achat de X € pose problème ?" : appelle l'outil simuler_depense s'il est disponible (avec la catégorie si elle est identifiable) et appuie ton verdict sur son résultat ; à défaut, vérifie (1) la marge annuelle "projection_fin_annee.solde_net_annuel_projete" − X, (2) la trésorerie "budgets.tresorerie.point_bas.solde" − X (reste-t-il positif ?), (3) le reste du budget ou de l'enveloppe de la catégorie concernée et les enveloppes pas encore consommées d'ici l'échéance ; puis donne un verdict clair (oui / oui mais / non) avec 2-3 chiffres clés
 
 Règles STRICTES (à respecter en priorité absolue) :
 - Réponds TOUJOURS et ENTIÈREMENT en français (titres, listes, chiffres commentés inclus) — jamais un seul mot d'anglais, même si la question est en anglais
@@ -299,7 +421,7 @@ Règles STRICTES (à respecter en priorité absolue) :
 - Pour calculer le "reste à dépenser" d'un budget : montant_budget - |depenses_categorie|. Valeur positive = marge restante. Valeur négative = dépassement.
 
 Données financières :
-${JSON.stringify(summary, null, 2)}${wealthSection}`;
+${JSON.stringify(summary, null, 2)}${budgetSection}${wealthSection}`;
 }
 
 export function tryDirectSpendingAnswer(userQuestion: string, txs: Transaction[]): string | null {

@@ -3,14 +3,18 @@ import { useTransactions } from './useTransactions';
 import { useBudget } from './useBudget';
 import { usePatrimoine } from './usePatrimoine';
 import { usePortfolio } from './usePortfolio';
+import { useCashflowForecast } from './useCashflowForecast';
 import { readAISettings, configuredProviders, toAIConfig } from '../utils/aiConfig';
 import {
   buildFinancialSummary,
   buildSystemPrompt,
+  questionNeedsWebSearch,
   tryDirectSpendingAnswer,
   type FinancialSummary,
 } from '../utils/financeQAAnalysis';
 import { buildWealthSummary } from '../utils/wealthQAAnalysis';
+import { buildBudgetSummary } from '../utils/budgetQAAnalysis';
+import { buildFinanceTools } from '../utils/financeTools';
 import { callLLM, callLLMWithFallback, type ChatMessage } from '../services/llmClient';
 import { toast } from '../lib/toast';
 
@@ -57,7 +61,7 @@ function spliceContinuation(first: string, next: string): string {
 /** Gère la conversation avec l'assistant IA financier (Gemini/OpenAI/OpenRouter/Nvidia) et l'historique de chat. */
 export function useFinanceQA() {
   const { transactions, requestFullLoad } = useTransactions();
-  const { budgets } = useBudget();
+  const { budgets, baseBudgets } = useBudget();
   const {
     placements,
     savingsBalances,
@@ -67,6 +71,12 @@ export function useFinanceQA() {
     ownerMapping,
   } = usePatrimoine();
   const { holdings } = usePortfolio();
+  // Prévisionnel jusqu'au 31/12 (au moins 90 jours), comme l'écran de trésorerie.
+  const now = new Date();
+  const daysToYearEnd = Math.ceil(
+    (new Date(now.getFullYear(), 11, 31).getTime() - now.getTime()) / 86_400_000,
+  );
+  const forecast = useCashflowForecast(Math.max(daysToYearEnd, 90));
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const historyRef = useRef<ChatMessage[]>([]);
@@ -109,7 +119,12 @@ export function useFinanceQA() {
         if (directAnswer) {
           answer = directAnswer;
         } else {
-          const systemPrompt = buildSystemPrompt(summary ?? EMPTY_FINANCIAL_SUMMARY, wealth);
+          const budgetSummary = buildBudgetSummary({ transactions, baseBudgets, forecast });
+          const systemPrompt = buildSystemPrompt(
+            summary ?? EMPTY_FINANCIAL_SUMMARY,
+            wealth,
+            budgetSummary,
+          );
           const recentHistory = historyRef.current.slice(-12);
           const warnings: string[] = [];
           const result = await callLLMWithFallback(
@@ -121,6 +136,10 @@ export function useFinanceQA() {
               if (warnings.includes(msg)) return;
               warnings.push(msg);
               toast.error(msg);
+            },
+            {
+              webSearch: questionNeedsWebSearch(question),
+              tools: buildFinanceTools({ transactions, baseBudgets, forecast }),
             },
           );
           answer = result.text;
@@ -139,6 +158,8 @@ export function useFinanceQA() {
                   { role: 'user', content: question },
                   { role: 'assistant', content: answer },
                 ],
+                undefined,
+                { webSearch: false },
               );
               answer = spliceContinuation(answer, continuation);
             } catch {
@@ -171,6 +192,8 @@ export function useFinanceQA() {
       loading,
       transactions,
       budgets,
+      baseBudgets,
+      forecast,
       placements,
       savingsBalances,
       accountBalances,

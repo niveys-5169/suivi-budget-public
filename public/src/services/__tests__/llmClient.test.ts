@@ -199,6 +199,15 @@ describe('callLLM — recherche web', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(bodyOf(0).plugins).toBeUndefined();
   });
+
+  it("n'active pas Google Search quand webSearch vaut false", async () => {
+    fetchMock.mockResolvedValue(
+      mockResponse(200, { candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+    );
+    await callLLM(geminiConfig, 'sys', 'q', [], undefined, { webSearch: false });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(bodyOf(0).tools).toBeUndefined();
+  });
 });
 
 describe('callLLM — NVIDIA (tool calling + Brave Search)', () => {
@@ -368,5 +377,128 @@ describe('callLLMWithFallback', () => {
       'Clé API non configurée',
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('callLLM — outils métier (function calling)', () => {
+  const bodyOf = (call: number) => JSON.parse(fetchMock.mock.calls[call]![1].body as string);
+  const totauxTool = {
+    name: 'totaux',
+    description: 'Totaux',
+    parameters: { type: 'object', properties: { categorie: { type: 'string' } } },
+    run: vi.fn(() => '{"depenses":123}'),
+  };
+
+  beforeEach(() => totauxTool.run.mockClear());
+
+  it('Gemini : exécute la fonction demandée puis renvoie la réponse finale', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        mockResponse(200, {
+          candidates: [
+            {
+              content: {
+                role: 'model',
+                parts: [{ functionCall: { name: 'totaux', args: { categorie: 'Courses' } } }],
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockResponse(200, {
+          candidates: [{ content: { parts: [{ text: '123 € en courses.' }] } }],
+        }),
+      );
+
+    const res = await callLLM(geminiConfig, 'sys', 'q', [], undefined, {
+      webSearch: false,
+      tools: [totauxTool],
+    });
+
+    expect(res).toBe('123 € en courses.');
+    expect(totauxTool.run).toHaveBeenCalledWith({ categorie: 'Courses' });
+    expect(bodyOf(0).tools).toEqual([
+      {
+        functionDeclarations: [
+          { name: 'totaux', description: 'Totaux', parameters: totauxTool.parameters },
+        ],
+      },
+    ]);
+    const contents = bodyOf(1).contents;
+    expect(contents.at(-2).parts[0].functionCall.name).toBe('totaux');
+    expect(contents.at(-1)).toEqual({
+      role: 'user',
+      parts: [{ functionResponse: { name: 'totaux', response: { resultat: '{"depenses":123}' } } }],
+    });
+  });
+
+  it('Gemini : la recherche web remplace les outils quand elle est demandée', async () => {
+    fetchMock.mockResolvedValue(
+      mockResponse(200, { candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+    );
+    await callLLM(geminiConfig, 'sys', 'q', [], undefined, { tools: [totauxTool] });
+    expect(bodyOf(0).tools).toEqual([{ google_search: {} }]);
+  });
+
+  it('OpenAI : exécute les outils et renvoie leur erreur au modèle au lieu de planter', async () => {
+    const failing = {
+      ...totauxTool,
+      name: 'etat_budgets',
+      run: () => {
+        throw new Error('mois invalide');
+      },
+    };
+    fetchMock
+      .mockResolvedValueOnce(
+        mockResponse(200, {
+          choices: [
+            {
+              message: {
+                content: null,
+                tool_calls: [
+                  { id: 'c1', type: 'function', function: { name: 'totaux', arguments: '{}' } },
+                  {
+                    id: 'c2',
+                    type: 'function',
+                    function: { name: 'etat_budgets', arguments: '{' },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(mockResponse(200, { choices: [{ message: { content: 'fini' } }] }));
+
+    const res = await callLLM(openaiConfig, 'sys', 'q', [], undefined, {
+      tools: [totauxTool, failing],
+    });
+
+    expect(res).toBe('fini');
+    expect(bodyOf(0).tools.map((t: { function: { name: string } }) => t.function.name)).toEqual([
+      'totaux',
+      'etat_budgets',
+    ]);
+    const messages = bodyOf(1).messages;
+    expect(messages.at(-2)).toMatchObject({
+      role: 'tool',
+      tool_call_id: 'c1',
+      content: '{"depenses":123}',
+    });
+    expect(messages.at(-1).content).toContain('mois invalide');
+  });
+
+  it('retente sans outils si le modèle les refuse (400)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(mockResponse(400, { error: { message: 'tools not supported' } }))
+      .mockResolvedValueOnce(mockResponse(200, { choices: [{ message: { content: 'ok' } }] }));
+    const onWarn = vi.fn();
+    const res = await callLLM(openaiConfig, 'sys', 'q', [], onWarn, { tools: [totauxTool] });
+    expect(res).toBe('ok');
+    expect(bodyOf(1).tools).toBeUndefined();
+    expect(onWarn).toHaveBeenCalledWith(
+      'Réponse sans outils de calcul : modèle OpenAI incompatible.',
+    );
   });
 });
