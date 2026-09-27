@@ -487,7 +487,14 @@ export const BankinBudgetsContainer: React.FC = () => {
       {tab === 'enveloppes' ? (
         <div className="space-y-6 px-4 py-6">
           <MonthNavigator month={currentMonth} onChange={handleMonthChange} />
-          <AnnualEnvelopesTab envelopes={envelopes} categories={txCategories} />
+          <AnnualEnvelopesTab
+            envelopes={envelopes}
+            categories={txCategories}
+            sortMode={budgetSortMode}
+            onSortModeChange={setBudgetSortMode}
+            manualOrder={budgetManualOrder}
+            onReorder={handleReorder}
+          />
         </div>
       ) : (
         <BankinBudgetMain

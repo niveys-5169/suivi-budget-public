@@ -322,7 +322,7 @@ export const BudgetsScreen: React.FC = () => {
           <motion.div
             // Swipe horizontal entre les deux onglets ; coupé pendant le tri manuel
             // pour ne pas voler le glisser-déposer des cartes.
-            drag={tab === 'budgets' && budgetSortMode === 'manual' ? false : 'x'}
+            drag={budgetSortMode === 'manual' ? false : 'x'}
             dragDirectionLock
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.2}
@@ -336,7 +336,14 @@ export const BudgetsScreen: React.FC = () => {
           >
             {tab === 'enveloppes' ? (
               <div className="px-4 py-2">
-                <AnnualEnvelopesTab envelopes={envelopes} categories={categories} />
+                <AnnualEnvelopesTab
+                  envelopes={envelopes}
+                  categories={categories}
+                  sortMode={budgetSortMode}
+                  onSortModeChange={setBudgetSortMode}
+                  manualOrder={budgetManualOrder}
+                  onReorder={handleReorder}
+                />
               </div>
             ) : (
               <>
