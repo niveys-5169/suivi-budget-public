@@ -285,6 +285,23 @@ export interface Budget {
   currency: Currency;
 }
 
+/**
+ * Crédit à taux fixe (immobilier, auto…). La mensualité n'est pas stockée :
+ * elle est dérivée de `capitalInitial`, `tauxAnnuel` et `dureeMois` par
+ * `utils/creditSchedule.ts` (amortissement à mensualité constante).
+ */
+export interface Credit {
+  id: string;
+  nom: string;
+  owner?: string;
+  capitalInitial: number;
+  tauxAnnuel: number; // taux nominal annuel, en % (ex. 1.35)
+  dureeMois: number;
+  dateDebut: string; // ISO yyyy-mm-dd, date de la 1ère échéance
+  assuranceMensuelle?: number;
+  commentaire?: string;
+}
+
 export interface MonthOverride {
   skipped?: boolean;
   linkedTxId?: string;

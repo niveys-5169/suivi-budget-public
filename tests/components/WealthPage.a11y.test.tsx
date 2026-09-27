@@ -9,6 +9,8 @@ import { useWealthScope } from '../../public/src/hooks/useWealthScope';
 import { useWealthAggregates } from '../../public/src/hooks/useWealthAggregates';
 import { usePatrimoine } from '../../public/src/hooks/usePatrimoine';
 import { usePortfolio } from '../../public/src/hooks/usePortfolio';
+import { useCredits } from '../../public/src/hooks/useCredits';
+import { useRecurrences } from '../../public/src/hooks/useRecurrences';
 
 expect.extend(toHaveNoViolations);
 
@@ -31,6 +33,8 @@ vi.mock('../../public/src/hooks/useWealthAggregates', () => ({ useWealthAggregat
 vi.mock('../../public/src/hooks/usePatrimoine', () => ({ usePatrimoine: vi.fn() }));
 vi.mock('../../public/src/hooks/usePortfolio', () => ({ usePortfolio: vi.fn() }));
 vi.mock('../../public/src/hooks/usePlacements', () => ({ getLastPlacementSnapshot: vi.fn() }));
+vi.mock('../../public/src/hooks/useCredits', () => ({ useCredits: vi.fn() }));
+vi.mock('../../public/src/hooks/useRecurrences', () => ({ useRecurrences: vi.fn() }));
 
 // Heavy children — mock to keep the axe run focussed on the page shell.
 vi.mock('../../public/src/components/WealthTotalCard', () => ({
@@ -74,6 +78,7 @@ describe('WealthPage — accessibility', () => {
       total: 100000,
       per: {},
       segments: [],
+      segmentsAllTypes: [],
       filteredAssets: [],
       delta30dValue: 0,
       delta30dPct: 0,
@@ -94,6 +99,14 @@ describe('WealthPage — accessibility', () => {
       refreshPortfolio: vi.fn(),
       backfillResult: null,
     });
+    (useCredits as any).mockReturnValue({
+      credits: [],
+      loading: false,
+      addCredit: vi.fn(),
+      updateCredit: vi.fn(),
+      deleteCredit: vi.fn(),
+    });
+    (useRecurrences as any).mockReturnValue({ incomes: [] });
   });
 
   it('has no axe violations', async () => {
