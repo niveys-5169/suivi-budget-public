@@ -51,7 +51,7 @@ export const AnalyseSection: React.FC = () => {
     saveTransaction,
     deleteTransaction,
   } = useTransactions();
-  const { budgets, getBudgetCategoryCandidates } = useBudget();
+  const { budgets, getBudgetCategoryCandidates, removedCategories } = useBudget();
   const { balances } = useBalances();
   const { budgetCalculationScope } = useAppState();
   const totalExpenseBudget = useExpenseBudget();
@@ -118,10 +118,10 @@ export const AnalyseSection: React.FC = () => {
     const fromCurrentTxs = new Set(
       filteredTransactions.map((t) => (t.categorie || '').trim()).filter(Boolean),
     );
-    return Array.from(new Set([...candidates, ...fromCurrentTxs])).sort((a, b) =>
-      a.localeCompare(b, 'fr'),
-    );
-  }, [getBudgetCategoryCandidates, filteredTransactions]);
+    return Array.from(new Set([...candidates, ...fromCurrentTxs]))
+      .filter((c) => !removedCategories.includes(c))
+      .sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [getBudgetCategoryCandidates, filteredTransactions, removedCategories]);
 
   const accounts = useMemo(() => {
     return Array.from(new Set(balances.map((b) => b.compte)))

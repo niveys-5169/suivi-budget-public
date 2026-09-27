@@ -56,7 +56,7 @@ export const TransactionsSection: React.FC = () => {
     loadMore,
   } = useTransactions();
 
-  const { getBudgetCategoryCandidates } = useBudget();
+  const { getBudgetCategoryCandidates, removedCategories } = useBudget();
   const { balances } = useBalances();
   const { sync, isSyncing } = useSyncTransactions();
   const {
@@ -86,10 +86,10 @@ export const TransactionsSection: React.FC = () => {
     const fromCurrentTxs = new Set(
       transactions.map((t) => (t.categorie || '').trim()).filter(Boolean),
     );
-    return Array.from(new Set([...candidates, ...fromCurrentTxs])).sort((a, b) =>
-      a.localeCompare(b, 'fr'),
-    );
-  }, [getBudgetCategoryCandidates, transactions]);
+    return Array.from(new Set([...candidates, ...fromCurrentTxs]))
+      .filter((c) => !removedCategories.includes(c))
+      .sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [getBudgetCategoryCandidates, transactions, removedCategories]);
 
   React.useEffect(() => {
     const handleOpenAdd = () => {
