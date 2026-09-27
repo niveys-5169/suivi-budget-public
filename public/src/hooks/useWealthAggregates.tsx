@@ -3,6 +3,7 @@ import { usePatrimoine } from './usePatrimoine';
 import type { OwnerMapping } from './usePatrimoine';
 import type { OwnerScope } from './useWealthScope';
 import { Holding } from './usePortfolio';
+import { isRetirementEnvelope } from '../utils/wealthTimeline';
 
 function resolveOwner(
   compte: string,
@@ -109,9 +110,7 @@ export const useWealthAggregates = (
 
         if (!portfolioEnvelopes.has(key)) {
           // Detect if this envelope is a PER/Retirement account
-          const isRetirement =
-            accountName.toLowerCase().includes('per') ||
-            accountName.toLowerCase().includes('retraite');
+          const isRetirement = isRetirementEnvelope(accountName);
 
           portfolioEnvelopes.set(key, {
             id: `live_pf_${key}`,

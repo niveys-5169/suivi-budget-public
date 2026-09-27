@@ -292,3 +292,27 @@ describe('buildWealthTimeline — portfolio deduplication', () => {
     expect(point.amount).toBe(17000); // un seul agrégat, par priorité
   });
 });
+
+describe('buildWealthTimeline — enveloppe PER', () => {
+  it('classe une position portefeuille dans une enveloppe PER en retraite (comme le live)', () => {
+    const history = [
+      {
+        assetId: 'portfolio_fr0010315770_nicolas_per',
+        date: '2026-08-27',
+        montant: 9000,
+        type: 'portefeuille',
+        envelope: 'PER',
+      },
+      {
+        assetId: 'portfolio_fr0010315770_nicolas_pea',
+        date: '2026-08-27',
+        montant: 5000,
+        type: 'portefeuille',
+        envelope: 'PEA',
+      },
+    ];
+    const point = buildWealthTimeline(history)[0]!;
+    expect(point.byCat.retraite).toBe(9000);
+    expect(point.byCat.investissements).toBe(5000);
+  });
+});
