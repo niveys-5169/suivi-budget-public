@@ -55,7 +55,7 @@ function mapActiveRecurrences(
  * dans le RAV (`provision_salaires`, non couverts par une récurrence).
  */
 export const useCashflowForecast = (
-  horizonDays: ForecastHorizon = 30,
+  horizonDays: number = 30,
   safetyThreshold = 0,
 ): CashflowForecast => {
   const { checkingTotal } = useBalances();
