@@ -7,11 +7,13 @@ import { useBudgetExclusions } from '../../../hooks/useBudgetExclusions';
 import { useTransactions } from '../../../hooks/useTransactions';
 import { useBalances } from '../../../hooks/useBalances';
 import { usePreferences } from '../../../hooks/usePreferences';
+import { useAnnualEnvelopes } from '../../../hooks/useAnnualEnvelopes';
 import { updateBudget } from '../../../api/budgets';
 import { BankinBudgetMain } from './BankinBudgetMain';
 import { BankinBudgetCategoryDetail } from './BankinBudgetCategoryDetail';
 import { BudgetManagerPanel } from '../BudgetManagerPanel';
 import { RAVEditor } from '../RAVEditor';
+import { AnnualEnvelopeSection } from '../AnnualEnvelopeSection';
 import { TransactionFormModal } from '../../TransactionFormModal';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { categoryKey, preferDisplayLabel } from '../../../utils/budgetHelpers';
@@ -38,6 +40,7 @@ export const BankinBudgetsContainer: React.FC = () => {
   const { excluded } = useBudgetExclusions();
   const { transactions, togglePointe, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
+  const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
   const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
     usePreferences();
   const [viewState, setViewState] = useState<ViewState>({ type: 'main' });
@@ -162,6 +165,9 @@ export const BankinBudgetsContainer: React.FC = () => {
     const keyToLabel: Record<string, string> = {};
     let totalReceived = 0;
     let totalSpent = 0;
+    // Vue mois : les enveloppes annuelles sont payées par leur enveloppe, pas par le mois.
+    const isEnvelopeKey = (key: string) => viewMode === 'monthly' && envelopeKeys.has(key);
+    let envelopeSpent = 0;
 
     monthTx.forEach((tx) => {
       const rawCat = tx.categorie || 'Non catégorisé';
@@ -175,6 +181,7 @@ export const BankinBudgetsContainer: React.FC = () => {
       const amount = tx.montant || 0;
       if (amount > 0) totalReceived += amount;
       else if (amount < 0) totalSpent += Math.abs(amount);
+      if (amount < 0 && isEnvelopeKey(key)) envelopeSpent += Math.abs(amount);
     });
 
     activeBudgets.forEach((b) => {
@@ -197,6 +204,12 @@ export const BankinBudgetsContainer: React.FC = () => {
 
     allCategoryKeys.forEach((catKey) => {
       if (!catKey) return;
+      if (isEnvelopeKey(catKey)) {
+        // Hors grille ; la provision mensuelle (montant ÷ 12) reste dans le budget total.
+        const envBudget = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
+        totalExpenseBudget += envBudget ? envBudget.montant : 0;
+        return;
+      }
       const catName = keyToLabel[catKey] || catKey;
       const catTx = txByCategory[catKey] || [];
 
@@ -344,6 +357,7 @@ export const BankinBudgetsContainer: React.FC = () => {
       expenseCategories,
       totalReceived,
       totalSpent,
+      budgetSpent: totalSpent - envelopeSpent,
       totalIncomeBudget,
       totalExpenseBudget,
       netBalance,
@@ -358,6 +372,7 @@ export const BankinBudgetsContainer: React.FC = () => {
     excluded,
     budgetSortMode,
     budgetManualOrder,
+    envelopeKeys,
   ]);
 
   if (viewState.type === 'category') {
@@ -471,6 +486,7 @@ export const BankinBudgetsContainer: React.FC = () => {
       <BankinBudgetMain
         netBalance={budgetData.netBalance}
         totalSpent={budgetData.totalSpent}
+        budgetSpent={budgetData.budgetSpent}
         totalReceived={budgetData.totalReceived}
         totalBudget={budgetData.totalExpenseBudget}
         totalIncomeBudget={budgetData.totalIncomeBudget}
@@ -485,6 +501,11 @@ export const BankinBudgetsContainer: React.FC = () => {
         sortMode={budgetSortMode}
         onSortModeChange={setBudgetSortMode}
         onReorder={handleReorder}
+        beforeExpenses={
+          viewMode === 'monthly' && (
+            <AnnualEnvelopeSection envelopes={envelopes} categories={txCategories} />
+          )
+        }
       />
     </div>
   );

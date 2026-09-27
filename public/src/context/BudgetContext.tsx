@@ -46,6 +46,8 @@ interface BudgetContextType {
   monthKey: string;
   setMonthKey: (key: string) => void;
   budgets: BudgetBase[];
+  /** Budgets bruts, avant résolution mensuelle/annuelle (montant annuel plein pour `annuel`). */
+  baseBudgets: BudgetBase[];
   loading: boolean;
   refresh: () => void;
   getBudgetCategoryCandidates: () => string[];
@@ -58,6 +60,8 @@ interface BudgetContextType {
     isIncome?: boolean,
   ) => Promise<void>;
   removeBudgetCategory: (categorie: string) => Promise<void>;
+  /** Crée ou met à jour une enveloppe annuelle (dépense attendue au mois `moisEcheance`). */
+  saveEnvelope: (categorie: string, montant: number, moisEcheance: number) => Promise<void>;
 }
 
 const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
@@ -294,6 +298,41 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     [handleFsError],
   );
 
+  const saveEnvelope = useCallback(
+    async (categorie: string, montant: number, moisEcheance: number) => {
+      const docId = budgetDocKey(categorie);
+      try {
+        await withRetry(() =>
+          setDoc(
+            doc(db, 'budgets', docId),
+            {
+              categorie,
+              nom: categorie,
+              montant,
+              type: 'annuel',
+              actif: true,
+              isIncome: false,
+              moisAttendus: [moisEcheance],
+              periode: { type: 'annee_civile' },
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+          ),
+        );
+      } catch (err) {
+        handleFsError(err, {
+          context: 'budget.saveEnvelope',
+          extras: { categorie, montant, moisEcheance },
+          fallbackKey: 'error.fs.fallback.budget.updateBase',
+        });
+        throw err;
+      }
+      // Garde la vue « Année » cohérente (l'override annuel y est prioritaire).
+      await updateAnnualDefault(categorie, montant);
+    },
+    [handleFsError, updateAnnualDefault],
+  );
+
   const removeBudgetCategory = useCallback(
     async (categorie: string) => {
       const matching = budgets.filter((b) => (b.categorie || b.id) === categorie);
@@ -328,6 +367,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       monthKey,
       setMonthKey,
       budgets: computedBudgets,
+      baseBudgets: budgets,
       loading,
       refresh,
       getBudgetCategoryCandidates,
@@ -335,6 +375,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateAnnualDefault,
       updateBaseBudget,
       removeBudgetCategory,
+      saveEnvelope,
     }),
     [
       viewMode,
@@ -342,6 +383,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       monthKey,
       setMonthKey,
       computedBudgets,
+      budgets,
       loading,
       refresh,
       getBudgetCategoryCandidates,
@@ -349,6 +391,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateAnnualDefault,
       updateBaseBudget,
       removeBudgetCategory,
+      saveEnvelope,
     ],
   );
 

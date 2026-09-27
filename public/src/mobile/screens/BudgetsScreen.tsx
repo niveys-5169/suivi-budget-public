@@ -21,6 +21,8 @@ import { useBudget } from '../../hooks/useBudget';
 import { useBudgetExclusions } from '../../hooks/useBudgetExclusions';
 import { useTransactions } from '../../hooks/useTransactions';
 import { useBalances } from '../../hooks/useBalances';
+import { useAnnualEnvelopes } from '../../hooks/useAnnualEnvelopes';
+import { AnnualEnvelopeSection } from '../../components/budgets-v2/AnnualEnvelopeSection';
 import type { Transaction } from '../../types/banking.types';
 import type { CategoryDetail } from '../../components/budgets-v2/bankin/BankinBudgetsContainer';
 
@@ -29,6 +31,7 @@ export const BudgetsScreen: React.FC = () => {
   const { excluded, setExcluded } = useBudgetExclusions();
   const { transactions, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
+  const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
   const [viewingCategory, setViewingCategory] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [showExclusions, setShowExclusions] = useState(false);
@@ -53,6 +56,9 @@ export const BudgetsScreen: React.FC = () => {
     const keyToLabel: Record<string, string> = {};
     let totalReceived = 0;
     let totalSpent = 0;
+    // Vue mois : les enveloppes annuelles sont payées par leur enveloppe, pas par le mois.
+    const isEnvelopeKey = (key: string) => viewMode === 'monthly' && envelopeKeys.has(key);
+    let envelopeSpent = 0;
 
     monthTx.forEach((tx) => {
       const rawCat = tx.categorie || 'Non catégorisé';
@@ -64,6 +70,7 @@ export const BudgetsScreen: React.FC = () => {
       const amount = tx.montant || 0;
       if (amount > 0) totalReceived += amount;
       else if (amount < 0) totalSpent += Math.abs(amount);
+      if (amount < 0 && isEnvelopeKey(key)) envelopeSpent += Math.abs(amount);
     });
 
     activeBudgets.forEach((b) => {
@@ -82,6 +89,12 @@ export const BudgetsScreen: React.FC = () => {
 
     allCategoryKeys.forEach((catKey) => {
       if (!catKey) return;
+      if (isEnvelopeKey(catKey)) {
+        // Hors grille ; la provision mensuelle (montant ÷ 12) reste dans le budget total.
+        const envBudget = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
+        totalExpenseBudget += envBudget ? envBudget.montant : 0;
+        return;
+      }
       const catName = keyToLabel[catKey] || catKey;
       const catTx = txByCategory[catKey] || [];
       const inflow = catTx.reduce(
@@ -134,16 +147,17 @@ export const BudgetsScreen: React.FC = () => {
       incomeCategories: incomeCategories.sort((a, b) => b.depense - a.depense),
       expenseCategories: expenseCategories.sort((a, b) => b.depense - a.depense),
       totalSpent,
+      budgetSpent: totalSpent - envelopeSpent,
       totalReceived,
       totalExpenseBudget,
       netBalance: totalReceived - totalSpent,
       txByCategory,
     };
-  }, [budgets, transactions, monthKey, viewMode, excluded]);
+  }, [budgets, transactions, monthKey, viewMode, excluded, envelopeKeys]);
 
   const masteryProgress =
     budgetData.totalExpenseBudget > 0
-      ? (budgetData.totalSpent / budgetData.totalExpenseBudget) * 100
+      ? (budgetData.budgetSpent / budgetData.totalExpenseBudget) * 100
       : 0;
 
   const expectedProgress = useMemo(
@@ -261,9 +275,15 @@ export const BudgetsScreen: React.FC = () => {
             progress={masteryProgress}
             viewMode={viewMode}
             totalBudget={budgetData.totalExpenseBudget}
-            totalSpent={budgetData.totalSpent}
+            totalSpent={budgetData.budgetSpent}
             expectedProgress={expectedProgress}
           />
+
+          {viewMode === 'monthly' && (
+            <div className="px-4 py-2">
+              <AnnualEnvelopeSection envelopes={envelopes} categories={categories} />
+            </div>
+          )}
 
           {budgetData.incomeCategories.length === 0 && budgetData.expenseCategories.length === 0 ? (
             <EmptyState
