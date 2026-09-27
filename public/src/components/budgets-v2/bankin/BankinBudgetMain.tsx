@@ -29,6 +29,8 @@ const SORT_SEGMENTS = [
 interface Props {
   netBalance: number;
   totalSpent: number;
+  /** Dépenses comptées dans la jauge (hors enveloppes annuelles). Défaut : `totalSpent`. */
+  budgetSpent?: number;
   totalReceived: number;
   totalBudget: number; // Budget total des dépenses
   totalIncomeBudget?: number; // Optionnel : Budget total des revenus
@@ -43,11 +45,14 @@ interface Props {
   sortMode?: BudgetSortMode;
   onSortModeChange?: (mode: BudgetSortMode) => void;
   onReorder?: (orderedIds: string[]) => void;
+  /** Rendu juste avant la grille des dépenses (ex. enveloppes annuelles). */
+  beforeExpenses?: React.ReactNode;
 }
 
 export const BankinBudgetMain: React.FC<Props> = ({
   netBalance,
   totalSpent,
+  budgetSpent = totalSpent,
   totalReceived,
   totalBudget,
   totalIncomeBudget = 0,
@@ -62,10 +67,11 @@ export const BankinBudgetMain: React.FC<Props> = ({
   sortMode = 'montant',
   onSortModeChange,
   onReorder,
+  beforeExpenses,
 }) => {
-  const remaining = Math.max(0, totalBudget - totalSpent);
-  const isOver = totalBudget > 0 && totalSpent > totalBudget;
-  const progress = totalBudget > 0 ? Math.min(100, (totalSpent / totalBudget) * 100) : 0;
+  const remaining = Math.max(0, totalBudget - budgetSpent);
+  const isOver = totalBudget > 0 && budgetSpent > totalBudget;
+  const progress = totalBudget > 0 ? Math.min(100, (budgetSpent / totalBudget) * 100) : 0;
 
   // Expected progress at this point in time, si on suivait un rythme constant
   const expectedProgress = useMemo(() => {
@@ -311,6 +317,8 @@ export const BankinBudgetMain: React.FC<Props> = ({
             />
           </div>
         )}
+
+        {beforeExpenses}
 
         {/* Dépenses */}
         <div className="space-y-4">
