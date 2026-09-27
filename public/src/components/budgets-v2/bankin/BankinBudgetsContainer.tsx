@@ -15,6 +15,7 @@ import { TransactionFormModal } from '../../TransactionFormModal';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { categoryKey, preferDisplayLabel } from '../../../utils/budgetHelpers';
 import { budgetDocKey } from '../../../utils/budgetKey';
+import { manualOrderComparator } from '../../../utils/budgetManagerHelpers';
 import { Transaction, BudgetBase, BudgetConsumption } from '../../../types/banking.types';
 import { hideLoader } from '../../../utils/loader';
 
@@ -262,8 +263,14 @@ export const BankinBudgetsContainer: React.FC = () => {
       }
     });
 
-    incomeCategories.sort((a, b) => b.depense - a.depense);
-    expenseCategories.sort((a, b) => b.depense - a.depense);
+    // Ordre manuel (panneau « Gérer ») d'abord, puis montant décroissant.
+    const ordreByKey = new Map(activeBudgets.map((b) => [categoryKey(b.categorie || ''), b.ordre]));
+    const byOrder = manualOrderComparator<CategoryDetail>(
+      (c) => ordreByKey.get(categoryKey(c.id)),
+      (a, b) => b.depense - a.depense,
+    );
+    incomeCategories.sort(byOrder);
+    expenseCategories.sort(byOrder);
 
     const netBalance = totalReceived - totalSpent;
 

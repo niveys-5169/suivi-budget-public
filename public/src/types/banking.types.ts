@@ -99,6 +99,8 @@ export interface BudgetBase {
   actif: boolean;
   type: 'mensuel' | 'annuel' | 'revenu' | 'ponctuel' | string;
   isIncome?: boolean;
+  /** Rang d'affichage choisi par l'utilisateur (absent = tri automatique). */
+  ordre?: number;
   updatedAt?: Timestamp;
   moisAttendus?: number[];
   compte?: string | null;

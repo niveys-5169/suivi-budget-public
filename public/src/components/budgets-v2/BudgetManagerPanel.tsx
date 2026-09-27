@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useBudgetContext } from '../../context/BudgetContext';
 import { fmt } from '../../utils/format';
@@ -20,6 +22,7 @@ import {
   sortBudgetsByType,
   computeBudgetTotals,
   computeCandidateCategories,
+  moveBudget,
 } from '../../utils/budgetManagerHelpers';
 import { useTransactions } from '../../hooks/useTransactions';
 import { BudgetProjectionBadge } from './BudgetProjectionBadge';
@@ -49,6 +52,7 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
     updateMonthlyBudget,
     updateAnnualDefault,
     removeBudgetCategory,
+    reorderBudgets,
     getBudgetCategoryCandidates,
   } = useBudgetContext();
   const { transactions } = useTransactions();
@@ -59,6 +63,7 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftBudget>({ categorie: '', montant: '', isIncome: false });
   const [adding, setAdding] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -159,6 +164,21 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
       setError(msg);
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleMove = async (index: number, direction: -1 | 1) => {
+    const next = moveBudget(sortedBudgets, index, direction);
+    if (!next) return;
+    setReordering(true);
+    setError(null);
+    try {
+      await reorderBudgets(next.map((b) => b.id));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t({ id: 'budget.manager.error.reorder' });
+      setError(msg);
+    } finally {
+      setReordering(false);
     }
   };
 
@@ -318,7 +338,7 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
               {t({ id: 'budget.manager.empty' })}
             </div>
           )}
-          {sortedBudgets.map((b: BudgetBase) => {
+          {sortedBudgets.map((b: BudgetBase, index: number) => {
             const id = b.id;
             const isEditing = editingId === id;
             const isSaving = savingId === id;
@@ -442,6 +462,26 @@ export const BudgetManagerPanel: React.FC<BudgetManagerPanelProps> = ({ onClose 
                   </div>
                 ) : (
                   <div className="flex items-center gap-4">
+                    <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-all">
+                      <button
+                        onClick={() => handleMove(index, -1)}
+                        disabled={reordering || !moveBudget(sortedBudgets, index, -1)}
+                        className="w-7 h-5 flex items-center justify-center text-label/40 hover:text-gold disabled:opacity-20 disabled:hover:text-label/40 transition-colors"
+                        title={t({ id: 'budget.manager.action.moveUp' })}
+                        aria-label={t({ id: 'budget.manager.action.moveUp' })}
+                      >
+                        <ChevronUp size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        onClick={() => handleMove(index, 1)}
+                        disabled={reordering || !moveBudget(sortedBudgets, index, 1)}
+                        className="w-7 h-5 flex items-center justify-center text-label/40 hover:text-gold disabled:opacity-20 disabled:hover:text-label/40 transition-colors"
+                        title={t({ id: 'budget.manager.action.moveDown' })}
+                        aria-label={t({ id: 'budget.manager.action.moveDown' })}
+                      >
+                        <ChevronDown size={14} aria-hidden="true" />
+                      </button>
+                    </div>
                     <button
                       onClick={() => beginEdit(b)}
                       className="text-base font-serif font-bold text-label tabular-nums hover:text-gold transition-colors"

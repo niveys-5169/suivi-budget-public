@@ -4,6 +4,7 @@ import { Settings2, Target } from 'lucide-react';
 import { deleteField } from 'firebase/firestore';
 import { updateBudget } from '../../api/budgets';
 import { budgetDocKey } from '../../utils/budgetKey';
+import { manualOrderComparator } from '../../utils/budgetManagerHelpers';
 import { getExpectedPaceProgress } from '../../utils/date';
 import { MScreenHeader } from '../components/MScreenHeader';
 import { MMonthNavigator } from '../components/MMonthNavigator';
@@ -130,9 +131,16 @@ export const BudgetsScreen: React.FC = () => {
       }
     });
 
+    // Ordre manuel (panneau « Gérer ») d'abord, puis montant décroissant.
+    const ordreByKey = new Map(activeBudgets.map((b) => [categoryKey(b.categorie || ''), b.ordre]));
+    const byOrder = manualOrderComparator<CategoryDetail>(
+      (c) => ordreByKey.get(categoryKey(c.id)),
+      (a, b) => b.depense - a.depense,
+    );
+
     return {
-      incomeCategories: incomeCategories.sort((a, b) => b.depense - a.depense),
-      expenseCategories: expenseCategories.sort((a, b) => b.depense - a.depense),
+      incomeCategories: incomeCategories.sort(byOrder),
+      expenseCategories: expenseCategories.sort(byOrder),
       totalSpent,
       totalReceived,
       totalExpenseBudget,

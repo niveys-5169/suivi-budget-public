@@ -17,6 +17,7 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { state as globalStore } from '../store';
@@ -65,6 +66,8 @@ interface BudgetContextType {
     isIncome?: boolean,
   ) => Promise<void>;
   removeBudgetCategory: (categorie: string) => Promise<void>;
+  /** Enregistre l'ordre d'affichage : `ids[i]` reçoit le rang `i`. */
+  reorderBudgets: (ids: string[]) => Promise<void>;
   /** Catégories masquées par l'utilisateur (à exclure des listes de choix). */
   removedCategories: string[];
   /** Ajoute une catégorie à la liste (la ré-affiche si elle avait été supprimée). */
@@ -379,6 +382,23 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     [budgets],
   );
 
+  const reorderBudgets = useCallback(
+    async (ids: string[]) => {
+      const batch = writeBatch(db);
+      ids.forEach((id, ordre) => batch.update(doc(db, 'budgets', id), { ordre }));
+      try {
+        await withRetry(() => batch.commit());
+      } catch (err) {
+        handleFsError(err, {
+          context: 'budget.reorder',
+          fallbackKey: 'error.fs.fallback.budget.updateBase',
+        });
+        throw err;
+      }
+    },
+    [handleFsError],
+  );
+
   const contextValue = useMemo(
     (): BudgetContextType => ({
       viewMode,
@@ -393,6 +413,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateAnnualDefault,
       updateBaseBudget,
       removeBudgetCategory,
+      reorderBudgets,
       removedCategories: customCategories.removed,
       addCategory,
       deleteCategory,
@@ -410,6 +431,7 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updateAnnualDefault,
       updateBaseBudget,
       removeBudgetCategory,
+      reorderBudgets,
       customCategories.removed,
       addCategory,
       deleteCategory,
