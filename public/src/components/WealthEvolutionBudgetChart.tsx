@@ -43,11 +43,9 @@ interface ChartDataPoint {
 
 interface WealthEvolutionBudgetChartProps {
   history: HistoryEntry[];
-  owners: string[];
+  /** Filtres globaux de la page (pilotés par WealthFilterBar). */
   selectedOwners: string[];
-  onOwnersChange: (owners: string[]) => void;
   selectedTypes: CategoryKey[];
-  onTypesChange: (types: CategoryKey[]) => void;
 }
 
 type TimeframePreset = '1M' | '6M' | '1Y' | 'defaut' | 'all' | 'custom';
@@ -75,11 +73,8 @@ const CATEGORY_MAPPING: Record<WealthCategory, CategoryKey> = {
 
 const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> = ({
   history,
-  owners,
   selectedOwners,
-  onOwnersChange,
   selectedTypes,
-  onTypesChange,
 }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframePreset>('defaut');
@@ -164,24 +159,6 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
     };
   }, [history, selectedOwners, selectedTypes, startDate, endDate]);
 
-  const filteredOwnerOptions = owners.filter(Boolean);
-
-  const toggleOwner = (owner: string) => {
-    onOwnersChange(
-      selectedOwners.includes(owner)
-        ? selectedOwners.filter((item) => item !== owner)
-        : [...selectedOwners, owner],
-    );
-  };
-
-  const toggleType = (type: keyof typeof CATEGORY_LABELS) => {
-    onTypesChange(
-      selectedTypes.includes(type)
-        ? selectedTypes.filter((item) => item !== type)
-        : [...selectedTypes, type],
-    );
-  };
-
   return (
     <section className="rounded-xl border border-separator bg-surface p-4 md:p-6 space-y-4">
       <div className="flex flex-col gap-4">
@@ -198,7 +175,7 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
             }`}
           >
             <SlidersHorizontal size={14} />
-            <span>Filtres</span>
+            <span>Période</span>
           </button>
         </div>
 
@@ -216,73 +193,11 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
                     : timeframe}
               </strong>
             </span>
-            {selectedOwners.length > 0 && (
-              <span>
-                Propriétaires :{' '}
-                <strong className="text-label/40">{selectedOwners.join(', ')}</strong>
-              </span>
-            )}
-            {selectedTypes.length > 0 && (
-              <span>
-                Filtres positions :{' '}
-                <strong className="text-label/40">
-                  {selectedTypes.map((t) => CATEGORY_LABELS[t]).join(', ')}
-                </strong>
-              </span>
-            )}
           </div>
         )}
 
         {showFilters && (
           <div className="p-4 rounded-lg bg-surface border border-separator space-y-4">
-            <div className="space-y-2">
-              <p className="text-caption text-white/40 font-bold">Propriétaires</p>
-              <div className="flex flex-wrap gap-2">
-                {filteredOwnerOptions.map((owner) => {
-                  const active = selectedOwners.includes(owner);
-                  return (
-                    <button
-                      key={owner}
-                      onClick={() => toggleOwner(owner)}
-                      className={`px-4 py-1 rounded-full text-caption font-semibold border transition-all ${
-                        active
-                          ? 'bg-gold text-bg border-gold'
-                          : 'bg-transparent text-white/60 border-separator hover:text-white'
-                      }`}
-                    >
-                      {owner}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-caption text-white/40 font-bold">Types de positions</p>
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(CATEGORY_LABELS) as Array<keyof typeof CATEGORY_LABELS>).map(
-                  (type) => {
-                    const active = selectedTypes.includes(type);
-                    const color = CATEGORY_COLORS[type];
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => toggleType(type)}
-                        style={{
-                          backgroundColor: active ? color : 'transparent',
-                          borderColor: active ? color : `${color}40`,
-                          color: active ? '#0B0B14' : color,
-                        }}
-                        className="px-4 py-1 rounded-full text-caption font-semibold border transition-all hover:brightness-110 active:scale-95"
-                      >
-                        {CATEGORY_LABELS[type]}
-                      </button>
-                    );
-                  },
-                )}
-              </div>
-            </div>
-
             <div className="space-y-2">
               <p className="text-caption text-white/40 font-bold">Période</p>
               <div className="flex flex-wrap gap-2">

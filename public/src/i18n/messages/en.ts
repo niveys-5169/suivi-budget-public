@@ -473,6 +473,8 @@ const en: Record<MessageId, string> = {
   'wealth.filter.owners': 'Owners',
   'wealth.filter.types': 'Asset types',
   'wealth.filter.all': 'All',
+  'wealth.filter.hidden': 'Hidden:',
+  'wealth.filter.showAll': 'Show all',
 
   // ── Erreurs de validation ────────────────────────────────────────────────
   'validation.required.date': 'Date required',

@@ -23,11 +23,8 @@ describe('WealthEvolutionBudgetChart', () => {
 
   const defaultProps = {
     history: mockHistory,
-    owners: ['Nicolas'],
     selectedOwners: [],
-    onOwnersChange: vi.fn(),
     selectedTypes: [],
-    onTypesChange: vi.fn(),
   };
 
   it('renders title and by default has filters collapsed', () => {
@@ -40,24 +37,24 @@ describe('WealthEvolutionBudgetChart', () => {
     expect(screen.queryByText(/1 Mois/i)).not.toBeInTheDocument();
   });
 
-  it('toggles filter panel when clicking the Filtres button', () => {
+  it('toggles the period panel; owner/type filters live in the page filter bar', () => {
     render(<WealthEvolutionBudgetChart {...defaultProps} />);
-    const toggleBtn = screen.getByRole('button', { name: /Filtres/i });
+    const toggleBtn = screen.getByRole('button', { name: 'Période' });
 
-    // Expand filters
+    // Expand
     fireEvent.click(toggleBtn);
-    expect(screen.getByText(/Propriétaires/i)).toBeInTheDocument();
-    expect(screen.getByText(/Types de positions/i)).toBeInTheDocument();
-    expect(screen.getByText(/Période/i)).toBeInTheDocument();
-
-    // Collapse filters
-    fireEvent.click(toggleBtn);
+    expect(screen.getByText(/1 Mois/i)).toBeInTheDocument();
     expect(screen.queryByText(/Propriétaires/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Types de positions/i)).not.toBeInTheDocument();
+
+    // Collapse
+    fireEvent.click(toggleBtn);
+    expect(screen.queryByText(/1 Mois/i)).not.toBeInTheDocument();
   });
 
   it('shows custom date inputs only when Perso option is clicked', () => {
     render(<WealthEvolutionBudgetChart {...defaultProps} />);
-    const toggleBtn = screen.getByRole('button', { name: /Filtres/i });
+    const toggleBtn = screen.getByRole('button', { name: 'Période' });
     fireEvent.click(toggleBtn);
 
     // Custom inputs should not be visible initially

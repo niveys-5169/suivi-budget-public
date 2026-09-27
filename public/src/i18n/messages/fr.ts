@@ -474,6 +474,8 @@ const fr = {
   'wealth.filter.owners': 'Propriétaires',
   'wealth.filter.types': "Types d'actifs",
   'wealth.filter.all': 'Tous',
+  'wealth.filter.hidden': 'Masqué :',
+  'wealth.filter.showAll': 'Tout afficher',
 
   // ── Erreurs de validation ────────────────────────────────────────────────
   'validation.required.date': 'Date requise',
