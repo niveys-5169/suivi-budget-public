@@ -644,7 +644,7 @@ const en: Record<MessageId, string> = {
   'monthlySavings.metric.available': 'Available to save',
   'monthlySavings.metric.remaining': 'Remaining to allocate',
   'monthlySavings.metric.overAllocated': 'Over-allocation',
-  'monthlySavings.metric.netWithdrawal': 'Net savings withdrawal',
+  'monthlySavings.metric.treasuryChange': 'Cash balance change',
   'monthlySavings.quality.partial':
     'Partial calculation: some cash flows or balances do not fully reconcile.',
   'monthlySavings.unavailable.title': 'Calculation unavailable',

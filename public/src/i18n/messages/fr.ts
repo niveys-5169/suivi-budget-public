@@ -649,7 +649,7 @@ const fr = {
   'monthlySavings.metric.available': 'Disponible à épargner',
   'monthlySavings.metric.remaining': 'Reste à affecter',
   'monthlySavings.metric.overAllocated': 'Sur-affectation',
-  'monthlySavings.metric.netWithdrawal': "Retrait net d'épargne",
+  'monthlySavings.metric.treasuryChange': 'Variation de trésorerie',
   'monthlySavings.quality.partial':
     'Calcul partiel : certains flux ou soldes ne se rapprochent pas complètement.',
   'monthlySavings.unavailable.title': 'Calcul indisponible',

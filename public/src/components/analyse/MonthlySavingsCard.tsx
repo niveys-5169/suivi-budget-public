@@ -260,20 +260,20 @@ export const MonthlySavingsCard: React.FC<Props> = ({ position, loading, error =
             position.breakdown.accounts.reduce((sum, account) => sum + account.gap, 0)) *
             100,
         ) / 100;
+  // Déficit financé par l'épargne : la capacité se décompose en épargne nette + variation de trésorerie.
+  const isFundedDeficit = position.status === 'DEFICIT' && position.netSavings < 0;
   const allocationLabel =
     position.status === 'OVER_ALLOCATED'
       ? t({ id: 'monthlySavings.metric.overAllocated' })
-      : position.status === 'DEFICIT' && position.netSavings < 0
-        ? t({ id: 'monthlySavings.metric.netWithdrawal' })
+      : isFundedDeficit
+        ? t({ id: 'monthlySavings.metric.treasuryChange' })
         : position.status === 'AVAILABLE_TO_SAVE'
           ? t({ id: 'monthlySavings.metric.available' })
           : t({ id: 'monthlySavings.metric.remaining' });
   const allocationValue =
     position.status === 'OVER_ALLOCATED'
       ? Math.abs(position.unallocatedSurplus || 0)
-      : position.status === 'DEFICIT' && position.netSavings < 0
-        ? Math.abs(position.netSavings)
-        : position.unallocatedSurplus;
+      : position.unallocatedSurplus;
 
   return (
     <Card bordered data-testid="monthly-savings-card">
@@ -313,7 +313,7 @@ export const MonthlySavingsCard: React.FC<Props> = ({ position, loading, error =
           <MetricRow
             label={allocationLabel}
             value={allocationValue}
-            signed={position.status === 'AVAILABLE_TO_SAVE'}
+            signed={position.status === 'AVAILABLE_TO_SAVE' || isFundedDeficit}
             tone={position.status === 'OVER_ALLOCATED' ? 'warning' : 'auto'}
           />
         </Stack>
