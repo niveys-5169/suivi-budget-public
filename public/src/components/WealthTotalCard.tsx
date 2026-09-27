@@ -1,23 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '../lib/formatters';
+import type { CatEvolution } from '../utils/wealthEvolution';
 
 interface WealthTotalCardProps {
   total: number;
   per?: number;
-  delta30dValue: number;
-  delta30dPct: number;
+  /** Variation sur 1 mois ; null tant qu'il n'y a pas d'historique. */
+  delta: CatEvolution | null;
   updatedAt: string;
 }
 
 export const WealthTotalCard: React.FC<WealthTotalCardProps> = ({
   total,
   per = 0,
-  delta30dValue,
-  delta30dPct,
+  delta,
   updatedAt,
 }) => {
-  const isPositive = delta30dValue >= 0;
+  const isPositive = (delta?.delta ?? 0) >= 0;
 
   return (
     <div className="bg-white/5 rounded-lg border border-separator p-8 md:p-12 relative overflow-hidden">
@@ -55,24 +55,27 @@ export const WealthTotalCard: React.FC<WealthTotalCardProps> = ({
         </div>
 
         <div className="flex flex-col md:items-end gap-4">
-          <div className="flex flex-col md:items-end gap-2">
-            <span className="text-caption font-semibold text-label/30">Évolution 30 jours</span>
-            <div
-              className={`flex items-center gap-4 px-6 py-4 rounded-lg border ${
-                isPositive
-                  ? 'bg-positive/10 border-positive/20 text-positive'
-                  : 'bg-negative/10 border-negative/20 text-negative'
-              }`}
-            >
-              <span className="text-sm font-semibold">
-                {isPositive ? '▲' : '▼'} {Math.abs(delta30dPct).toFixed(1)}%
-              </span>
-              <span className="w-px h-4 bg-current/20" />
-              <span className="text-sm font-bold tabular-nums">
-                {formatCurrency(delta30dValue)}
-              </span>
+          {delta && (
+            <div className="flex flex-col md:items-end gap-2">
+              <span className="text-caption font-semibold text-label/30">Évolution 1 mois</span>
+              <div
+                className={`flex items-center gap-4 px-6 py-4 rounded-lg border ${
+                  isPositive
+                    ? 'bg-positive/10 border-positive/20 text-positive'
+                    : 'bg-negative/10 border-negative/20 text-negative'
+                }`}
+              >
+                <span className="text-sm font-semibold">
+                  {isPositive ? '▲' : '▼'}
+                  {delta.deltaPct !== null && ` ${Math.abs(delta.deltaPct).toFixed(1)}%`}
+                </span>
+                <span className="w-px h-4 bg-current/20" />
+                <span className="text-sm font-bold tabular-nums">
+                  {formatCurrency(delta.delta)}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
           <p className="text-caption font-semibold text-label/20">Mis à jour le {updatedAt}</p>
         </div>
       </div>

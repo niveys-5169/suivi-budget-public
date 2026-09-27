@@ -29,7 +29,12 @@ import { usePatrimoine } from '../../hooks/usePatrimoine';
 import { usePlacements } from '../../hooks/usePlacements';
 import { useWealthScope } from '../../hooks/useWealthScope';
 import { useGlobalData } from '../../context/GlobalDataContext';
-import { segmentsToLiveByCat, type EvolutionPeriod } from '../../utils/wealthEvolution';
+import { useWealthEvolution } from '../../hooks/useWealthEvolution';
+import {
+  evolutionForTypeScope,
+  segmentsToLiveByCat,
+  type EvolutionPeriod,
+} from '../../utils/wealthEvolution';
 
 const SEGMENT_LABELS: Record<string, string> = {
   cash: 'Liquidités',
@@ -87,8 +92,12 @@ export const PatrimoineScreen: React.FC = () => {
     return (wealthTypeScope as string[]).flatMap((ct) => CHART_CATEGORY_TO_ASSET_TYPES[ct] || []);
   }, [wealthTypeScope]);
 
-  const { total, segments, segmentsAllTypes, filteredAssets, delta30dValue, delta30dPct } =
-    useWealthAggregates(ownerScope, livePortfolioValue, holdings, internalSelectedTypes);
+  const { total, segments, segmentsAllTypes, filteredAssets } = useWealthAggregates(
+    ownerScope,
+    livePortfolioValue,
+    holdings,
+    internalSelectedTypes,
+  );
 
   // Ancre live de l'évolution : mêmes valeurs que les Allocations (owner-filtré,
   // jamais type-filtré) pour que la valeur « Fin » colle à l'état courant.
@@ -104,7 +113,11 @@ export const PatrimoineScreen: React.FC = () => {
     return (ownerMapping.owners || []).filter((o) => o.toLowerCase() !== 'commun');
   }, [ownerMapping.owners]);
 
-  const isPositive = delta30dValue >= 0;
+  // Variation sur 1 mois : même timeline que la section Évolution, filtrée par
+  // propriétaire ET par type des deux côtés (départ comme fin).
+  const evolution1M = useWealthEvolution(placementHistory, '1M', ownerScope, undefined, liveByCat);
+  const delta1M = evolutionForTypeScope(evolution1M, wealthTypeScope);
+  const isPositive = delta1M.delta >= 0;
 
   const getEditingPlacementData = () => {
     if (!editingPlacement) return undefined;
@@ -157,23 +170,24 @@ export const PatrimoineScreen: React.FC = () => {
           <h2 className="text-display font-bold tracking-tight text-white flex items-center">
             <FormattedNumber value={total} style="currency" currency="EUR" />
           </h2>
-          <div
-            className={`mt-4 px-4 py-1 rounded-full flex items-center gap-1 ${isPositive ? 'bg-positive/10' : 'bg-negative/10'}`}
-          >
-            {isPositive ? (
-              <TrendingUp size={14} className="text-positive" />
-            ) : (
-              <TrendingDown size={14} className="text-negative" />
-            )}
-            <span
-              className={`text-footnote font-bold ${isPositive ? 'text-positive' : 'text-negative'}`}
+          {evolution1M.endPoint && (
+            <div
+              className={`mt-4 px-4 py-1 rounded-full flex items-center gap-1 ${isPositive ? 'bg-positive/10' : 'bg-negative/10'}`}
             >
-              {isPositive ? '+' : ''}
-              <FormattedNumber value={delta30dValue} style="currency" currency="EUR" /> (
-              {delta30dPct.toFixed(1)}
-              %)
-            </span>
-          </div>
+              {isPositive ? (
+                <TrendingUp size={14} className="text-positive" />
+              ) : (
+                <TrendingDown size={14} className="text-negative" />
+              )}
+              <span
+                className={`text-footnote font-bold ${isPositive ? 'text-positive' : 'text-negative'}`}
+              >
+                {isPositive ? '+' : ''}
+                <FormattedNumber value={delta1M.delta} style="currency" currency="EUR" />
+                {delta1M.deltaPct !== null && ` (${delta1M.deltaPct.toFixed(1)}%)`} sur 1 mois
+              </span>
+            </div>
+          )}
         </section>
 
         {/* Allocation Cards */}
