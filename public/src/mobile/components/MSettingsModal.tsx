@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
-import { RefreshCcw, Trash2, LogOut, CloudDownload } from 'lucide-react';
+import {
+  RefreshCcw,
+  Trash2,
+  LogOut,
+  CloudDownload,
+  BrainCircuit,
+  ChevronRight,
+} from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePWAUpdate } from '../../hooks/usePWAUpdate';
 import { usePreferences } from '../../hooks/usePreferences';
 import { useSyncTransactions } from '../../hooks/useSyncTransactions';
-import { PROVIDER_DEFAULTS } from '../constants/aiProviders';
-import { saveAISettings } from '../../services/firebase-api';
+import { GitHubSettingsForm } from '../../components/settings/GitHubSettingsForm';
+import { MAIConfigSheet } from './MAIConfigSheet';
 import {
-  Button,
   Card,
-  Field,
-  Input,
   List,
   ListItem,
   Section,
   SegmentedControl,
-  Select,
   Sheet,
   Stack,
   Text,
@@ -32,12 +35,12 @@ const DENSITIES = [
   { value: 'compact', label: 'Compact' },
 ] as const;
 
-const PROVIDERS = [
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'nvidia', label: 'Nvidia' },
-];
+const PROVIDER_LABELS: Record<string, string> = {
+  gemini: 'Gemini',
+  openai: 'OpenAI',
+  openrouter: 'OpenRouter',
+  nvidia: 'Nvidia',
+};
 
 export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose }) => {
   const { signOut } = useAuth();
@@ -47,41 +50,9 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
   const [isClearing, setIsClearing] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
 
-  const [githubConfig, setGithubConfig] = useState(() => ({
-    owner: localStorage.getItem('github_owner') || 'niveys-5169',
-    repo: localStorage.getItem('github_repo') || 'Suivi-Budget',
-  }));
-  const [githubSaveStatus, setGithubSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-
-  const saveGithubConfig = () => {
-    setGithubSaveStatus('saving');
-    localStorage.setItem('github_owner', githubConfig.owner);
-    localStorage.setItem('github_repo', githubConfig.repo);
-    setGithubSaveStatus('saved');
-    setTimeout(() => setGithubSaveStatus('idle'), 2000);
-  };
-
-  const [aiConfig, setAiConfig] = useState(() => ({
-    provider: localStorage.getItem('ai_provider') || 'gemini',
-    apiKey: localStorage.getItem('ai_api_key') || '',
-    model: localStorage.getItem('ai_model') || '',
-    baseUrl: localStorage.getItem('ai_base_url') || '',
-  }));
-  const [aiSaveStatus, setAiSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-
-  const getModelPlaceholder = () => PROVIDER_DEFAULTS[aiConfig.provider] || '';
-
-  const saveAiConfig = () => {
-    setAiSaveStatus('saving');
-    localStorage.setItem('ai_provider', aiConfig.provider);
-    localStorage.setItem('ai_api_key', aiConfig.apiKey);
-    const finalModel = aiConfig.model.trim() || getModelPlaceholder();
-    localStorage.setItem('ai_model', finalModel);
-    localStorage.setItem('ai_base_url', aiConfig.baseUrl);
-    saveAISettings(aiConfig.provider, aiConfig.apiKey, finalModel, aiConfig.baseUrl);
-    setAiSaveStatus('saved');
-    setTimeout(() => setAiSaveStatus('idle'), 2000);
-  };
+  const [isAIConfigOpen, setIsAIConfigOpen] = useState(false);
+  const aiProvider = localStorage.getItem('ai_provider') || 'gemini';
+  const aiModel = localStorage.getItem('ai_model');
 
   const handleClearCache = async () => {
     setIsClearing(true);
@@ -139,102 +110,28 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
           </Section>
 
           <Section title="Assistant IA">
-            <Card>
-              <Stack gap="md">
-                <Field label="Fournisseur">
-                  {(p) => (
-                    <Select
-                      {...p}
-                      value={aiConfig.provider}
-                      onChange={(e) =>
-                        setAiConfig((prev) => ({ ...prev, provider: e.target.value }))
-                      }
-                    >
-                      {PROVIDERS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </Select>
-                  )}
-                </Field>
-                <Field label="Clé API">
-                  {(p) => (
-                    <Input
-                      {...p}
-                      type="password"
-                      autoComplete="off"
-                      value={aiConfig.apiKey}
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
-                    />
-                  )}
-                </Field>
-                <Field label="Modèle" hint={`Par défaut : ${getModelPlaceholder()}`}>
-                  {(p) => (
-                    <Input
-                      {...p}
-                      value={aiConfig.model}
-                      placeholder={getModelPlaceholder()}
-                      autoComplete="off"
-                      onChange={(e) => setAiConfig((prev) => ({ ...prev, model: e.target.value }))}
-                    />
-                  )}
-                </Field>
-                <Field label="URL de base" hint="Optionnelle.">
-                  {(p) => (
-                    <Input
-                      {...p}
-                      value={aiConfig.baseUrl}
-                      inputMode="url"
-                      autoComplete="off"
-                      onChange={(e) =>
-                        setAiConfig((prev) => ({ ...prev, baseUrl: e.target.value }))
-                      }
-                    />
-                  )}
-                </Field>
-                <Button variant="primary" block onClick={saveAiConfig}>
-                  {aiSaveStatus === 'saved' ? 'Enregistré' : 'Enregistrer'}
-                </Button>
-              </Stack>
-            </Card>
+            <List>
+              <ListItem
+                leading={
+                  <Tile>
+                    <BrainCircuit size={18} />
+                  </Tile>
+                }
+                title="Configuration IA"
+                subtitle={[PROVIDER_LABELS[aiProvider] ?? aiProvider, aiModel]
+                  .filter(Boolean)
+                  .join(' · ')}
+                trailing={
+                  <ChevronRight size={16} className="text-label-tertiary" aria-hidden="true" />
+                }
+                onClick={() => setIsAIConfigOpen(true)}
+              />
+            </List>
           </Section>
 
           <Section title="Source des données">
             <Card>
-              <Stack gap="md">
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Propriétaire">
-                    {(p) => (
-                      <Input
-                        {...p}
-                        value={githubConfig.owner}
-                        placeholder="niveys-5169"
-                        autoComplete="off"
-                        onChange={(e) =>
-                          setGithubConfig((prev) => ({ ...prev, owner: e.target.value }))
-                        }
-                      />
-                    )}
-                  </Field>
-                  <Field label="Dépôt">
-                    {(p) => (
-                      <Input
-                        {...p}
-                        value={githubConfig.repo}
-                        placeholder="Suivi-Budget"
-                        autoComplete="off"
-                        onChange={(e) =>
-                          setGithubConfig((prev) => ({ ...prev, repo: e.target.value }))
-                        }
-                      />
-                    )}
-                  </Field>
-                </div>
-                <Button variant="primary" block onClick={saveGithubConfig}>
-                  {githubSaveStatus === 'saved' ? 'Enregistré' : 'Enregistrer'}
-                </Button>
-              </Stack>
+              <GitHubSettingsForm />
             </Card>
           </Section>
 
@@ -289,6 +186,7 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
           </Section>
         </Stack>
       </Sheet.Body>
+      {isAIConfigOpen && <MAIConfigSheet onClose={() => setIsAIConfigOpen(false)} />}
     </Sheet>
   );
 };

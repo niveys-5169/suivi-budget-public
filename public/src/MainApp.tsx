@@ -36,8 +36,8 @@ const PatrimoineSection = lazy(() =>
 const FinanceQASection = lazy(() =>
   import('./components/FinanceQASection').then((m) => ({ default: m.FinanceQASection })),
 );
-const AdvancedSettings = lazy(() =>
-  import('./components/AdvancedSettings').then((m) => ({ default: m.AdvancedSettings })),
+const SettingsPage = lazy(() =>
+  import('./components/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
 const AnalyseSection = lazy(() =>
   import('./components/analyse/AnalyseSection').then((m) => ({ default: m.AnalyseSection })),
@@ -191,9 +191,10 @@ export const MainApp: React.FC = () => {
                   <Route path="/budgets/*" element={<BudgetsV2Section />} />
                   <Route path="/patrimoine" element={<PatrimoineSection />} />
                   <Route path="/qa" element={<FinanceQASection />} />
-                  <Route path="/advanced" element={<AdvancedSettings />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/advanced" element={<Navigate to="/settings" replace />} />
 
-                  {/* Advanced sub-pages — all resolved from the same lazy chunk */}
+                  {/* Sous-pages des paramètres */}
                   <Route path="/tronity" element={<TronityPage />} />
                   <Route path="/mappings" element={<MappingsPage />} />
                   <Route path="/fusion" element={<FusionPage />} />

@@ -41,8 +41,8 @@ vi.mock('../components/analyse/AnalyseSection', () => ({
 vi.mock('../components/FinanceQASection', () => ({
   FinanceQASection: () => <div data-testid="qa">QA</div>,
 }));
-vi.mock('../components/AdvancedSettings', () => ({
-  AdvancedSettings: () => <div data-testid="advanced">Advanced</div>,
+vi.mock('../components/settings/SettingsPage', () => ({
+  SettingsPage: () => <div data-testid="settings">Settings</div>,
 }));
 
 // Mock feature flags

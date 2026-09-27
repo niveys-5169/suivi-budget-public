@@ -6,7 +6,7 @@ export const RulesPage: React.FC = () => {
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-bg text-white">
-      <AurumRulesPage onBack={() => navigate('/advanced')} />
+      <AurumRulesPage onBack={() => navigate('/settings?section=categories')} />
     </div>
   );
 };

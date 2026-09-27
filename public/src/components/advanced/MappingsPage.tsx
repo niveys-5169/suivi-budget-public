@@ -98,7 +98,7 @@ export const MappingsPage: React.FC = () => {
       title="Mappings"
       description="Gérez les correspondances entre catégories Linxo et catégories Aurum."
     >
-      <BackButton onBack={() => navigate('/advanced')} />
+      <BackButton onBack={() => navigate('/settings?section=categories')} />
       <div className="mt-8 space-y-8">
         <div className="overflow-hidden rounded-xl bg-white/5 border border-separator">
           <table className="min-w-full border-collapse text-sm text-left">

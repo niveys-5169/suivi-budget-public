@@ -150,7 +150,7 @@ export const ReparsePage: React.FC = () => {
       title="Reparse Gmail"
       description="Visualisez les emails Linxo, déclenchez un reparse ou lancez un scan complet."
     >
-      <BackButton onBack={() => navigate('/advanced')} />
+      <BackButton onBack={() => navigate('/settings?section=import')} />
       <div className="mt-8 space-y-8">
         <div className="rounded-xl bg-white/5 border border-separator p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">

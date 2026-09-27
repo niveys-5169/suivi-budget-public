@@ -62,7 +62,7 @@ export const AurumAIPage: React.FC = () => {
         </div>
         <div className="flex gap-4">
           <button
-            onClick={() => navigate('/advanced?tab=api')}
+            onClick={() => navigate('/settings?section=ia')}
             className="w-11 h-11 rounded-xl bg-surface border border-separator flex items-center justify-center text-white/40 hover:text-white transition-all"
           >
             <Settings size={20} />
