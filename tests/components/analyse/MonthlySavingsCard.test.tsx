@@ -76,6 +76,28 @@ describe('MonthlySavingsCard', () => {
     expect(screen.queryByText('Disponible à épargner')).not.toBeInTheDocument();
   });
 
+  it('en déficit financé par l’épargne, montre la part prise sur la trésorerie', () => {
+    render(
+      <MonthlySavingsCard
+        loading={false}
+        position={position({
+          operatingBalanceDelta: -262.44,
+          savingsDeposits: 0,
+          savingsWithdrawals: 1_679.72,
+          netSavings: -1_679.72,
+          savingsCapacity: -1_942.16,
+          unallocatedSurplus: -262.44,
+          status: 'DEFICIT',
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Retrait net d'épargne")).not.toBeInTheDocument();
+    const row = screen.getAllByText('Variation de trésorerie')[0]!.parentElement!;
+    expect(row).toHaveTextContent(/262,44/);
+    expect(row).not.toHaveTextContent(/1\s?679,72/);
+  });
+
   it('n’affiche aucune fausse précision quand le calcul est indisponible', () => {
     render(
       <MonthlySavingsCard
