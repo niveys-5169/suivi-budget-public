@@ -3,7 +3,6 @@ import { usePatrimoine } from './usePatrimoine';
 import type { OwnerMapping } from './usePatrimoine';
 import type { OwnerScope } from './useWealthScope';
 import { Holding } from './usePortfolio';
-import { canonicalPortfolioAssetId, makePortfolioDedup } from '../utils/wealthTimeline';
 
 function resolveOwner(
   compte: string,
@@ -36,8 +35,7 @@ export const useWealthAggregates = (
   portfolioHoldings: Holding[] = [],
   selectedTypes?: string[],
 ) => {
-  const { placements, savingsBalances, accountBalances, ownerMapping, placementHistory } =
-    usePatrimoine();
+  const { placements, savingsBalances, accountBalances, ownerMapping } = usePatrimoine();
 
   const metrics = useMemo(() => {
     // ... assets construction ...
@@ -155,40 +153,6 @@ export const useWealthAggregates = (
       .filter((a) => a.type === 'retirement')
       .reduce((sum, a) => sum + (a.value || 0), 0);
 
-    // --- Calculation of delta 30d ---
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const dateLimit = thirtyDaysAgo.toISOString().split('T')[0]!;
-
-    // Reconstruct state at T-30d
-    const stateAt30d = new Map<string, number>();
-
-    // Process history up to dateLimit
-    placementHistory
-      .filter((h) => h.date && h.date <= dateLimit)
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-      .forEach((h) => {
-        const ownerId = (h.owner || 'nicolas').toLowerCase();
-
-        // Skip if owner doesn't match scope
-        if (ownerScope !== 'all' && !ownerScope.some((s) => s.toLowerCase() === ownerId)) return;
-
-        // Canonicalise pour que les backfill mensuels `portfolio_bkfill_*` ne s'additionnent pas.
-        const assetId = canonicalPortfolioAssetId(
-          h.assetId || h.placementId || `${h.owner}_${h.type}_${h.category}`,
-        );
-        stateAt30d.set(assetId, Number(h.montant) || 0);
-      });
-
-    // Dédup du portefeuille (positions vs agrégats quotidien/legacy) avant de sommer.
-    const skipPortfolio30d = makePortfolioDedup(stateAt30d.keys());
-    const totalAt30d = Array.from(stateAt30d.entries()).reduce(
-      (sum, [assetId, v]) => (skipPortfolio30d(assetId) ? sum : sum + v),
-      0,
-    );
-    const delta30dValue = totalAt30d > 0 ? total - totalAt30d : 0;
-    const delta30dPct = totalAt30d > 0 ? (delta30dValue / totalAt30d) * 100 : 0;
-
     const segments = [
       { type: 'cash', amount: 0, pct: 0 },
       { type: 'savings', amount: 0, pct: 0 },
@@ -214,7 +178,7 @@ export const useWealthAggregates = (
       if (segment) segment.amount += a.value || 0;
     });
 
-    return { total, per, segments, segmentsAllTypes, filteredAssets, delta30dValue, delta30dPct };
+    return { total, per, segments, segmentsAllTypes, filteredAssets };
   }, [
     placements,
     savingsBalances,
@@ -223,7 +187,6 @@ export const useWealthAggregates = (
     ownerScope,
     livePortfolioValue,
     portfolioHoldings,
-    placementHistory,
     selectedTypes,
   ]);
 

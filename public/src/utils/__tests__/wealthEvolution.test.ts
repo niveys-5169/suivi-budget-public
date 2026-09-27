@@ -6,6 +6,7 @@ import {
   computeAssetEvolution,
   segmentsToLiveByCat,
   appendLiveTodayPoint,
+  evolutionForTypeScope,
 } from '../wealthEvolution';
 import type { RawHistoryEntry, WealthPoint } from '../wealthTimeline';
 
@@ -209,5 +210,26 @@ describe('computeAssetEvolution', () => {
       deltaPct: null,
       points: [],
     });
+  });
+});
+
+describe('evolutionForTypeScope', () => {
+  // Retraite : 30 k€ au départ comme à l'arrivée ; le reste progresse de 10 k€.
+  const evo = computeWealthEvolution(
+    [
+      point('2026-01-01', 130, { courants: 40, epargne: 60, retraite: 30 }),
+      point('2026-02-01', 140, { courants: 45, epargne: 65, retraite: 30 }),
+    ],
+    '2026-01-01',
+  );
+
+  it('sans filtre de type → évolution totale', () => {
+    expect(evolutionForTypeScope(evo, 'all')).toEqual(evo.total);
+    expect(evolutionForTypeScope(evo, [])).toEqual(evo.total);
+  });
+
+  it('filtre de type appliqué au départ ET à la fin (pas de fausse baisse)', () => {
+    const scoped = evolutionForTypeScope(evo, ['courants', 'epargnelivrets']);
+    expect(scoped).toEqual({ start: 100, end: 110, delta: 10, deltaPct: 10 });
   });
 });

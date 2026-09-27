@@ -2,7 +2,12 @@ import React from 'react';
 import { useIntl } from 'react-intl';
 import { PeriodPills } from '../../components/shared/PeriodPills';
 import { useWealthEvolution } from '../../hooks/useWealthEvolution';
-import type { EvolutionPeriod, CatEvolution, LiveByCat } from '../../utils/wealthEvolution';
+import {
+  evolutionForTypeScope,
+  type EvolutionPeriod,
+  type CatEvolution,
+  type LiveByCat,
+} from '../../utils/wealthEvolution';
 import type { RawHistoryEntry, WealthCategory } from '../../utils/wealthTimeline';
 import type { OwnerScope } from '../../hooks/useWealthScope';
 import { formatCurrency } from '../../lib/formatters';
@@ -77,13 +82,7 @@ export const MWealthEvolutionCard: React.FC<MWealthEvolutionCardProps> = ({
   // Total limité aux catégories visibles : evolution.total somme TOUTES les
   // catégories, y compris celles masquées par le filtre de type — ce qui
   // affichait un TOTAL différent du hero « Valeur nette totale ».
-  const totalEvo: CatEvolution = (() => {
-    if (visibleCats.length === CAT_ORDER.length) return evolution.total;
-    const start = visibleCats.reduce((s, cat) => s + evolution.byCat[cat].start, 0);
-    const end = visibleCats.reduce((s, cat) => s + evolution.byCat[cat].end, 0);
-    const delta = end - start;
-    return { start, end, delta, deltaPct: start !== 0 ? (delta / start) * 100 : null };
-  })();
+  const totalEvo = evolutionForTypeScope(evolution, wealthTypeScope);
 
   return (
     <div className="bg-surface border border-separator rounded-lg p-4 space-y-4">

@@ -117,7 +117,7 @@ function midnightTs(iso: string): number {
 /**
  * Évolution chiffrée sur une fenêtre [from, to].
  * Le point de départ est le DERNIER point connu avant ou à `from` (fill-forward,
- * même sémantique que le delta 30j de useWealthAggregates) ; à défaut, le premier
+ * même sémantique que le fill-forward de la timeline) ; à défaut, le premier
  * point de la fenêtre. `from` null => depuis le premier point.
  */
 export function computeWealthEvolution(
@@ -166,6 +166,30 @@ export function computeWealthEvolution(
     byCat,
     points: windowPoints,
   };
+}
+
+/** Catégories patrimoine → clés du filtre de type (useWealthScope). */
+const CAT_TO_SCOPE_KEY: Record<WealthCategory, string> = {
+  courants: 'courants',
+  epargne: 'epargnelivrets',
+  investissements: 'investissements',
+  retraite: 'retraite',
+};
+
+/**
+ * Évolution totale restreinte aux catégories du filtre de type : départ ET fin
+ * sont calculés sur les mêmes catégories, pour ne pas comparer un sous-ensemble
+ * filtré aujourd'hui à la totalité du patrimoine passé.
+ */
+export function evolutionForTypeScope(
+  evolution: WealthEvolution,
+  wealthTypeScope: string[] | 'all',
+): CatEvolution {
+  if (wealthTypeScope === 'all' || wealthTypeScope.length === 0) return evolution.total;
+  const cats = CATEGORIES.filter((c) => wealthTypeScope.includes(CAT_TO_SCOPE_KEY[c]));
+  const start = cats.reduce((s, c) => s + evolution.byCat[c].start, 0);
+  const end = cats.reduce((s, c) => s + evolution.byCat[c].end, 0);
+  return makeCatEvolution(start, end);
 }
 
 export interface AssetSeriesPoint {

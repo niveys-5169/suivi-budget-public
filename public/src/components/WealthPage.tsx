@@ -39,7 +39,8 @@ import {
 } from 'lucide-react';
 import { fmt } from '../utils/format';
 import { buildSnapshotOptions } from '../utils/wealthSnapshot';
-import { segmentsToLiveByCat } from '../utils/wealthEvolution';
+import { useWealthEvolution } from '../hooks/useWealthEvolution';
+import { evolutionForTypeScope, segmentsToLiveByCat } from '../utils/wealthEvolution';
 
 import { PageHeader } from './shared/PageHeader';
 import { Card } from './shared/Card';
@@ -85,8 +86,12 @@ export const WealthPage: React.FC = () => {
     );
   }, [wealthTypeScope]);
 
-  const { total, per, segments, segmentsAllTypes, filteredAssets, delta30dValue, delta30dPct } =
-    useWealthAggregates(ownerScope, livePortfolioValue, portfolioHoldings, internalSelectedTypes);
+  const { total, per, segments, segmentsAllTypes, filteredAssets } = useWealthAggregates(
+    ownerScope,
+    livePortfolioValue,
+    portfolioHoldings,
+    internalSelectedTypes,
+  );
 
   // Ancre live de l'évolution : mêmes valeurs que les Allocations (owner-filtré,
   // jamais type-filtré) pour que la colonne « Fin » colle à l'état courant.
@@ -100,6 +105,11 @@ export const WealthPage: React.FC = () => {
 
   const { loading, ownerMapping, placementHistory, placements, savingsBalances, accountBalances } =
     usePatrimoine();
+
+  // Variation sur 1 mois : même timeline que l'Évolution, filtrée par
+  // propriétaire ET par type des deux côtés (départ comme fin).
+  const evolution1M = useWealthEvolution(placementHistory, '1M', ownerScope, undefined, liveByCat);
+  const delta1M = evolutionForTypeScope(evolution1M, wealthTypeScope);
 
   const [selectedAsset, setSelectedAsset] = useState<
     (Placement & Partial<LegacyPlacementFields>) | null
@@ -262,8 +272,7 @@ export const WealthPage: React.FC = () => {
           <WealthTotalCard
             total={total}
             per={per}
-            delta30dValue={delta30dValue}
-            delta30dPct={delta30dPct}
+            delta={evolution1M.endPoint ? delta1M : null}
             updatedAt={new Date().toLocaleDateString()}
           />
 
