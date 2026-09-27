@@ -43,5 +43,13 @@ export default defineConfig({
     timeout: 180_000,
     stdout: 'ignore',
     stderr: 'pipe',
+    // Sans apiKey non vide, getAuth() lève auth/invalid-api-key au chargement du
+    // module et l'app reste bloquée sur #loader. Valeurs factices : VITE_E2E
+    // court-circuite l'auth, aucun appel Firebase réel n'est fait.
+    env: {
+      VITE_E2E: 'true',
+      VITE_FIREBASE_API_KEY: 'e2e-placeholder',
+      VITE_PORTFOLIO_API_KEY: 'e2e-placeholder',
+    },
   },
 });

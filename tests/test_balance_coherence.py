@@ -179,7 +179,11 @@ def test_compute_coherence_no_float_accumulation_error():
     solde réellement réconcilié en pending_review. En centimes, linxoDelta et
     ecart doivent être exacts."""
     txs = [{"montant": 0.1} for _ in range(10)]
-    assert sum(t["montant"] for t in txs) != 1.0  # démontre l'imprécision flottante brute
+    # Addition naïve : depuis Python 3.12, sum() compense l'arrondi et renverrait 1.0.
+    naive = 0.0
+    for t in txs:
+        naive += t["montant"]
+    assert naive != 1.0  # démontre l'imprécision flottante brute
 
     result = compute_coherence(1000.0, 1001.0, txs)
     assert result["linxoDelta"] == 1.0
