@@ -64,6 +64,35 @@ describe('AnnualEnvelopeFormModal', () => {
     expect(removeBudgetCategory).toHaveBeenCalledWith('Vacances');
   });
 
+  it('conversion mensuel → enveloppe : signale le mois manquant plutôt que de rester muet', async () => {
+    const onClose = vi.fn();
+    render(
+      <AnnualEnvelopeFormModal
+        isOpen
+        onClose={onClose}
+        categories={['Courses']}
+        initialCategorie="Courses"
+        initialMontant={4800}
+      />,
+    );
+
+    const save = screen.getByRole('button', { name: 'Enregistrer' });
+    expect(save).not.toBeDisabled();
+
+    fireEvent.click(save);
+    expect(await screen.findByText("Choisis le mois de l'événement")).toBeInTheDocument();
+    expect(saveEnvelope).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /juil/i }));
+    expect(screen.getByRole('button', { name: /juil/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText("Choisis le mois de l'événement")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(saveEnvelope).toHaveBeenCalledWith('Courses', 4800, 7);
+  });
+
   it('repasse une enveloppe en budget mensuel', async () => {
     const onClose = vi.fn();
     render(

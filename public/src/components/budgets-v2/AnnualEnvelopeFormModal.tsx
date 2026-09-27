@@ -37,10 +37,14 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
 
   const amount = parseFloat(montant.replace(',', '.'));
-  const isValid = Boolean(categorie) && Number.isFinite(amount) && amount > 0 && mois !== null;
+  const isAmountValid = Boolean(categorie) && Number.isFinite(amount) && amount > 0;
 
   const handleSave = async () => {
-    if (!isValid || mois === null) return;
+    if (!isAmountValid) return;
+    if (mois === null) {
+      setError("Choisis le mois de l'événement");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -120,7 +124,14 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
           )}
         </Field>
 
-        <MonthPicker value={mois} onChange={setMois} />
+        <MonthPicker
+          value={mois}
+          onChange={(m) => {
+            setMois(m);
+            setError(null);
+          }}
+          required
+        />
 
         {Number.isFinite(amount) && amount > 0 && (
           <Text variant="footnote" tone="accent">
@@ -145,7 +156,7 @@ export const AnnualEnvelopeFormModal: React.FC<Props> = ({
             Supprimer
           </Button>
         )}
-        <Button variant="primary" onClick={handleSave} disabled={!isValid || saving}>
+        <Button variant="primary" onClick={handleSave} disabled={!isAmountValid || saving}>
           Enregistrer
         </Button>
       </Sheet.Footer>
