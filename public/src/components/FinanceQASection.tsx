@@ -9,7 +9,7 @@ import { Modal } from './shared/Modal';
 import { PageHeader } from './shared/PageHeader';
 import { Card } from './shared/Card';
 import { Button } from './shared/Button';
-import { AISettingsForm } from './settings/AISettingsForm';
+import { AIProvidersForm } from './advanced/AIProvidersForm';
 
 // --- Markdown renderer (safe — HTML-escaped first) ---
 function renderMarkdown(text: string): string {
@@ -49,7 +49,7 @@ const AISettingsModal: React.FC<AISettingsModalProps> = ({ onClose }) => (
     variant="centered"
   >
     <div className="p-8">
-      <AISettingsForm onSaved={onClose} />
+      <AIProvidersForm onSaved={onClose} />
     </div>
   </Modal>
 );

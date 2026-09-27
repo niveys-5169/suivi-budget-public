@@ -134,9 +134,35 @@ export interface FinancialSummary {
   }[];
 }
 
+/** Nombre maximal de transactions détaillées envoyées au LLM. */
+const MAX_DETAILED_TRANSACTIONS = 500;
+
+/**
+ * Sélectionne les transactions détaillées : d'abord celles dont le libellé ou
+ * le commentaire contient un mot-clé de la question (sur tout l'historique),
+ * puis les plus récentes pour compléter.
+ */
+function selectDetailedTransactions(txs: Transaction[], question: string): Transaction[] {
+  const byDateDesc = [...txs].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const tokens = extractSignificantTokens(question);
+  const relevant = tokens.length
+    ? byDateDesc.filter((tx) => {
+        const searchable = normalizeText(`${tx.libelle || ''} ${tx.commentaire || ''}`);
+        return tokens.some((token) => searchable.includes(token));
+      })
+    : [];
+  const selected = new Set(relevant.slice(0, MAX_DETAILED_TRANSACTIONS));
+  for (const tx of byDateDesc) {
+    if (selected.size >= MAX_DETAILED_TRANSACTIONS) break;
+    selected.add(tx);
+  }
+  return [...selected];
+}
+
 export function buildFinancialSummary(
   txs: Transaction[],
   budgets: BudgetBase[] = [],
+  question = '',
 ): FinancialSummary | null {
   if (!txs.length) return null;
 
@@ -210,7 +236,7 @@ export function buildFinancialSummary(
         .map((b) => [b.categorie, { montant: b.montant, type: b.type, actif: b.actif }]),
     ),
     analyse_textuelle: buildTextualInsights(txs),
-    transactions_detaillees: txs.slice(0, 500).map((tx) => ({
+    transactions_detaillees: selectDetailedTransactions(txs, question).map((tx) => ({
       date: tx.date || '',
       libelle: tx.libelle || '',
       commentaire: tx.commentaire || '',
@@ -242,7 +268,16 @@ Données patrimoniales :
 ${JSON.stringify(wealth, null, 2)}`
     : '';
 
-  return `Tu es un assistant financier personnel. Tu analyses les données financières de l'utilisateur et tu réponds à ses questions en te basant UNIQUEMENT sur les données fournies.
+  const today = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD, heure locale
+
+  return `Tu es un assistant financier personnel. Tu analyses les données financières de l'utilisateur et tu réponds à ses questions.
+
+Date du jour : ${today}. Utilise-la pour interpréter "ce mois-ci", "l'an dernier", etc.
+
+Sources :
+- Les chiffres personnels de l'utilisateur (dépenses, revenus, soldes, patrimoine) proviennent UNIQUEMENT des données ci-dessous : n'en invente jamais
+- Les agrégats ("totaux_par_categorie", "par_mois", "par_annee"…) couvrent TOUT l'historique des transactions
+- Pour les informations externes (taux du Livret A, inflation, cours de bourse, actualité, fiscalité…), utilise la recherche web si elle est disponible et cite brièvement la source ; sinon, précise que l'information peut être datée
 
 Structure des données :
 - "totaux_par_categorie" : dépenses et recettes totales par catégorie (montants négatifs = dépenses)
@@ -251,7 +286,7 @@ Structure des données :
 - "revenus_par_categorie_par_mois" : recettes ventilées par catégorie puis par mois
 - "budgets_par_categorie" : objectifs de dépense/recette par catégorie (montant = plafond mensuel défini par l'utilisateur)
 - "analyse_textuelle" : signaux calculés depuis libellés + commentaires
-- "transactions_detaillees" : extrait partiel de transactions (ne pas utiliser pour les totaux)
+- "transactions_detaillees" : extrait de transactions — celles dont le libellé correspond aux mots de la question (tout l'historique), puis les plus récentes (ne pas utiliser pour les totaux)
 
 Règles STRICTES (à respecter en priorité absolue) :
 - Réponds TOUJOURS et ENTIÈREMENT en français (titres, listes, chiffres commentés inclus) — jamais un seul mot d'anglais, même si la question est en anglais

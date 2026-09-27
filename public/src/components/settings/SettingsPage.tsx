@@ -19,7 +19,7 @@ import { useBalances } from '../../hooks/useBalances';
 import { functions } from '../../services/firebase';
 import { toast } from '../../lib/toast';
 import { CategoryIconEditor } from '../CategoryIconEditor';
-import { AISettingsForm } from './AISettingsForm';
+import { AIProvidersForm } from '../advanced/AIProvidersForm';
 import { GitHubSettingsForm } from './GitHubSettingsForm';
 import {
   Button,
@@ -291,7 +291,7 @@ export const SettingsPage: React.FC = () => {
             Modèle utilisé par l&apos;assistant financier et la catégorisation automatique.
           </Text>
           <Card>
-            <AISettingsForm />
+            <AIProvidersForm />
           </Card>
         </Section>
       )}

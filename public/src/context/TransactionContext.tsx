@@ -95,6 +95,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
+      // Synchro avec Firebase Auth/Firestore (système externe) : état vidé sans utilisateur.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTransactions([]);
       setLoading(false);
       setError(null);
@@ -173,17 +175,14 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Crée/supprime le crédit EDF compensateur quand une recharge Tronity
   // est pointée/dépointée (la déduction EDF n'existe qu'au pointage).
-  const syncEdfCredit = useCallback(
-    async (recharge: Transaction, checked: boolean) => {
-      if (!isRechargeDomicile(recharge)) return;
-      if (checked) {
-        await createEdfCreditForRecharge(recharge);
-      } else {
-        await deleteAllEdfCredits(recharge.id);
-      }
-    },
-    [transactions],
-  );
+  const syncEdfCredit = useCallback(async (recharge: Transaction, checked: boolean) => {
+    if (!isRechargeDomicile(recharge)) return;
+    if (checked) {
+      await createEdfCreditForRecharge(recharge);
+    } else {
+      await deleteAllEdfCredits(recharge.id);
+    }
+  }, []);
 
   const togglePointe = useCallback(
     async (id: string, checked: boolean) => {

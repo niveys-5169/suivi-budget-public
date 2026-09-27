@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIntl } from 'react-intl';
 import { Transaction } from '../hooks/useTransactions';
@@ -52,7 +52,6 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     control,
     handleSubmit,
     reset,
-    watch,
     getValues,
     formState: { errors, isSubmitting },
   } = useForm<TransactionFormValues>({
@@ -83,10 +82,18 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     }
   };
 
+  // Erreur effacée à chaque ouverture ou changement de transaction.
+  const errorKey = isOpen ? (transaction ?? 'new') : null;
+  const [seenErrorKey, setSeenErrorKey] = useState(errorKey);
+  if (errorKey !== seenErrorKey) {
+    setSeenErrorKey(errorKey);
+    if (isOpen) setSubmitError(null);
+  }
+
+  // Le formulaire (store react-hook-form, externe à React) suit les props.
   useEffect(() => {
     if (isOpen) {
       reset(buildDefaults(transaction, accounts));
-      setSubmitError(null);
     }
   }, [transaction, isOpen, accounts, reset]);
 
@@ -147,9 +154,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   };
 
   const modalTitle = transaction ? t({ id: 'tx.form.title.edit' }) : t({ id: 'tx.form.title.new' });
-  const watchedMontant = watch('montant');
-  const watchedCategorie = watch('categorie');
-  const watchedPointe = watch('pointe');
+  const watchedMontant = useWatch({ control, name: 'montant' });
+  const watchedCategorie = useWatch({ control, name: 'categorie' });
+  const watchedPointe = useWatch({ control, name: 'pointe' });
 
   return (
     <Sheet

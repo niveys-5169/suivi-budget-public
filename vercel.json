@@ -27,6 +27,10 @@
       "destination": "https://integrate.api.nvidia.com/:path*"
     },
     {
+      "source": "/api/search/brave/:path*",
+      "destination": "https://api.search.brave.com/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

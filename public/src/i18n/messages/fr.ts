@@ -283,8 +283,6 @@ const fr = {
   'budget.manager.action.validate': 'Valider',
   'budget.manager.action.editAmount': 'Modifier le montant',
   'budget.manager.action.editHint': 'Cliquez pour modifier',
-  'budget.manager.action.moveUp': 'Monter l’enveloppe',
-  'budget.manager.action.moveDown': 'Descendre l’enveloppe',
   'budget.manager.action.deleteCategory': 'Supprimer la catégorie',
   'budget.manager.confirm.prompt': 'Confirmer ?',
   'budget.manager.add.title': 'Ajouter une catégorie',
@@ -300,7 +298,6 @@ const fr = {
   'budget.manager.add.hint.period.monthly': 'mensuelle',
   'budget.manager.error.amountInvalid': 'Montant invalide',
   'budget.manager.error.save': 'Erreur lors de la sauvegarde',
-  'budget.manager.error.reorder': 'Réorganisation impossible',
   'budget.manager.error.delete': 'Suppression impossible',
   'budget.manager.error.chooseCategory': 'Choisis une catégorie',
   'budget.manager.error.duplicate': 'Cette catégorie existe déjà',
@@ -623,6 +620,21 @@ const fr = {
   'monthlySavings.details.withdrawals': "Retraits d'épargne",
   'monthlySavings.details.transactionCapacity': 'Entrées / sorties nettes hors transferts',
   'monthlySavings.details.reconciliation': 'Écart de rapprochement',
+  'monthlySavings.details.operationsCount':
+    '{count, plural, =0 {Aucune opération} one {# opération} other {# opérations}}',
+  'monthlySavings.details.uncertain': 'Incertain',
+  'monthlySavings.details.internal': 'Virements internes neutralisés',
+  'monthlySavings.details.ignored': 'Opérations non prises en compte',
+  'monthlySavings.details.account.opening': 'Solde au début',
+  'monthlySavings.details.account.transactions': 'Opérations importées',
+  'monthlySavings.details.account.expected': 'Solde attendu',
+  'monthlySavings.details.account.closing': 'Solde réel',
+  'monthlySavings.details.account.gap': 'Écart',
+  'monthlySavings.details.otherGap': 'Écart hors comptes courants',
+  'monthlySavings.details.reconciliationHint':
+    "Un écart négatif signifie que le solde a baissé plus que ne l'expliquent les opérations importées : opérations manquantes, en attente ou datées hors du mois.",
+  'monthlySavings.details.otherGapHint':
+    "L'écart hors comptes courants provient d'opérations comptées sur les livrets ou de virements non appariés.",
 } as const;
 
 export type MessageId = keyof typeof fr;

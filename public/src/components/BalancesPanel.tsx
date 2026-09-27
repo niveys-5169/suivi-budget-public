@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useBalances } from '../hooks/useBalances';
+import { useTransactions } from '../hooks/useTransactions';
+import { mouvementsDepuisSolde } from '../utils/balanceMapping';
 import { BalanceCard } from './BalanceCard';
 import { ReconciliationModal } from './ReconciliationModal';
 import { BalanceHistoryModal } from './BalanceHistoryModal';
@@ -10,6 +12,7 @@ import { Skeleton } from './shared/Skeleton';
 export const BalancesPanel: React.FC = () => {
   const { formatMessage: t } = useIntl();
   const { balances, loading, error } = useBalances();
+  const { transactions } = useTransactions();
   const [selectedAccount, setSelectedAccount] = useState<AccountBalance | null>(null);
   const [historyAccount, setHistoryAccount] = useState<AccountBalance | null>(null);
 
@@ -46,6 +49,7 @@ export const BalancesPanel: React.FC = () => {
           <BalanceCard
             key={balance.id}
             balance={balance}
+            mouvementsDepuis={mouvementsDepuisSolde(balance, transactions)}
             onClick={() => setSelectedAccount(balance)}
             onHistoryClick={() => setHistoryAccount(balance)}
           />

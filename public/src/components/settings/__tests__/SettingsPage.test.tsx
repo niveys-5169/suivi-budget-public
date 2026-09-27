@@ -33,12 +33,12 @@ describe('SettingsPage', () => {
   it('ouvre la section Général par défaut', () => {
     renderAt('/settings');
     expect(screen.getByText('Affichage')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Clé API')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Clé API Gemini')).not.toBeInTheDocument();
   });
 
   it('ouvre directement la section demandée par ?section=', () => {
     renderAt('/settings?section=ia');
-    expect(screen.getByLabelText('Clé API')).toBeInTheDocument();
+    expect(screen.getByLabelText('Clé API Gemini')).toBeInTheDocument();
   });
 
   it('bascule de section via les puces', () => {

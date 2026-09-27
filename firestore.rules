@@ -1,160 +1,26 @@
 rules_version = '2';
-// NOTE single-user app: toutes les collections de données (budgets*, placements,
-// transactions, soldes, metadata…) sont réservées à l'unique propriétaire via
-// isOwner() (UID épinglé). Toute évolution multi-user nécessitera une isolation
-// par UID (users/{uid}/...) ou un basculement sur le custom claim `admin`.
+// Règles de production (console Firebase → Firestore → Règles, relevées le
+// 2026-09-23), moins l'accès en lecture du claim `preview`, retiré car aucun
+// compte ne s'en sert et il exposait toute la base (dont la clé API IA de
+// user_settings). À PUBLIER dans la console. Aucun workflow ne déploie ce
+// fichier : il sert de référence versionnée et de cible aux tests émulateur
+// (tests/rules/). Toute modification doit être publiée à la main depuis la
+// console, puis reportée ici (ou l'inverse), pour que les deux restent égaux.
+//
+// Les Cloud Functions et scripts Python passent par l'Admin SDK, qui ignore
+// ces règles : elles ne concernent que le front (SDK client).
+//
+// L'ancienne version de ce fichier (règles par collection, UID épinglé,
+// validateurs de solde/placement) n'a jamais été déployée : elle bloquait 8
+// collections utilisées par le front et la suppression de transactions.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ✅ Service account EXACT pour Cloud Functions (remplacer YOUR_SA_EMAIL)
-    function isReconciliationCF() {
-      return request.auth != null
-          && request.auth.token.email == 'reconciliation-sa@suivi-budget-ab888.iam.gserviceaccount.com'
-          && request.auth.token.email_verified == true;
-    }
-
-    // ✅ Admin via custom claim (plus d'email en dur)
-    function isAdmin() {
-      return request.auth != null
-          && request.auth.token.admin == true
-          && request.auth.token.email_verified == true;
-    }
-
-    // ✅ Propriétaire unique des données (app single-user).
-    // Épinglé à l'UID du compte principal : ferme la porte à tout autre compte
-    // Google vérifié qui satisferait sinon une simple authentification. Pour
-    // évoluer vers du multi-admin, poser le custom claim `admin==true` et
-    // basculer ces règles sur isAdmin().
-    function isOwner() {
-      return request.auth != null
-          && request.auth.uid == 'o8XVO65fGtVwA1BnD9C8Nniu7MB3'
-          && request.auth.token.email_verified == true;
-    }
-
-    // ✅ Validation du solde (garde-fou métier)
-    function isValidBalance(data) {
-      return data.current_balance is number
-          && data.current_balance > -1000000
-          && data.current_balance < 100000000;
-    }
-
-    // ✅ Validation d'un placement (garde-fou métier)
-    function isValidPlacement(data) {
-      return data.nom is string
-          && data.nom.size() > 0
-          && data.nom.size() < 200
-          && data.montant is number
-          && data.montant > -1000000
-          && data.montant < 100000000
-          && data.type is string
-          && data.type in ['cash', 'savings', 'market', 'retirement', 'other'];
-    }
-
-    // --- Blocage par défaut ---
     match /{document=**} {
-      allow read, write: if false;
-    }
 
-    // --- Soldes compte courant ---
-    match /account_balances/{docId} {
-      allow read: if isOwner();
-      allow update: if isReconciliationCF()
-          && isValidBalance(request.resource.data)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-               'current_balance', 'solde', 'source', 'source_timestamp',
-               'last_reconciled_date', 'last_updated', 'status', 'discrepancies'
-             ]);
-      allow read, write: if isAdmin();
-    }
-
-    // --- Soldes épargne (même logique) ---
-    match /savings_balances/{docId} {
-      allow read: if isOwner();
-      allow update: if isReconciliationCF()
-          && isValidBalance(request.resource.data)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-               'current_balance', 'solde', 'source', 'source_timestamp',
-               'last_reconciled_date', 'last_updated', 'status', 'discrepancies'
-             ]);
-      allow read, write: if isAdmin();
-    }
-
-    // --- Audit log immuable ---
-    match /account_balance_history/{docId} {
-      allow create: if isReconciliationCF();
-      allow read: if isOwner();
-    }
-
-    // --- Transactions (lecture propriétaire) ---
-    match /transactions/{docId} {
-      allow read: if isOwner();
-      allow create, update: if isAdmin() || isReconciliationCF();
-    }
-
-    // --- Métadonnées (config RAV, owners) ---
-    match /metadata/{docId} {
-      allow read: if isOwner();
-      allow write: if isAdmin();
-    }
-
-    // --- Préférences utilisateur (isolation stricte) ---
-    // isOwner() en plus de l'égalité d'UID : app single-user, ferme la porte
-    // à tout autre compte Google vérifié qui créerait son propre uid.
-    match /users/{uid}/preferences/{docId} {
-      allow read, write: if isOwner() && request.auth.uid == uid;
-    }
-
-    // --- Sessions IA (historique des conversations, isolation stricte) ---
-    match /users/{uid}/ai_sessions/{docId} {
-      allow read, write: if isOwner() && request.auth.uid == uid;
-    }
-
-    // --- Réglages utilisateur (clé/fournisseur IA, config GitHub) ---
-    // Absente jusqu'ici : cette collection lue/écrite par
-    // public/src/services/firebase-api.ts (getAISettings, saveAISettings,
-    // getGitHubSettings, saveGitHubSettings) tombait sur le blocage par
-    // défaut ci-dessus — soit la fonctionnalité échouait silencieusement en
-    // prod (le code catch et retombe sur des valeurs par défaut), soit les
-    // règles réellement déployées divergent de ce fichier. À vérifier après
-    // déploiement de cette règle.
-    match /user_settings/{uid} {
-      allow read, write: if isOwner() && request.auth.uid == uid;
-    }
-
-    // --- Placements (single-user, validés) ---
-    match /placements/{docId} {
-      allow read: if isOwner();
-      allow create, update: if isOwner() && isValidPlacement(request.resource.data);
-      allow delete: if isOwner();
-    }
-
-    // --- Historique des placements (snapshots, append-only hors admin) ---
-    match /placement_history/{docId} {
-      allow read: if isOwner();
-      allow create: if isOwner() || isReconciliationCF();
-      allow update, delete: if isAdmin();
-    }
-
-    // --- Budgets ---
-    match /budgets/{docId} {
-      allow read, write: if isOwner();
-    }
-    match /budgets_monthly/{docId} {
-      allow read, write: if isOwner();
-    }
-    match /budgets_annual_defaults/{docId} {
-      allow read, write: if isOwner();
-    }
-
-    // --- Récurrences ---
-    match /recurrences/{docId} {
-      allow read, write: if isOwner();
-    }
-
-    // --- Réglages legacy (recurring_expense_settings) — gelée depuis la
-    // migration vers /recurrences (Phase 5) : lecture seule, plus d'écriture. ---
-    match /recurring_expense_settings/{docId} {
-      allow read: if isOwner();
+      // Propriétaire uniquement : lecture + écriture
+      allow read, write: if request.auth != null
+                         && request.auth.token.email == "niveys@gmail.com"
+                         && request.auth.token.email_verified == true;
     }
   }
 }

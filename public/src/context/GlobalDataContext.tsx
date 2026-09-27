@@ -40,6 +40,8 @@ export const GlobalDataProvider: React.FC<{ children: ReactNode }> = ({ children
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
+      // Synchro avec Firebase Auth/Firestore (système externe) : état vidé sans utilisateur.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAccountBalances([]);
       setOwnerMapping({
         owners: [...DEFAULT_OWNERS],

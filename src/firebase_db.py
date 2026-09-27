@@ -799,7 +799,9 @@ def get_all_dashboard_overrides() -> dict:
     return overrides
 
 
-def charger_transactions_existantes_pour_dedoublonnage(since_days: int = 365) -> list[dict]:
+def charger_transactions_existantes_pour_dedoublonnage(
+    since_days: int = 365, email_date_min: datetime | None = None
+) -> list[dict]:
     """Retourne les transactions existantes (date/libellé/montant) pour la déduplication.
 
     Args:
@@ -816,6 +818,8 @@ def charger_transactions_existantes_pour_dedoublonnage(since_days: int = 365) ->
             cutoff = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%Y-%m-%d")
             query = query.where(filter=FieldFilter("date", ">=", cutoff))
             log.debug(f"Déduplication : fenêtre {since_days} jours (depuis {cutoff}).")
+        if email_date_min is not None:
+            query = query.where(filter=FieldFilter("emailDate", ">=", email_date_min))
         for doc in _stream_with_backoff(query, "Chargement transactions pour dédoublonnage"):
             data = doc.to_dict() or {}
             date_str = str(data.get("date") or "").strip()
@@ -838,6 +842,32 @@ def charger_transactions_existantes_pour_dedoublonnage(since_days: int = 365) ->
     except NotFound as e:
         _handle_not_found(e)
     return out
+
+
+def charger_transactions_pour_coherence(comptes) -> list[dict]:
+    """Transactions utiles au contrôle de cohérence des soldes de `comptes`.
+
+    calcul_coherence_solde ne retient que les transactions dont l'emailDate
+    (datetime) est postérieure à celle du solde stocké du compte : inutile de
+    relire toute la collection. On borne donc la requête par la plus ancienne
+    de ces emailDate. Un compte sans solde stocké n'a pas de contrôle (ignoré) ;
+    un solde stocké sans emailDate exploitable impose le scan complet, comme
+    avant.
+    """
+    from balance_coherence import ensure_utc
+    db = _get_db()
+    bornes = []
+    for compte in set(comptes):
+        snap = db.collection("account_balances").document(compte).get()
+        if not snap.exists:
+            continue
+        email_date = ensure_utc((snap.to_dict() or {}).get("emailDate"))
+        if email_date is None:
+            return charger_transactions_existantes_pour_dedoublonnage(since_days=0)
+        bornes.append(email_date)
+    if not bornes:
+        return []
+    return charger_transactions_existantes_pour_dedoublonnage(since_days=0, email_date_min=min(bornes))
 
 
 def patcher_edf_compte_manquant(edf_compte: str) -> int:
@@ -1094,6 +1124,15 @@ def get_latest_balances() -> dict:
 
 
 
+def _email_date_solde_stocke(latest_col, compte: str) -> datetime | None:
+    """emailDate (UTC) du solde courant stocké pour `compte`, None si inconnue."""
+    from balance_coherence import ensure_utc
+    snap = latest_col.document(compte).get()
+    if not snap.exists:
+        return None
+    return ensure_utc((snap.to_dict() or {}).get("emailDate"))
+
+
 def sauvegarder_soldes_comptes(soldes: list, source: str = "gmail") -> int:
     """
     Sauvegarde les soldes détectés dans les emails Linxo et le contrôle de cohérence.
@@ -1105,6 +1144,7 @@ def sauvegarder_soldes_comptes(soldes: list, source: str = "gmail") -> int:
     if not soldes:
         return 0
 
+    from balance_coherence import ensure_utc
     db = _get_db()
     latest_col = db.collection("account_balances")
     history_col = db.collection("account_balance_history")
@@ -1116,6 +1156,7 @@ def sauvegarder_soldes_comptes(soldes: list, source: str = "gmail") -> int:
     batch = db.batch()
     batch_ops = 0
     count = 0
+    email_date_courante = {}
 
     for s in soldes:
         compte = str(s.get("compte", "")).strip()
@@ -1155,7 +1196,20 @@ def sauvegarder_soldes_comptes(soldes: list, source: str = "gmail") -> int:
         ts = email_date.strftime("%Y%m%d%H%M%S")
         history_id = f"{compte}_{ts}".replace("/", "-").replace(" ", "_")
 
-        batch.set(latest_col.document(compte), payload, merge=True)
+        # Last-wins par emailDate, pas par ordre d'écriture : un mail plus ancien
+        # que le solde stocké (reparse, mail retraité par un autre importeur…)
+        # ne va que dans l'historique, sans régresser le solde courant.
+        if compte not in email_date_courante:
+            email_date_courante[compte] = _email_date_solde_stocke(latest_col, compte)
+        courante = email_date_courante[compte]
+        if courante is not None and ensure_utc(email_date) < courante:
+            log.warning(
+                f"Solde {compte} du {email_date:%Y-%m-%d %H:%M} plus ancien que le solde "
+                f"stocké ({courante:%Y-%m-%d %H:%M}) : historique seul."
+            )
+        else:
+            batch.set(latest_col.document(compte), payload, merge=True)
+            email_date_courante[compte] = ensure_utc(email_date)
         batch.set(history_col.document(history_id), payload, merge=True)
         batch_ops += 2
         count += 1

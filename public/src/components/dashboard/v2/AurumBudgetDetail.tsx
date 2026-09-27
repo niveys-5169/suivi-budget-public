@@ -64,7 +64,12 @@ export const AurumBudgetDetail: React.FC<Props> = ({
 
   const chartData = useMemo(() => {
     const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
-    let cum = 0;
+    // Cumul courant, construit sans variable réassignée dans les callbacks.
+    const cumulate = <T,>(items: T[], amountOf: (item: T) => number) =>
+      items.reduce<number[]>((acc, item) => {
+        acc.push((acc[acc.length - 1] ?? 0) + amountOf(item));
+        return acc;
+      }, []);
     if (viewMode === 'annual') {
       const monthMap: Record<number, number> = {};
       sorted.forEach((t) => {
@@ -72,16 +77,15 @@ export const AurumBudgetDetail: React.FC<Props> = ({
         monthMap[m] = (monthMap[m] || 0) + Math.abs(Number(t.montant) || 0);
       });
       const currentMonth = new Date().getMonth() + 1;
-      return Array.from({ length: 12 }, (_, i) => {
-        cum += monthMap[i + 1] || 0;
-        return { day: i + 1, amount: cum };
-      }).filter((d) => d.day <= currentMonth || d.amount > 0);
+      const months = Array.from({ length: 12 }, (_, i) => i + 1);
+      const totals = cumulate(months, (m) => monthMap[m] || 0);
+      return months
+        .map((m, i) => ({ day: m, amount: totals[i]! }))
+        .filter((d) => d.day <= currentMonth || d.amount > 0);
     }
-    const data = sorted.map((t) => {
-      cum += Math.abs(Number(t.montant) || 0);
-      return { day: new Date(t.date).getDate(), amount: cum };
-    });
-    if (data.length > 0) data.push({ day: 31, amount: cum });
+    const totals = cumulate(sorted, (t) => Math.abs(Number(t.montant) || 0));
+    const data = sorted.map((t, i) => ({ day: new Date(t.date).getDate(), amount: totals[i]! }));
+    if (data.length > 0) data.push({ day: 31, amount: totals[totals.length - 1]! });
     return data;
   }, [transactions, viewMode]);
 

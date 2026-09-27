@@ -4,46 +4,12 @@ import { isIncomeBudget } from './budgetHelpers';
 const byLabelFr = (a: BudgetBase, b: BudgetBase) =>
   String(a.nom || a.categorie).localeCompare(String(b.nom || b.categorie), 'fr');
 
-/**
- * Comparateur « ordre manuel d'abord » : les éléments avec un rang (`ordre`) passent
- * devant, triés par rang ; les autres (jamais réordonnés) suivent selon `fallback`.
- */
-export function manualOrderComparator<T>(
-  getOrder: (item: T) => number | undefined,
-  fallback: (a: T, b: T) => number,
-): (a: T, b: T) => number {
-  const rank = (x: T) => getOrder(x) ?? Infinity;
-  // Infinity - Infinity = NaN (falsy) → repli.
-  return (a, b) => rank(a) - rank(b) || fallback(a, b);
-}
-
-const byManualOrderThenLabel = manualOrderComparator<BudgetBase>((b) => b.ordre, byLabelFr);
-
-/** Budgets actifs triés : dépenses puis revenus, chacun par ordre manuel puis alpha. */
+/** Budgets actifs triés : dépenses (alpha) puis revenus (alpha). */
 export function sortBudgetsByType(budgets: BudgetBase[]): BudgetBase[] {
   const active = budgets.filter((b) => b.actif !== false);
-  const expenses = active.filter((b) => !isIncomeBudget(b)).sort(byManualOrderThenLabel);
-  const incomes = active.filter((b) => isIncomeBudget(b)).sort(byManualOrderThenLabel);
+  const expenses = active.filter((b) => !isIncomeBudget(b)).sort(byLabelFr);
+  const incomes = active.filter((b) => isIncomeBudget(b)).sort(byLabelFr);
   return [...expenses, ...incomes];
-}
-
-/**
- * Déplace l'enveloppe `index` d'un cran (-1 = haut, +1 = bas) sans franchir la
- * frontière dépenses / revenus. Renvoie la nouvelle liste, ou null si impossible.
- */
-export function moveBudget(
-  sorted: BudgetBase[],
-  index: number,
-  direction: -1 | 1,
-): BudgetBase[] | null {
-  const target = index + direction;
-  const current = sorted[index];
-  const neighbor = sorted[target];
-  if (!current || !neighbor || isIncomeBudget(current) !== isIncomeBudget(neighbor)) return null;
-  const next = [...sorted];
-  next[index] = neighbor;
-  next[target] = current;
-  return next;
 }
 
 export interface BudgetTotals {

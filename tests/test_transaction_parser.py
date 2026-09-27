@@ -246,6 +246,46 @@ Prévisionnel
     assert soldes[0]["solde"] == pytest.approx(1000.0)
 
 
+@pytest.mark.parametrize("parser", [_parser_src, _parser_fn], ids=["src", "functions"])
+def test_solde_bas_dans_bloc_status(parser):
+    """Alerte « Solde bas » : le libellé et le montant sont dans deux <td>
+    distincts du bloc STATUS ACCOUNT (structure de l'email Linxo du 25/09/2026,
+    montant anonymisé). Aucun motif ne le reconnaissait : parse_error, solde
+    ignoré, et le solde du compte restait figé sur le mail précédent."""
+    html = """
+<!-- Account Name -->
+<strong>
+        BforBank Compte Courant
+      </strong>
+<!--STATUS ACCOUNT------------------------------------------------------->
+  <tr>
+    <td rowspan="2"><img src="https://wwws.linxo.com/img/account/Clouds.png" alt="Clouds"/></td>
+    <td colspan="2"><font>        Aujourd’hui
+    </font></td>
+  </tr>
+  <tr>
+    <td width="300"><font><strong>
+                              Solde bas
+                        </strong></font></td>
+    <td align="right" width="140"><font>                 <strong>
+                            123,45 €
+                       </strong></font></td>
+  </tr>
+  <!--END STATUS ACCOUNT------------------------------------------------------->
+  <tr><td colspan="3"><font>        Prévisionnel
+    </font></td></tr>
+  <tr><td>Votre solde dans 30 jours au <strong>25/10/2026</strong></td>
+      <td><strong>
+              **** €
+            </strong></td></tr>
+"""
+    _, soldes = parser.parse_email_linxo(html, CONFIG)
+    assert len(soldes) == 1
+    assert soldes[0]["compte"] == "BforBank Compte Courant"
+    assert soldes[0]["solde"] == pytest.approx(123.45)
+    assert soldes[0]["status"] == "OK"
+
+
 def test_no_status_bloc_no_solde():
     """Sans bloc STATUS ACCOUNT et sans 'Solde bas', aucun solde extrait."""
     html = """

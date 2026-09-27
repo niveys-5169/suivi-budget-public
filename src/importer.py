@@ -28,6 +28,7 @@ from firebase_db import (
     charger_recurrences_actives,
     charger_transactions_categorisees,
     charger_transactions_existantes_pour_dedoublonnage,
+    charger_transactions_pour_coherence,
     supprimer_transactions_par_ids,
     upsert_gmail_messages,
     charger_emails_exclus,
@@ -228,7 +229,7 @@ def _persister(nouvelles_transactions, soldes_raw, dedup_since_days=60, admettre
         # Un seul scan de la collection `transactions` pour tous les soldes de
         # ce run, plutôt qu'un scan complet par solde dans calcul_coherence_solde.
         tx_par_compte = defaultdict(list)
-        for tx in charger_transactions_existantes_pour_dedoublonnage(since_days=0):
+        for tx in charger_transactions_pour_coherence(r["compte"] for r in soldes_raw):
             tx_par_compte[tx.get("compte")].append(tx)
         for raw in soldes_raw:
             control = calcul_coherence_solde(

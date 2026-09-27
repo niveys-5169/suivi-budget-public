@@ -27,9 +27,9 @@ export const AnimatedBalance: React.FC<AnimatedBalanceProps> = ({
   const [display, setDisplay] = useState(value);
 
   useEffect(() => {
+    // Sans animation, le rendu affiche directement `value` (voir plus bas).
     if (reduceMotion) {
       spring.jump(value);
-      setDisplay(value);
     } else {
       spring.set(value);
     }

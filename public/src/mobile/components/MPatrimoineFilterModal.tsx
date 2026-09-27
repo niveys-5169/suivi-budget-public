@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { RotateCcw } from 'lucide-react';
 import { Modal } from '../../components/shared/Modal';
@@ -42,13 +42,14 @@ export const MPatrimoineFilterModal: React.FC<MPatrimoineFilterModalProps> = ({
   const [typeDraft, setTypeDraft] = useState<string[] | 'all'>(wealthTypeScope);
 
   // Resynchronise le brouillon à chaque ouverture.
-  useEffect(() => {
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
     if (isOpen) {
       setOwnerDraft(ownerScope);
       setTypeDraft(wealthTypeScope);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }
 
   const handleApply = () => {
     onChangeOwner(ownerDraft);

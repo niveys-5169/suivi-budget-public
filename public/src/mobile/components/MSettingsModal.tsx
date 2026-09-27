@@ -13,6 +13,7 @@ import { usePreferences } from '../../hooks/usePreferences';
 import { useSyncTransactions } from '../../hooks/useSyncTransactions';
 import { GitHubSettingsForm } from '../../components/settings/GitHubSettingsForm';
 import { MAIConfigSheet } from './MAIConfigSheet';
+import { configuredProviders, PROVIDER_META, readAISettings } from '../../utils/aiConfig';
 import {
   Card,
   List,
@@ -35,13 +36,6 @@ const DENSITIES = [
   { value: 'compact', label: 'Compact' },
 ] as const;
 
-const PROVIDER_LABELS: Record<string, string> = {
-  gemini: 'Gemini',
-  openai: 'OpenAI',
-  openrouter: 'OpenRouter',
-  nvidia: 'Nvidia',
-};
-
 export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose }) => {
   const { signOut } = useAuth();
   const { isRefreshing, refreshApp } = usePWAUpdate();
@@ -51,8 +45,7 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
   const [isSigning, setIsSigning] = useState(false);
 
   const [isAIConfigOpen, setIsAIConfigOpen] = useState(false);
-  const aiProvider = localStorage.getItem('ai_provider') || 'gemini';
-  const aiModel = localStorage.getItem('ai_model');
+  const aiProviders = configuredProviders(readAISettings());
 
   const handleClearCache = async () => {
     setIsClearing(true);
@@ -118,9 +111,11 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
                   </Tile>
                 }
                 title="Configuration IA"
-                subtitle={[PROVIDER_LABELS[aiProvider] ?? aiProvider, aiModel]
-                  .filter(Boolean)
-                  .join(' · ')}
+                subtitle={
+                  aiProviders.length
+                    ? aiProviders.map((p) => PROVIDER_META[p].label).join(' → ')
+                    : 'Aucun fournisseur configuré'
+                }
                 trailing={
                   <ChevronRight size={16} className="text-label-tertiary" aria-hidden="true" />
                 }
@@ -186,7 +181,9 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
           </Section>
         </Stack>
       </Sheet.Body>
-      {isAIConfigOpen && <MAIConfigSheet onClose={() => setIsAIConfigOpen(false)} />}
+      {isAIConfigOpen && (
+        <MAIConfigSheet closeOnSave={false} onClose={() => setIsAIConfigOpen(false)} />
+      )}
     </Sheet>
   );
 };

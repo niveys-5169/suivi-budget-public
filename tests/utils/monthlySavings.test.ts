@@ -393,6 +393,106 @@ describe('calculateMonthlySavingsPosition', () => {
     });
   });
 
+  it('détaille le classement de chaque opération du calcul', () => {
+    const result = calculateMonthlySavingsPosition(
+      input({
+        transactions: [
+          transaction({ id: 'income', date: '2026-09-01', montant: 450, categorie: 'Salaire' }),
+          transaction({
+            id: 'in',
+            date: '2026-09-03',
+            compte: 'Livret A',
+            montant: 300,
+            libelle: 'Virement',
+          }),
+          transaction({ id: 'out', date: '2026-09-03', montant: -300, libelle: 'Virement' }),
+          transaction({ id: 'cash', date: '2026-09-04', compte: 'Liquide', montant: -20 }),
+          transaction({ id: 'vague', date: '2026-09-05', montant: -40, libelle: 'Virement' }),
+        ],
+      }),
+    );
+
+    expect(result.breakdown.entries).toEqual([
+      expect.objectContaining({ transactionId: 'income', kind: 'COUNTED', montant: 450 }),
+      expect.objectContaining({
+        transactionId: 'out',
+        kind: 'SAVINGS_DEPOSIT',
+        compte: 'Compte courant',
+        counterpartAccount: 'Livret A',
+      }),
+      expect.objectContaining({ transactionId: 'cash', kind: 'UNTRACKED' }),
+      expect.objectContaining({ transactionId: 'vague', kind: 'UNCERTAIN' }),
+    ]);
+    const counted = result.breakdown.entries
+      .filter((entry) => entry.kind === 'COUNTED' || entry.kind === 'UNCERTAIN')
+      .reduce((sum, entry) => sum + entry.montant, 0);
+    expect(counted).toBe(result.capacityFromTransactions);
+  });
+
+  it('rapproche chaque compte courant pour localiser un écart', () => {
+    const result = calculateMonthlySavingsPosition(
+      input({
+        accounts: [
+          {
+            id: 'a',
+            name: 'Courant A',
+            role: 'OPERATING',
+            openingBalance: 2_000,
+            closingBalance: 1_866.58,
+          },
+          {
+            id: 'b',
+            name: 'Courant B',
+            role: 'OPERATING',
+            openingBalance: 500,
+            closingBalance: 600,
+          },
+        ],
+        transactions: [
+          transaction({ compte: 'Courant A', id: 'a1', montant: -100, categorie: 'Courses' }),
+          transaction({ compte: 'Courant B', id: 'b1', montant: 100, categorie: 'Salaire' }),
+        ],
+      }),
+    );
+
+    expect(result.breakdown.accounts).toEqual([
+      {
+        name: 'Courant A',
+        openingBalance: 2_000,
+        transactionsTotal: -100,
+        expectedClosingBalance: 1_900,
+        closingBalance: 1_866.58,
+        gap: -33.42,
+      },
+      {
+        name: 'Courant B',
+        openingBalance: 500,
+        transactionsTotal: 100,
+        expectedClosingBalance: 600,
+        closingBalance: 600,
+        gap: 0,
+      },
+    ]);
+    expect(result.dataQuality.reconciliationDelta).toBe(-33.42);
+  });
+
+  it('ne fournit aucun rapprochement par compte sans soldes', () => {
+    const result = calculateMonthlySavingsPosition(
+      input({
+        accounts: [
+          {
+            id: 'checking',
+            name: 'Compte courant',
+            role: 'OPERATING',
+            openingBalance: null,
+            closingBalance: 2_000,
+          },
+        ],
+      }),
+    );
+    expect(result.breakdown.accounts).toEqual([]);
+  });
+
   it('conserve le caractère provisoire du mois courant', () => {
     const result = calculateMonthlySavingsPosition(input({ isCompleteMonth: false }));
     expect(result.isCompleteMonth).toBe(false);

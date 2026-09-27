@@ -35,6 +35,8 @@ export function useAISessions() {
 
   useEffect(() => {
     if (!user) {
+      // Synchro avec Firebase Auth/Firestore (système externe) : état vidé sans utilisateur.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSessions([]);
       setLoading(false);
       return;

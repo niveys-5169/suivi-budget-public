@@ -15,12 +15,22 @@ import { fmt } from '../../../utils/format';
 import { getExpectedPaceProgress } from '../../../utils/date';
 import { MonthNavigator } from '../../shared/MonthNavigator';
 import { BankinBudgetGrid } from './BankinBudgetGrid';
+import { SegmentedControl, Button } from '../../../ui';
 
 import { CategoryDetail } from './BankinBudgetsContainer';
+import { BudgetSortMode } from '../../../hooks/usePreferences';
+
+const SORT_SEGMENTS = [
+  { value: 'montant' as const, label: 'Montant' },
+  { value: 'alpha' as const, label: 'Alphabétique' },
+  { value: 'manual' as const, label: 'Manuel' },
+];
 
 interface Props {
   netBalance: number;
   totalSpent: number;
+  /** Dépenses comptées dans la jauge (hors enveloppes annuelles). Défaut : `totalSpent`. */
+  budgetSpent?: number;
   totalReceived: number;
   totalBudget: number; // Budget total des dépenses
   totalIncomeBudget?: number; // Optionnel : Budget total des revenus
@@ -32,11 +42,18 @@ interface Props {
   onCategoryClick: (id: string) => void;
   onToggleSens?: (catId: string, current: boolean | undefined) => void;
   viewMode: 'monthly' | 'annual';
+  sortMode?: BudgetSortMode;
+  onSortModeChange?: (mode: BudgetSortMode) => void;
+  onReorder?: (orderedIds: string[]) => void;
+  /** Provision mensuelle des enveloppes annuelles, comprise dans `totalBudget`. */
+  envelopeProvision?: number;
+  onShowEnvelopes?: () => void;
 }
 
 export const BankinBudgetMain: React.FC<Props> = ({
   netBalance,
   totalSpent,
+  budgetSpent = totalSpent,
   totalReceived,
   totalBudget,
   totalIncomeBudget = 0,
@@ -48,10 +65,15 @@ export const BankinBudgetMain: React.FC<Props> = ({
   onCategoryClick,
   onToggleSens,
   viewMode,
+  sortMode = 'montant',
+  onSortModeChange,
+  onReorder,
+  envelopeProvision = 0,
+  onShowEnvelopes,
 }) => {
-  const remaining = Math.max(0, totalBudget - totalSpent);
-  const isOver = totalBudget > 0 && totalSpent > totalBudget;
-  const progress = totalBudget > 0 ? Math.min(100, (totalSpent / totalBudget) * 100) : 0;
+  const remaining = Math.max(0, totalBudget - budgetSpent);
+  const isOver = totalBudget > 0 && budgetSpent > totalBudget;
+  const progress = totalBudget > 0 ? Math.min(100, (budgetSpent / totalBudget) * 100) : 0;
 
   // Expected progress at this point in time, si on suivait un rythme constant
   const expectedProgress = useMemo(() => {
@@ -165,6 +187,13 @@ export const BankinBudgetMain: React.FC<Props> = ({
               </span>
             </div>
           </div>
+          {envelopeProvision > 0 && onShowEnvelopes && (
+            <div className="flex justify-center mt-2">
+              <Button variant="plain" size="sm" onClick={onShowEnvelopes}>
+                Dont {fmt(envelopeProvision)}/mois mis de côté pour les enveloppes →
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -265,6 +294,19 @@ export const BankinBudgetMain: React.FC<Props> = ({
 
       {/* Categories sections */}
       <div className="px-4 space-y-10">
+        {/* Tri des catégories */}
+        {onSortModeChange && (incomeCategories.length > 0 || expenseCategories.length > 0) && (
+          <div className="flex items-center justify-end gap-2 px-2">
+            <span className="text-caption font-semibold text-label-tertiary">Trier :</span>
+            <SegmentedControl
+              label="Trier les catégories"
+              segments={SORT_SEGMENTS}
+              value={sortMode}
+              onChange={onSortModeChange}
+            />
+          </div>
+        )}
+
         {/* Revenus */}
         {incomeCategories.length > 0 && (
           <div className="space-y-4">
@@ -279,6 +321,8 @@ export const BankinBudgetMain: React.FC<Props> = ({
               onCategoryClick={onCategoryClick}
               onToggleSens={onToggleSens}
               expectedPct={expectedProgress}
+              isManualSort={sortMode === 'manual'}
+              onReorder={onReorder}
             />
           </div>
         )}
@@ -296,6 +340,8 @@ export const BankinBudgetMain: React.FC<Props> = ({
             onCategoryClick={onCategoryClick}
             onToggleSens={onToggleSens}
             expectedPct={expectedProgress}
+            isManualSort={sortMode === 'manual'}
+            onReorder={onReorder}
           />
         </div>
 

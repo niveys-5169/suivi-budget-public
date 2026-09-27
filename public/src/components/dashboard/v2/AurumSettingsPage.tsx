@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Zap, Wallet, Users, Plus, Trash2, Clock, Info, Cloud, RefreshCw } from 'lucide-react';
 import { useAdvancedSettings } from '../../../hooks/useAdvancedSettings';
 import { useBalances } from '../../../hooks/useBalances';
@@ -70,9 +70,11 @@ export const AurumSettingsPage: React.FC<{
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const [syncedSection, setSyncedSection] = useState(initialSection);
+  if (initialSection !== syncedSection) {
+    setSyncedSection(initialSection);
     setActiveSection(initialSection);
-  }, [initialSection]);
+  }
 
   const handleSave = async (fn: () => Promise<void>) => {
     setSaving(true);

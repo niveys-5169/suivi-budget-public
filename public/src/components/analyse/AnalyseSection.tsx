@@ -58,11 +58,12 @@ export const AnalyseSection: React.FC = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AnalyseTab>('overview');
-  const [currentMonth, setCurrentMonth] = useState(() => {
+  // Dérivé des filtres : handleMonthChange ne fait que les mettre à jour.
+  const currentMonth = useMemo(() => {
     const y = parseInt(filters.year) || new Date().getFullYear();
     const m = parseInt(filters.month) || new Date().getMonth() + 1;
     return new Date(y, m - 1, 1);
-  });
+  }, [filters.year, filters.month]);
   const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
   const monthlySavings = useMonthlySavingsPosition(monthKey, transactions);
 
@@ -94,14 +95,7 @@ export const AnalyseSection: React.FC = () => {
     }
   };
 
-  React.useEffect(() => {
-    const y = parseInt(filters.year) || new Date().getFullYear();
-    const m = parseInt(filters.month) || new Date().getMonth() + 1;
-    setCurrentMonth(new Date(y, m - 1, 1));
-  }, [filters.year, filters.month]);
-
   const handleMonthChange = (date: Date) => {
-    setCurrentMonth(date);
     updateFilters({
       year: date.getFullYear().toString(),
       month: String(date.getMonth() + 1).padStart(2, '0'),
@@ -158,9 +152,13 @@ export const AnalyseSection: React.FC = () => {
     hideLoader();
   }, []);
 
-  React.useEffect(() => {
+  // Sélection du graphique remise à zéro au changement d'onglet ou de mois.
+  const selectionKey = `${activeTab}|${monthKey}`;
+  const [selectionResetKey, setSelectionResetKey] = useState(selectionKey);
+  if (selectionKey !== selectionResetKey) {
+    setSelectionResetKey(selectionKey);
     setActiveIndex(null);
-  }, [activeTab, currentMonth]);
+  }
 
   const buildCategoryList = useCallback(
     (

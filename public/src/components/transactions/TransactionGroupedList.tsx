@@ -249,8 +249,10 @@ export const TransactionGroupedList: React.FC<TransactionGroupedListProps> = ({
   const formatDateLabel = (dateStr: string) => {
     if (dateStr === '__unknown__') return t({ id: 'txList.date.unknown' });
 
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - MS_IN_A_DAY).toISOString().split('T')[0];
+    // Un seul instant pour « aujourd'hui » et « hier » (cohérents même à minuit).
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const yesterday = new Date(now.getTime() - MS_IN_A_DAY).toISOString().split('T')[0];
 
     if (dateStr === today) return t({ id: 'txList.date.today' });
     if (dateStr === yesterday) return t({ id: 'txList.date.yesterday' });

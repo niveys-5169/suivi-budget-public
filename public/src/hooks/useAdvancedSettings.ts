@@ -83,6 +83,8 @@ export function useAdvancedSettings() {
         },
       );
     } else {
+      // Synchro avec Firebase Auth/Firestore (système externe) : état vidé sans utilisateur.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGithubSettings(null);
       setLoading(false);
     }

@@ -22,9 +22,12 @@ export const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
   const listId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Saisie resynchronisée quand la valeur contrôlée change de l'extérieur.
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
     setInputValue(value);
-  }, [value]);
+  }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

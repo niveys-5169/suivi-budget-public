@@ -6,8 +6,6 @@ Firestore), que l'accès est réservé au propriétaire, et que la requête vers
 l'API GitHub est correctement formée.
 """
 
-import os
-import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,21 +27,10 @@ def create_mock_callable_request(auth_uid=None, data=None):
 
 
 @pytest.fixture
-def main_module():
+def main_module(functions_import_path):
     """Importe `functions.main` en isolant le sys.path de `functions/src`."""
-    src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-    src_removed = False
-    if src_path in sys.path:
-        sys.path.remove(src_path)
-        src_removed = True
-
-    for mod in ("firebase_db", "main"):
-        sys.modules.pop(mod, None)
-
-    import main
-
-    if src_removed:
-        sys.path.append(src_path)
+    with functions_import_path():
+        import main
 
     return main
 

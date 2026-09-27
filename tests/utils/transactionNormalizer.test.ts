@@ -27,6 +27,17 @@ describe('normalizeTransaction — valid inputs', () => {
     expect(result!.date).toBe('2026-03-01');
   });
 
+  it('keeps emailDate as a Date (mail Linxo source)', () => {
+    const at = new Date('2026-09-25T04:23:45Z');
+    const result = normalizeTransaction({ ...valid, emailDate: { toDate: () => at } });
+    expect(result!.emailDate).toEqual(at);
+  });
+
+  it('ignores a non-timestamp emailDate, like the importer', () => {
+    const result = normalizeTransaction({ ...valid, emailDate: '2026-09-25' });
+    expect(result!.emailDate).toBeUndefined();
+  });
+
   it('slices a full ISO datetime string to date only', () => {
     const result = normalizeTransaction({ ...valid, date: '2026-05-15T12:34:56Z' });
     expect(result!.date).toBe('2026-05-15');

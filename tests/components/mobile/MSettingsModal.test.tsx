@@ -3,16 +3,16 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MSettingsModal } from '../../../public/src/mobile/components/MSettingsModal';
 
-const { getGitHubSettings, saveGitHubSettings, saveAISettings } = vi.hoisted(() => ({
+const { getGitHubSettings, saveGitHubSettings, saveAISettingsMock } = vi.hoisted(() => ({
   getGitHubSettings: vi.fn(),
   saveGitHubSettings: vi.fn(),
-  saveAISettings: vi.fn(),
+  saveAISettingsMock: vi.fn(),
 }));
 
 vi.mock('../../../public/src/services/firebase-api', () => ({
   getGitHubSettings,
   saveGitHubSettings,
-  saveAISettings,
+  saveAISettings: (...args: unknown[]) => saveAISettingsMock(...args),
 }));
 
 vi.mock('../../../public/src/hooks/useAuth', () => ({
@@ -31,6 +31,16 @@ vi.mock('../../../public/src/hooks/useSyncTransactions', () => ({
   useSyncTransactions: () => ({ sync: vi.fn(), isSyncing: false }),
 }));
 
+/**
+ * La config IA n'occupe plus la feuille Paramètres : une ligne ouvre une feuille
+ * dédiée. Les requêtes visent cette feuille, pas celle du dessous (qui a son
+ * propre bouton « Enregistrer » pour le dépôt GitHub). Re-query à chaque fois :
+ * <Sheet> remonte son sous-arbre sous le mock framer-motion.
+ */
+const openAIConfig = () =>
+  fireEvent.click(screen.getByRole('button', { name: /Configuration IA/i }));
+const aiSheet = () => within(screen.getByRole('dialog', { name: 'Configuration IA' }));
+
 describe('MSettingsModal', () => {
   const onCloseMock = vi.fn();
 
@@ -48,8 +58,6 @@ describe('MSettingsModal', () => {
     await waitFor(() => expect(screen.getByLabelText('Propriétaire')).toHaveValue('old-owner'));
     expect(screen.getByLabelText('Dépôt')).toHaveValue('old-repo');
 
-    // Re-query each input: <Sheet> remounts its subtree between renders under
-    // the framer-motion test mock, so cached element refs go stale.
     fireEvent.change(screen.getByLabelText('Propriétaire'), { target: { value: 'new-owner' } });
     fireEvent.change(screen.getByLabelText('Dépôt'), { target: { value: 'new-repo' } });
     fireEvent.click(screen.getByRole('button', { name: /Enregistrer/i }));
@@ -57,40 +65,69 @@ describe('MSettingsModal', () => {
     await waitFor(() => expect(saveGitHubSettings).toHaveBeenCalledWith('new-owner', 'new-repo'));
   });
 
-  it("ouvre la configuration IA dans une feuille dédiée et l'enregistre", async () => {
+  it('enregistre clé, modèle et URL par fournisseur (ancien format migré)', async () => {
     localStorage.setItem('ai_provider', 'openai');
     localStorage.setItem('ai_api_key', 'old-key');
+    saveAISettingsMock.mockResolvedValue(undefined);
 
     render(<MSettingsModal isOpen onClose={onCloseMock} />);
+    expect(screen.queryByLabelText('Clé API Gemini')).not.toBeInTheDocument();
+    openAIConfig();
 
-    // La config IA n'occupe plus la feuille : une seule ligne, qui ouvre la feuille dédiée.
-    expect(screen.queryByLabelText('Clé API')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Configuration IA/i }));
+    // L'ancienne clé OpenAI a été migrée dans le bloc OpenAI.
+    fireEvent.click(aiSheet().getByRole('button', { name: /OpenAI/ }));
+    expect(aiSheet().getByLabelText('Clé API OpenAI')).toHaveValue('old-key');
 
-    await waitFor(() => expect(screen.getByLabelText('Clé API')).toHaveValue('old-key'));
-
-    fireEvent.change(screen.getByLabelText('Clé API'), { target: { value: 'new-key' } });
-    fireEvent.change(screen.getByLabelText('URL de base'), {
-      target: { value: 'https://new-base-url' },
+    fireEvent.click(aiSheet().getByRole('button', { name: /NVIDIA/ }));
+    fireEvent.change(aiSheet().getByLabelText('Clé API NVIDIA'), { target: { value: 'nv-key' } });
+    fireEvent.change(aiSheet().getByLabelText('Modèle'), {
+      target: { value: 'meta/llama-3.3-70b-instruct' },
     });
-    fireEvent.change(screen.getByLabelText('Fournisseur'), { target: { value: 'gemini' } });
+    fireEvent.change(aiSheet().getByLabelText('URL de l’endpoint'), {
+      target: { value: 'https://nv.example/v1' },
+    });
 
-    // Le bouton de la feuille IA, pas celui du dépôt GitHub resté dessous.
-    const aiDialog = screen.getByRole('dialog', { name: 'Configuration IA' });
-    fireEvent.click(within(aiDialog).getByRole('button', { name: /Enregistrer/i }));
+    fireEvent.click(aiSheet().getByRole('button', { name: /Enregistrer/i }));
 
     await waitFor(() => {
-      expect(localStorage.getItem('ai_provider')).toBe('gemini');
-      expect(localStorage.getItem('ai_api_key')).toBe('new-key');
-      // Modèle vide → valeur par défaut du fournisseur.
-      expect(localStorage.getItem('ai_model')).toBe('gemini-2.0-flash-exp');
-      expect(localStorage.getItem('ai_base_url')).toBe('https://new-base-url');
+      expect(aiSheet().getByText('Enregistré et synchronisé.')).toBeInTheDocument();
     });
-    expect(saveAISettings).toHaveBeenCalledWith(
-      'gemini',
-      'new-key',
-      'gemini-2.0-flash-exp',
-      'https://new-base-url',
-    );
+    const stored = JSON.parse(localStorage.getItem('ai_settings')!);
+    expect(stored.providers.openai.apiKey).toBe('old-key');
+    expect(stored.providers.nvidia).toEqual({
+      apiKey: 'nv-key',
+      model: 'meta/llama-3.3-70b-instruct',
+      baseUrl: 'https://nv.example/v1',
+    });
+    expect(localStorage.getItem('ai_api_key')).toBeNull();
+    expect(saveAISettingsMock).toHaveBeenCalledWith(stored);
+  });
+
+  it('refuse une URL d’endpoint invalide', () => {
+    render(<MSettingsModal isOpen onClose={onCloseMock} />);
+    openAIConfig();
+    fireEvent.change(aiSheet().getByLabelText('URL de l’endpoint'), {
+      target: { value: 'pas une url' },
+    });
+    fireEvent.click(aiSheet().getByRole('button', { name: /Enregistrer/i }));
+
+    expect(aiSheet().getByText('URL invalide (http(s)://…).')).toBeInTheDocument();
+    expect(localStorage.getItem('ai_settings')).toBeNull();
+    expect(saveAISettingsMock).not.toHaveBeenCalled();
+  });
+
+  it('signale un enregistrement local seulement si la synchro échoue', async () => {
+    saveAISettingsMock.mockRejectedValue(new Error('hors ligne'));
+    render(<MSettingsModal isOpen onClose={onCloseMock} />);
+    openAIConfig();
+    fireEvent.change(aiSheet().getByLabelText('Clé API Gemini'), { target: { value: 'g-key' } });
+    fireEvent.click(aiSheet().getByRole('button', { name: /Enregistrer/i }));
+
+    await waitFor(() => {
+      expect(
+        aiSheet().getByText('Enregistré sur cet appareil uniquement : hors ligne'),
+      ).toBeInTheDocument();
+    });
+    expect(JSON.parse(localStorage.getItem('ai_settings')!).providers.gemini.apiKey).toBe('g-key');
   });
 });

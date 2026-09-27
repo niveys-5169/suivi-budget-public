@@ -25,6 +25,7 @@ const position = (overrides: Partial<MonthlySavingsPosition> = {}): MonthlySavin
     untrackedTransactionAccounts: [],
     reconciliationDelta: 0,
   },
+  breakdown: { entries: [], accounts: [] },
   ...overrides,
 });
 
@@ -97,5 +98,96 @@ describe('MonthlySavingsCard', () => {
 
     expect(screen.getByText('Calcul indisponible')).toBeInTheDocument();
     expect(screen.getByText(/LCL/)).toBeInTheDocument();
+  });
+
+  it('détaille les opérations et localise l’écart par compte', () => {
+    render(
+      <MonthlySavingsCard
+        loading={false}
+        position={position({
+          capacityFromTransactions: 416.58,
+          dataQuality: {
+            ...position().dataQuality,
+            calculationStatus: 'PARTIAL',
+            reconciliationDelta: 33.42,
+          },
+          breakdown: {
+            entries: [
+              {
+                transactionId: 'out',
+                date: '2026-09-03',
+                libelle: 'Virement Livret A',
+                compte: 'Compte courant',
+                montant: -300,
+                kind: 'SAVINGS_DEPOSIT',
+                counterpartAccount: 'Livret A',
+              },
+              {
+                transactionId: 'vague',
+                date: '2026-09-05',
+                libelle: 'Virement inconnu',
+                compte: 'Compte courant',
+                montant: -40,
+                kind: 'UNCERTAIN',
+              },
+              {
+                transactionId: 'cash',
+                date: '2026-09-06',
+                libelle: 'Boulangerie',
+                compte: 'Liquide',
+                montant: -20,
+                kind: 'UNTRACKED',
+              },
+            ],
+            accounts: [
+              {
+                name: 'Compte courant',
+                openingBalance: 2_000,
+                transactionsTotal: 116.58,
+                expectedClosingBalance: 2_116.58,
+                closingBalance: 2_150,
+                gap: 33.42,
+              },
+            ],
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Virement Livret A')).toBeInTheDocument();
+    expect(screen.getByText(/Compte courant → Livret A/)).toBeInTheDocument();
+    expect(screen.getByText('Incertain')).toBeInTheDocument();
+    expect(screen.getByText('Opérations non prises en compte')).toBeInTheDocument();
+    expect(screen.getByText('Boulangerie')).toBeInTheDocument();
+    expect(screen.getByText('Solde attendu')).toBeInTheDocument();
+    expect(screen.getByText('Écart')).toBeInTheDocument();
+    expect(screen.queryByText('Écart hors comptes courants')).not.toBeInTheDocument();
+    expect(screen.queryByText('Virements internes neutralisés')).not.toBeInTheDocument();
+  });
+
+  it('isole la part de l’écart non portée par les comptes courants', () => {
+    render(
+      <MonthlySavingsCard
+        loading={false}
+        position={position({
+          dataQuality: { ...position().dataQuality, reconciliationDelta: -50 },
+          breakdown: {
+            entries: [],
+            accounts: [
+              {
+                name: 'Compte courant',
+                openingBalance: 2_000,
+                transactionsTotal: 180,
+                expectedClosingBalance: 2_180,
+                closingBalance: 2_150,
+                gap: -30,
+              },
+            ],
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Écart hors comptes courants')).toBeInTheDocument();
   });
 });

@@ -6,16 +6,22 @@ import { useBudget } from '../../../hooks/useBudget';
 import { useBudgetExclusions } from '../../../hooks/useBudgetExclusions';
 import { useTransactions } from '../../../hooks/useTransactions';
 import { useBalances } from '../../../hooks/useBalances';
+import { usePreferences } from '../../../hooks/usePreferences';
+import { sortBudgetCategories, mergeManualOrder } from '../../../utils/budgetSort';
+import { useAnnualEnvelopes } from '../../../hooks/useAnnualEnvelopes';
 import { updateBudget } from '../../../api/budgets';
 import { BankinBudgetMain } from './BankinBudgetMain';
 import { BankinBudgetCategoryDetail } from './BankinBudgetCategoryDetail';
 import { BudgetManagerPanel } from '../BudgetManagerPanel';
 import { RAVEditor } from '../RAVEditor';
+import { AnnualEnvelopesTab } from '../AnnualEnvelopesTab';
+import { MonthNavigator } from '../../shared/MonthNavigator';
+import { useBudgetTab } from '../../../hooks/useBudgetTab';
+import { SegmentedControl } from '../../../ui';
 import { TransactionFormModal } from '../../TransactionFormModal';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { categoryKey, preferDisplayLabel } from '../../../utils/budgetHelpers';
 import { budgetDocKey } from '../../../utils/budgetKey';
-import { manualOrderComparator } from '../../../utils/budgetManagerHelpers';
 import { Transaction, BudgetBase, BudgetConsumption } from '../../../types/banking.types';
 import { hideLoader } from '../../../utils/loader';
 
@@ -31,6 +37,11 @@ export interface CategoryDetail extends Partial<BudgetConsumption> {
   color?: string;
 }
 
+const TAB_SEGMENTS = [
+  { value: 'budgets' as const, label: 'Budgets' },
+  { value: 'enveloppes' as const, label: 'Enveloppes' },
+];
+
 type ViewState = { type: 'main' } | { type: 'category'; categoryId: string };
 
 export const BankinBudgetsContainer: React.FC = () => {
@@ -38,6 +49,10 @@ export const BankinBudgetsContainer: React.FC = () => {
   const { excluded } = useBudgetExclusions();
   const { transactions, togglePointe, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
+  const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
+  const { tab, setTab } = useBudgetTab();
+  const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
+    usePreferences();
   const [viewState, setViewState] = useState<ViewState>({ type: 'main' });
   const [showManager, setShowManager] = useState(false);
   const [showRavEditor, setShowRavEditor] = useState(false);
@@ -54,12 +69,30 @@ export const BankinBudgetsContainer: React.FC = () => {
       .sort();
   }, [balances]);
 
+  const handleReorder = useCallback(
+    (reorderedIds: string[]) => {
+      setBudgetManualOrder(mergeManualOrder(budgetManualOrder, reorderedIds));
+    },
+    [budgetManualOrder, setBudgetManualOrder],
+  );
+
   // Cycle Auto → Entrée → Sortie → Auto pour une catégorie depuis la carte.
   const handleToggleSens = useCallback(
     async (catId: string, current: boolean | undefined) => {
       const budget = budgets.find((b) => categoryKey(b.categorie || '') === categoryKey(catId));
-      if (!budget) return;
       const next = current === undefined ? true : current === true ? false : undefined;
+      if (!budget) {
+        // Pas de budget pour cette catégorie : on crée un doc inactif qui ne porte que le sens.
+        if (next === undefined) return;
+        await updateBudget(budgetDocKey(catId), {
+          categorie: catId,
+          nom: catId,
+          montant: 0,
+          actif: false,
+          isIncome: next,
+        });
+        return;
+      }
       const payload = next !== undefined ? { isIncome: next } : { isIncome: deleteField() };
       await updateBudget(budget.id || budgetDocKey(budget.categorie || ''), payload);
     },
@@ -138,6 +171,9 @@ export const BankinBudgetsContainer: React.FC = () => {
     const keyToLabel: Record<string, string> = {};
     let totalReceived = 0;
     let totalSpent = 0;
+    // Vue mois : les enveloppes annuelles sont payées par leur enveloppe, pas par le mois.
+    const isEnvelopeKey = (key: string) => viewMode === 'monthly' && envelopeKeys.has(key);
+    let envelopeSpent = 0;
 
     monthTx.forEach((tx) => {
       const rawCat = tx.categorie || 'Non catégorisé';
@@ -151,6 +187,7 @@ export const BankinBudgetsContainer: React.FC = () => {
       const amount = tx.montant || 0;
       if (amount > 0) totalReceived += amount;
       else if (amount < 0) totalSpent += Math.abs(amount);
+      if (amount < 0 && isEnvelopeKey(key)) envelopeSpent += Math.abs(amount);
     });
 
     activeBudgets.forEach((b) => {
@@ -173,6 +210,12 @@ export const BankinBudgetsContainer: React.FC = () => {
 
     allCategoryKeys.forEach((catKey) => {
       if (!catKey) return;
+      if (isEnvelopeKey(catKey)) {
+        // Hors grille ; la provision mensuelle (montant ÷ 12) reste dans le budget total.
+        const envBudget = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
+        totalExpenseBudget += envBudget ? envBudget.montant : 0;
+        return;
+      }
       const catName = keyToLabel[catKey] || catKey;
       const catTx = txByCategory[catKey] || [];
 
@@ -187,7 +230,12 @@ export const BankinBudgetsContainer: React.FC = () => {
 
       const budgetObj = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
       const budgetMontant = budgetObj ? budgetObj.montant : 0;
-      const isBudgetDefinedAsIncome = isBudgetIncome(catName, budgetObj);
+      // Le sens choisi via la carte est lu même sur un budget inactif (doc « sens seul »).
+      const storedIsIncome = (
+        budgetObj ?? budgets.find((b) => categoryKey(b.categorie || '') === catKey)
+      )?.isIncome;
+      const isBudgetDefinedAsIncome =
+        storedIsIncome !== undefined ? storedIsIncome : isBudgetIncome(catName, budgetObj);
 
       const netAmount = inflow + outflow;
 
@@ -230,7 +278,7 @@ export const BankinBudgetsContainer: React.FC = () => {
 
       // --- SECTION REVENUS ---
       // On l'ajoute si on a reçu de l'argent (>0) OU si c'est explicitement un budget de revenu
-      if (isBudgetDefinedAsIncome || (inflow > 0 && !budgetObj)) {
+      if (isBudgetDefinedAsIncome || (inflow > 0 && !budgetObj && storedIsIncome === undefined)) {
         incomeCategories.push({
           id: catName,
           nom: catName,
@@ -240,10 +288,10 @@ export const BankinBudgetsContainer: React.FC = () => {
           color: meta.color,
           transactions: mappedTransactions,
           isIncome: true,
-          storedIsIncome: budgetObj?.isIncome,
+          storedIsIncome,
         });
         if (isBudgetDefinedAsIncome) totalIncomeBudget += budgetMontant;
-      } else if (outflow < 0 || budgetMontant > 0) {
+      } else if (outflow < 0 || budgetMontant > 0 || storedIsIncome === false) {
         // --- SECTION DÉPENSES ---
         // Le montant "spent" affiché est le NET (Dépenses - Remboursements).
         // Pas de clamp : un excédent de remboursements affiche un solde positif (vert).
@@ -257,20 +305,14 @@ export const BankinBudgetsContainer: React.FC = () => {
           color: meta.color,
           transactions: mappedTransactions,
           isIncome: false,
-          storedIsIncome: budgetObj?.isIncome,
+          storedIsIncome,
         });
         totalExpenseBudget += budgetMontant;
       }
     });
 
-    // Ordre manuel (panneau « Gérer ») d'abord, puis montant décroissant.
-    const ordreByKey = new Map(activeBudgets.map((b) => [categoryKey(b.categorie || ''), b.ordre]));
-    const byOrder = manualOrderComparator<CategoryDetail>(
-      (c) => ordreByKey.get(categoryKey(c.id)),
-      (a, b) => b.depense - a.depense,
-    );
-    incomeCategories.sort(byOrder);
-    expenseCategories.sort(byOrder);
+    sortBudgetCategories(incomeCategories, budgetSortMode, budgetManualOrder);
+    sortBudgetCategories(expenseCategories, budgetSortMode, budgetManualOrder);
 
     const netBalance = totalReceived - totalSpent;
 
@@ -306,12 +348,23 @@ export const BankinBudgetsContainer: React.FC = () => {
       expenseCategories,
       totalReceived,
       totalSpent,
+      budgetSpent: totalSpent - envelopeSpent,
       totalIncomeBudget,
       totalExpenseBudget,
       netBalance,
       totalChartData,
     };
-  }, [budgets, transactions, monthKey, viewMode, isBudgetIncome, excluded]);
+  }, [
+    budgets,
+    transactions,
+    monthKey,
+    viewMode,
+    isBudgetIncome,
+    excluded,
+    budgetSortMode,
+    budgetManualOrder,
+    envelopeKeys,
+  ]);
 
   if (viewState.type === 'category') {
     const category = [...budgetData.incomeCategories, ...budgetData.expenseCategories].find(
@@ -358,26 +411,36 @@ export const BankinBudgetsContainer: React.FC = () => {
         }}
       >
         <div className="flex flex-wrap items-center justify-between gap-4 px-4 md:px-10 py-4">
-          {/* Toggle View Mode */}
-          <div className="bg-surface p-1 rounded-xl border border-separator flex items-center">
-            <button
-              onClick={() => setViewMode('monthly')}
-              aria-pressed={viewMode === 'monthly'}
-              className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
-                viewMode === 'monthly' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
-              }`}
-            >
-              Mois
-            </button>
-            <button
-              onClick={() => setViewMode('annual')}
-              aria-pressed={viewMode === 'annual'}
-              className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
-                viewMode === 'annual' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
-              }`}
-            >
-              Année
-            </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <SegmentedControl
+              label="Budgets ou enveloppes"
+              segments={TAB_SEGMENTS}
+              value={tab}
+              onChange={setTab}
+            />
+            {/* Toggle View Mode — sans objet pour les enveloppes (cycle propre) */}
+            {tab === 'budgets' && (
+              <div className="bg-surface p-1 rounded-xl border border-separator flex items-center">
+                <button
+                  onClick={() => setViewMode('monthly')}
+                  aria-pressed={viewMode === 'monthly'}
+                  className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
+                    viewMode === 'monthly' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
+                  }`}
+                >
+                  Mois
+                </button>
+                <button
+                  onClick={() => setViewMode('annual')}
+                  aria-pressed={viewMode === 'annual'}
+                  className={`px-4 py-2 rounded-lg text-caption font-semibold transition-all ${
+                    viewMode === 'annual' ? 'bg-gold text-bg' : 'text-label/40 hover:text-label'
+                  }`}
+                >
+                  Année
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -421,21 +484,36 @@ export const BankinBudgetsContainer: React.FC = () => {
         {showManager && <BudgetManagerPanel onClose={() => setShowManager(false)} />}
       </AnimatePresence>
 
-      <BankinBudgetMain
-        netBalance={budgetData.netBalance}
-        totalSpent={budgetData.totalSpent}
-        totalReceived={budgetData.totalReceived}
-        totalBudget={budgetData.totalExpenseBudget}
-        totalIncomeBudget={budgetData.totalIncomeBudget}
-        incomeCategories={budgetData.incomeCategories}
-        expenseCategories={budgetData.expenseCategories}
-        currentMonth={currentMonth}
-        onMonthChange={handleMonthChange}
-        chartData={budgetData.totalChartData}
-        onCategoryClick={(id) => setViewState({ type: 'category', categoryId: id })}
-        onToggleSens={handleToggleSens}
-        viewMode={viewMode}
-      />
+      {tab === 'enveloppes' ? (
+        <div className="space-y-6 px-4 py-6">
+          <MonthNavigator month={currentMonth} onChange={handleMonthChange} />
+          <AnnualEnvelopesTab envelopes={envelopes} categories={txCategories} />
+        </div>
+      ) : (
+        <BankinBudgetMain
+          netBalance={budgetData.netBalance}
+          totalSpent={budgetData.totalSpent}
+          budgetSpent={budgetData.budgetSpent}
+          totalReceived={budgetData.totalReceived}
+          totalBudget={budgetData.totalExpenseBudget}
+          totalIncomeBudget={budgetData.totalIncomeBudget}
+          incomeCategories={budgetData.incomeCategories}
+          expenseCategories={budgetData.expenseCategories}
+          currentMonth={currentMonth}
+          onMonthChange={handleMonthChange}
+          chartData={budgetData.totalChartData}
+          onCategoryClick={(id) => setViewState({ type: 'category', categoryId: id })}
+          onToggleSens={handleToggleSens}
+          viewMode={viewMode}
+          sortMode={budgetSortMode}
+          onSortModeChange={setBudgetSortMode}
+          onReorder={handleReorder}
+          envelopeProvision={
+            viewMode === 'monthly' ? envelopes.reduce((s, e) => s + e.provisionMensuelle, 0) : 0
+          }
+          onShowEnvelopes={() => setTab('enveloppes')}
+        />
+      )}
     </div>
   );
 };

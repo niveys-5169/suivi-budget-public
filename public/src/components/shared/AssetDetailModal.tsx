@@ -95,13 +95,16 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   const isHolding = target?.kind === 'holding';
 
   // Réinitialise l'état local à chaque ouverture / changement de cible.
-  useEffect(() => {
+  const openKey = isOpen ? `open:${target?.id ?? ''}` : 'closed';
+  const [seenOpenKey, setSeenOpenKey] = useState(openKey);
+  if (openKey !== seenOpenKey) {
+    setSeenOpenKey(openKey);
     if (isOpen) {
       setPeriod('1Y');
       setHistoryLimit(HISTORY_PAGE);
       setTxs(null);
     }
-  }, [isOpen, target?.id]);
+  }
 
   // Charge les transactions du portefeuille pour les positions boursières.
   useEffect(() => {

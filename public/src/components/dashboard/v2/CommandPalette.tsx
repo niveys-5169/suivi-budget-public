@@ -26,17 +26,27 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
   const inputRef = useRef<HTMLInputElement>(null);
   const results = useGlobalSearch(query);
 
-  useEffect(() => {
+  // Recherche vidée à chaque ouverture ; le focus (DOM) reste dans l'effet.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setQuery('');
       setCursor(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
+  }
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(timer);
   }, [open]);
 
-  useEffect(() => {
+  // Curseur ramené en tête quand la liste de résultats change de taille.
+  const [resultsCount, setResultsCount] = useState(results.length);
+  if (results.length !== resultsCount) {
+    setResultsCount(results.length);
     setCursor(0);
-  }, [results.length]);
+  }
 
   const handleSelect = useCallback(
     (r: SearchResult) => {

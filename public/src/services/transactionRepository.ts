@@ -27,6 +27,15 @@ const toIsoDate = (value: unknown): string => {
   return value != null ? String(value).slice(0, 10) : '';
 };
 
+/** Timestamp Firestore (ou Date) → Date ; tout autre type est ignoré, comme côté import. */
+const toDateOrUndefined = (value: unknown): Date | undefined => {
+  if (value instanceof Date) return value;
+  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return undefined;
+};
+
 /**
  * Schéma canonique d'un document `transactions` Firestore → `Transaction`.
  * Source de vérité unique de la frontière de désérialisation : les champs
@@ -46,6 +55,7 @@ export const TransactionDocZ = z
     moisAffectation: z.unknown().optional(),
     source: z.unknown().optional(),
     importedAt: z.unknown().optional(),
+    emailDate: z.unknown().optional(),
     edf_compte: z.unknown().optional(),
     rechargeId: z.unknown().optional(),
   })
@@ -71,6 +81,7 @@ export const TransactionDocZ = z
       moisAffectation: d.moisAffectation ? String(d.moisAffectation).slice(0, 7) : undefined,
       source: d.source ? String(d.source) : undefined,
       importedAt: d.importedAt as Timestamp | null,
+      emailDate: toDateOrUndefined(d.emailDate),
       edfCompte: d.edf_compte ? String(d.edf_compte).trim() || undefined : undefined,
       rechargeId: d.rechargeId ? String(d.rechargeId) : undefined,
     };

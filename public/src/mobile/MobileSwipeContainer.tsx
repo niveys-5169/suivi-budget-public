@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion, type Variants } from 'framer-motion';
 import { getTabIndex, NAV_ITEMS } from './navItems';
@@ -81,9 +81,14 @@ export const MobileSwipeContainer: React.FC = () => {
   }, []);
 
   const activeTab = getTabIndex(location.pathname);
-  const prevIndexRef = useRef(activeTab);
-  const direction = activeTab >= prevIndexRef.current ? 1 : -1;
-  prevIndexRef.current = activeTab;
+  // Sens du slide, recalculé au changement d'onglet (ajustement d'état pendant
+  // le rendu, plutôt qu'un ref lu et écrit pendant le rendu).
+  const [prevTab, setPrevTab] = useState(activeTab);
+  const [direction, setDirection] = useState(1);
+  if (activeTab !== prevTab) {
+    setPrevTab(activeTab);
+    setDirection(activeTab >= prevTab ? 1 : -1);
+  }
 
   // Key by tab so navigating within a tab's sub-routes (e.g. /budgets/*)
   // does not re-trigger the page slide. Off-tab routes (e.g. /qa) key by path.

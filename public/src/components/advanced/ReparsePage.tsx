@@ -16,6 +16,8 @@ import { toMillis } from '../../utils/firestoreDate';
 import type { FirestoreDateLike } from '../../types/banking.types';
 import { PageShell, BackButton } from './PageShell';
 import { withRetry } from '../../utils/withRetry';
+import { triggerGitHubWorkflow } from '../../services/firebase-api';
+import { settingsToast as toast } from './settingsToast';
 
 interface GmailMessage {
   id: string;
@@ -74,7 +76,9 @@ export const ReparsePage: React.FC = () => {
     };
   }, []);
 
-  const submitReparse = async (messageId: string, subject: string) => {
+  // Le job n'est consommé que par src/importer.py (workflow GitHub import-linxo) :
+  // sans dispatch, il attendrait le prochain cron quotidien.
+  const requestJob = async (messageId: string, subject: string) => {
     setActionLoading(true);
     try {
       await withRetry(() =>
@@ -90,6 +94,15 @@ export const ReparsePage: React.FC = () => {
           { merge: true },
         ),
       );
+      const result = (await triggerGitHubWorkflow('import-linxo')) as { status?: string } | null;
+      if (result?.status === 'success') {
+        toast('info', 'Reparse lancé — résultat dans ~1 minute.');
+      } else {
+        toast(
+          'error',
+          'Demande enregistrée, mais le lancement a échoué : traitement au prochain import.',
+        );
+      }
     } finally {
       setActionLoading(false);
     }
@@ -118,32 +131,15 @@ export const ReparsePage: React.FC = () => {
     }
   };
 
-  const submitFullScan = async () => {
-    setActionLoading(true);
-    try {
-      await withRetry(() =>
-        setDoc(
-          doc(db, 'reparse_jobs', 'full_scan_request'),
-          {
-            messageId: 'full_scan_request',
-            subject: 'Scan complet',
-            status: 'requested',
-            requestedBy: 'user',
-            requestedAt: serverTimestamp(),
-          },
-          { merge: true },
-        ),
-      );
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  const submitFullScan = () => requestJob('full_scan_request', 'Scan complet');
 
   const fullScan = useMemo(
     () =>
       jobs.find((job) => job.messageId === 'full_scan_request' || job.id === 'full_scan_request'),
     [jobs],
   );
+
+  const jobsById = useMemo(() => new Map(jobs.map((job) => [job.id, job])), [jobs]);
 
   return (
     <PageShell
@@ -228,18 +224,32 @@ export const ReparsePage: React.FC = () => {
                         ? String(message.receivedAt)
                         : '—';
                     const isExcluded = excludedIds.has(message.id);
+                    const job = jobsById.get(message.id);
                     return (
                       <tr key={message.id} className="border-t border-separator">
                         <td className="px-6 py-4">{date}</td>
                         <td className="px-6 py-4 max-w-[340px] truncate">
                           {message.subject || 'Sans objet'}
                         </td>
-                        <td className="px-6 py-4 text-label/70">{message.lastStatus || '—'}</td>
+                        <td className="px-6 py-4 text-label/70">
+                          {job ? (
+                            <>
+                              <span className="font-semibold">
+                                Reparse : {job.status || 'requested'}
+                              </span>
+                              {job.resultMessage ? (
+                                <span className="block text-caption">{job.resultMessage}</span>
+                              ) : null}
+                            </>
+                          ) : (
+                            message.lastStatus || '—'
+                          )}
+                        </td>
                         <td className="px-6 py-4 flex flex-wrap gap-4">
                           {!isExcluded && (
                             <button
                               type="button"
-                              onClick={() => submitReparse(message.id, message.subject || '')}
+                              onClick={() => requestJob(message.id, message.subject || '')}
                               disabled={actionLoading}
                               className="rounded-lg bg-gold text-bg px-4 py-2 text-caption font-semibold hover:bg-gold-light transition"
                             >

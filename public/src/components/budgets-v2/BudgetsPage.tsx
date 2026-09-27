@@ -51,7 +51,7 @@ export const BudgetsPage: React.FC = () => {
     setIsBudgetScopeVisible,
   } = useAppState();
 
-  const [selectedConsumption, setSelectedConsumption] = useState<BudgetConsumption | null>(null);
+  const [selectedRaw, setSelectedConsumption] = useState<BudgetConsumption | null>(null);
   const [isAddingBudget, setIsAddingBudget] = useState(false);
   const [showAllBudgets, setShowAllBudgets] = useState(false);
   const [showManager, setShowManager] = useState(false);
@@ -182,13 +182,11 @@ export const BudgetsPage: React.FC = () => {
     };
   }, [displayConsumptionData, recurringCategorySet, showAllBudgets]);
 
-  // Resync the open detail when period mode or computed data changes
-  useEffect(() => {
-    if (!selectedConsumption) return;
-    const updated = displayConsumptionData.find((c) => c.budgetId === selectedConsumption.budgetId);
-    if (updated) setSelectedConsumption(updated);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayConsumptionData]);
+  // Le détail ouvert suit les données recalculées (changement de période, etc.) ;
+  // si l'enveloppe n'y figure plus, on garde la dernière version connue.
+  const selectedConsumption =
+    (selectedRaw && displayConsumptionData.find((c) => c.budgetId === selectedRaw.budgetId)) ||
+    selectedRaw;
 
   const openCategory = (id: string) => {
     const consumption = displayConsumptionData.find((c) => c.budgetId === id);

@@ -7,6 +7,9 @@ import {
 } from '../constants/transactionFlowCategories';
 import type {
   AccountEconomicRole,
+  MonthlySavingsAccountReconciliation,
+  MonthlySavingsEntry,
+  MonthlySavingsEntryKind,
   MonthlySavingsInput,
   MonthlySavingsPosition,
   MonthlySavingsStatus,
@@ -103,6 +106,22 @@ export function calculateMonthlySavingsPosition(
   const processed = new Set<string>();
   const uncertainIds = new Set<string>();
   const untrackedAccounts = new Set<string>();
+  const entries: MonthlySavingsEntry[] = [];
+  const record = (
+    transaction: Transaction,
+    kind: MonthlySavingsEntryKind,
+    counterpartAccount?: string,
+  ): void => {
+    entries.push({
+      transactionId: transaction.id,
+      date: transaction.date,
+      libelle: transaction.libelle,
+      compte: transaction.compte,
+      montant: transaction.montant,
+      kind,
+      ...(counterpartAccount !== undefined ? { counterpartAccount } : {}),
+    });
+  };
 
   let savingsDeposits = 0;
   let savingsWithdrawals = 0;
@@ -119,9 +138,13 @@ export function calculateMonthlySavingsPosition(
   for (const transaction of relevantTransactions) {
     if (processed.has(transaction.id)) continue;
     const role = accountRoles.get(normalize(transaction.compte));
-    if (!role || role === 'EXCLUDED' || role === 'INVESTMENT') continue;
+    if (!role || role === 'EXCLUDED' || role === 'INVESTMENT') {
+      record(transaction, role ? 'IGNORED' : 'UNTRACKED');
+      continue;
+    }
 
     if (uncertainIds.has(transaction.id)) {
+      record(transaction, 'UNCERTAIN');
       capacityFromTransactions += transaction.montant;
       processed.add(transaction.id);
       continue;
@@ -147,6 +170,16 @@ export function calculateMonthlySavingsPosition(
       processed.add(candidate.id);
       if (kind === 'SAVINGS_DEPOSIT') savingsDeposits += Math.abs(transaction.montant);
       if (kind === 'SAVINGS_WITHDRAWAL') savingsWithdrawals += Math.abs(transaction.montant);
+      // La jambe du compte courant porte le sens lisible du mouvement.
+      const [shown, other] =
+        candidateRole === 'OPERATING' && role !== 'OPERATING'
+          ? [candidate, transaction]
+          : [transaction, candidate];
+      record(
+        shown,
+        kind === 'SAVINGS_DEPOSIT' || kind === 'SAVINGS_WITHDRAWAL' ? kind : 'INTERNAL_TRANSFER',
+        other.compte,
+      );
       continue;
     }
 
@@ -154,6 +187,7 @@ export function calculateMonthlySavingsPosition(
       uncertainTransfers += 1;
       uncertainIds.add(transaction.id);
       candidates.forEach((candidate) => uncertainIds.add(candidate.id));
+      record(transaction, 'UNCERTAIN');
       capacityFromTransactions += transaction.montant;
       processed.add(transaction.id);
       continue;
@@ -161,16 +195,19 @@ export function calculateMonthlySavingsPosition(
 
     const kind = explicitKind(transaction);
     if (kind === 'SAVINGS_DEPOSIT') {
+      record(transaction, kind);
       savingsDeposits += Math.abs(transaction.montant);
       processed.add(transaction.id);
       continue;
     }
     if (kind === 'SAVINGS_WITHDRAWAL') {
+      record(transaction, kind);
       savingsWithdrawals += Math.abs(transaction.montant);
       processed.add(transaction.id);
       continue;
     }
     if (kind === 'OTHER_INTERNAL') {
+      record(transaction, 'INTERNAL_TRANSFER');
       processed.add(transaction.id);
       continue;
     }
@@ -180,6 +217,7 @@ export function calculateMonthlySavingsPosition(
       uncertainTransfers += 1;
       unmatchedTransfers += 1;
     }
+    record(transaction, uncertainIds.has(transaction.id) ? 'UNCERTAIN' : 'COUNTED');
     capacityFromTransactions += transaction.montant;
   }
 
@@ -200,6 +238,7 @@ export function calculateMonthlySavingsPosition(
   let unallocatedSurplus: number | null = null;
   let status: MonthlySavingsStatus | null = null;
   let reconciliationDelta: number | null = null;
+  let accountReconciliations: MonthlySavingsAccountReconciliation[] = [];
 
   if (boundariesAvailable) {
     openingOperatingBalance = roundCurrency(
@@ -213,6 +252,22 @@ export function calculateMonthlySavingsPosition(
     unallocatedSurplus = roundCurrency(savingsCapacity - netSavings);
     status = statusFor(savingsCapacity, unallocatedSurplus);
     reconciliationDelta = roundCurrency(savingsCapacity - capacityFromTransactions);
+    accountReconciliations = operatingAccounts.map((account) => {
+      const transactionsTotal = roundCurrency(
+        relevantTransactions
+          .filter((transaction) => normalize(transaction.compte) === normalize(account.name))
+          .reduce((sum, transaction) => sum + transaction.montant, 0),
+      );
+      const expectedClosingBalance = roundCurrency(account.openingBalance! + transactionsTotal);
+      return {
+        name: account.name,
+        openingBalance: account.openingBalance!,
+        transactionsTotal,
+        expectedClosingBalance,
+        closingBalance: account.closingBalance!,
+        gap: roundCurrency(account.closingBalance! - expectedClosingBalance),
+      };
+    });
   }
 
   const hasPartialSignal =
@@ -245,6 +300,10 @@ export function calculateMonthlySavingsPosition(
       uncertainTransfers,
       untrackedTransactionAccounts: [...untrackedAccounts].sort(),
       reconciliationDelta,
+    },
+    breakdown: {
+      entries: entries.sort((a, b) => a.date.localeCompare(b.date)),
+      accounts: accountReconciliations,
     },
   };
 }

@@ -283,8 +283,6 @@ const en: Record<MessageId, string> = {
   'budget.manager.action.validate': 'Confirm',
   'budget.manager.action.editAmount': 'Edit amount',
   'budget.manager.action.editHint': 'Click to edit',
-  'budget.manager.action.moveUp': 'Move envelope up',
-  'budget.manager.action.moveDown': 'Move envelope down',
   'budget.manager.action.deleteCategory': 'Delete category',
   'budget.manager.confirm.prompt': 'Confirm?',
   'budget.manager.add.title': 'Add a category',
@@ -300,7 +298,6 @@ const en: Record<MessageId, string> = {
   'budget.manager.add.hint.period.monthly': 'monthly',
   'budget.manager.error.amountInvalid': 'Invalid amount',
   'budget.manager.error.save': 'Save failed',
-  'budget.manager.error.reorder': 'Reorder failed',
   'budget.manager.error.delete': 'Delete failed',
   'budget.manager.error.chooseCategory': 'Choose a category',
   'budget.manager.error.duplicate': 'This category already exists',
@@ -618,6 +615,21 @@ const en: Record<MessageId, string> = {
   'monthlySavings.details.withdrawals': 'Savings withdrawals',
   'monthlySavings.details.transactionCapacity': 'Net income / expenses excluding transfers',
   'monthlySavings.details.reconciliation': 'Reconciliation difference',
+  'monthlySavings.details.operationsCount':
+    '{count, plural, =0 {No transactions} one {# transaction} other {# transactions}}',
+  'monthlySavings.details.uncertain': 'Uncertain',
+  'monthlySavings.details.internal': 'Neutralised internal transfers',
+  'monthlySavings.details.ignored': 'Transactions not taken into account',
+  'monthlySavings.details.account.opening': 'Opening balance',
+  'monthlySavings.details.account.transactions': 'Imported transactions',
+  'monthlySavings.details.account.expected': 'Expected balance',
+  'monthlySavings.details.account.closing': 'Actual balance',
+  'monthlySavings.details.account.gap': 'Difference',
+  'monthlySavings.details.otherGap': 'Difference outside operating accounts',
+  'monthlySavings.details.reconciliationHint':
+    'A negative difference means the balance fell more than imported transactions explain: missing, pending or out-of-month transactions.',
+  'monthlySavings.details.otherGapHint':
+    'The difference outside operating accounts comes from transactions counted on savings accounts or unmatched transfers.',
 };
 
 export default en;
