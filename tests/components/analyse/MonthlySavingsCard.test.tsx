@@ -169,6 +169,7 @@ describe('MonthlySavingsCard', () => {
                 expectedClosingBalance: 2_116.58,
                 closingBalance: 2_150,
                 gap: 33.42,
+                suspects: [],
               },
             ],
           },
@@ -203,6 +204,16 @@ describe('MonthlySavingsCard', () => {
                 expectedClosingBalance: 2_180,
                 closingBalance: 2_150,
                 gap: -30,
+                suspects: [
+                  {
+                    transactionId: 'x',
+                    date: '2026-09-20',
+                    libelle: 'Assurance',
+                    montant: -30,
+                    moisAffectation: '2026-10',
+                    reasons: ['ASSIGNED_ELSEWHERE', 'MATCHES_GAP'],
+                  },
+                ],
               },
             ],
           },
@@ -211,5 +222,10 @@ describe('MonthlySavingsCard', () => {
     );
 
     expect(screen.getByText('Écart hors comptes courants')).toBeInTheDocument();
+    expect(screen.getByText('Opérations à vérifier')).toBeInTheDocument();
+    expect(screen.getByText('Assurance')).toBeInTheDocument();
+    expect(
+      screen.getByText(/affectée à un autre mois, montant égal à l'écart/),
+    ).toBeInTheDocument();
   });
 });

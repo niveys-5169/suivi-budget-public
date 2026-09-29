@@ -141,6 +141,31 @@ const AccountReconciliation: React.FC<{ account: MonthlySavingsAccountReconcilia
         signed
         tone={Math.abs(account.gap) > 0.01 ? 'warning' : 'neutral'}
       />
+      {account.suspects.length > 0 ? (
+        <Stack gap="sm">
+          <Text variant="caption" tone="tertiary">
+            {t({ id: 'monthlySavings.details.suspects.title' })}
+          </Text>
+          {account.suspects.map((suspect) => (
+            <Stack key={suspect.transactionId} direction="row" gap="sm" justify="between">
+              <Stack gap="none" className="min-w-0">
+                <Text variant="footnote" truncate>
+                  {suspect.libelle}
+                </Text>
+                <Text variant="caption" tone="tertiary">
+                  {suspect.date}
+                  {suspect.moisAffectation ? ` → ${suspect.moisAffectation}` : ''}
+                  {' · '}
+                  {suspect.reasons
+                    .map((reason) => t({ id: `monthlySavings.details.suspects.${reason}` }))
+                    .join(', ')}
+                </Text>
+              </Stack>
+              <Amount value={suspect.montant} signed variant="footnote" />
+            </Stack>
+          ))}
+        </Stack>
+      ) : null}
     </Stack>
   );
 };

@@ -679,6 +679,12 @@ const fr = {
     "Un écart négatif signifie que le solde a baissé plus que ne l'expliquent les opérations importées : opérations manquantes, en attente ou datées hors du mois.",
   'monthlySavings.details.otherGapHint':
     "L'écart hors comptes courants provient d'opérations comptées sur les livrets ou de virements non appariés.",
+  'monthlySavings.details.suspects.title': 'Opérations à vérifier',
+  'monthlySavings.details.suspects.ASSIGNED_ELSEWHERE': 'affectée à un autre mois',
+  'monthlySavings.details.suspects.ASSIGNED_HERE': 'datée hors du mois, affectée à ce mois',
+  'monthlySavings.details.suspects.PENDING': 'en attente',
+  'monthlySavings.details.suspects.BOUNDARY_DATE': 'date en limite de mois',
+  'monthlySavings.details.suspects.MATCHES_GAP': "montant égal à l'écart",
 } as const;
 
 export type MessageId = keyof typeof fr;

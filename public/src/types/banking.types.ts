@@ -232,6 +232,19 @@ export interface MonthlySavingsEntry {
   counterpartAccount?: string;
 }
 
+export type GapSuspectReason =
+  'ASSIGNED_ELSEWHERE' | 'ASSIGNED_HERE' | 'PENDING' | 'BOUNDARY_DATE' | 'MATCHES_GAP';
+
+/** Opération susceptible d'expliquer l'écart de rapprochement d'un compte courant. */
+export interface MonthlySavingsGapSuspect {
+  transactionId: string;
+  date: string;
+  libelle: string;
+  montant: number;
+  moisAffectation?: string;
+  reasons: GapSuspectReason[];
+}
+
 /** Rapprochement d'un compte courant : solde attendu d'après les opérations vs solde réel. */
 export interface MonthlySavingsAccountReconciliation {
   name: string;
@@ -240,6 +253,7 @@ export interface MonthlySavingsAccountReconciliation {
   expectedClosingBalance: number;
   closingBalance: number;
   gap: number;
+  suspects: MonthlySavingsGapSuspect[];
 }
 
 export interface MonthlySavingsBreakdown {
