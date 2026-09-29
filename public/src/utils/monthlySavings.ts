@@ -5,6 +5,7 @@ import {
   SAVINGS_DEPOSIT_CATEGORY_ALIASES,
   SAVINGS_WITHDRAWAL_CATEGORY_ALIASES,
 } from '../constants/transactionFlowCategories';
+import { findGapSuspects } from './monthlySavingsGapSuspects';
 import type {
   AccountEconomicRole,
   MonthlySavingsAccountReconciliation,
@@ -259,13 +260,20 @@ export function calculateMonthlySavingsPosition(
           .reduce((sum, transaction) => sum + transaction.montant, 0),
       );
       const expectedClosingBalance = roundCurrency(account.openingBalance! + transactionsTotal);
+      const gap = roundCurrency(account.closingBalance! - expectedClosingBalance);
       return {
         name: account.name,
         openingBalance: account.openingBalance!,
         transactionsTotal,
         expectedClosingBalance,
         closingBalance: account.closingBalance!,
-        gap: roundCurrency(account.closingBalance! - expectedClosingBalance),
+        gap,
+        suspects: findGapSuspects({
+          month: input.month,
+          accountName: account.name,
+          gap,
+          transactions: input.transactions,
+        }),
       };
     });
   }

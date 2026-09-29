@@ -674,6 +674,12 @@ const en: Record<MessageId, string> = {
     'A negative difference means the balance fell more than imported transactions explain: missing, pending or out-of-month transactions.',
   'monthlySavings.details.otherGapHint':
     'The difference outside operating accounts comes from transactions counted on savings accounts or unmatched transfers.',
+  'monthlySavings.details.suspects.title': 'Transactions to check',
+  'monthlySavings.details.suspects.ASSIGNED_ELSEWHERE': 'assigned to another month',
+  'monthlySavings.details.suspects.ASSIGNED_HERE': 'dated outside the month, assigned to it',
+  'monthlySavings.details.suspects.PENDING': 'pending',
+  'monthlySavings.details.suspects.BOUNDARY_DATE': 'dated on a month boundary',
+  'monthlySavings.details.suspects.MATCHES_GAP': 'amount equals the difference',
 };
 
 export default en;

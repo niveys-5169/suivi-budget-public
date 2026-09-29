@@ -463,6 +463,7 @@ describe('calculateMonthlySavingsPosition', () => {
         expectedClosingBalance: 1_900,
         closingBalance: 1_866.58,
         gap: -33.42,
+        suspects: [],
       },
       {
         name: 'Courant B',
@@ -471,6 +472,7 @@ describe('calculateMonthlySavingsPosition', () => {
         expectedClosingBalance: 600,
         closingBalance: 600,
         gap: 0,
+        suspects: [],
       },
     ]);
     expect(result.dataQuality.reconciliationDelta).toBe(-33.42);
