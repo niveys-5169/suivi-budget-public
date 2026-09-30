@@ -106,7 +106,7 @@ export const AurumDashboard: React.FC = () => {
       .sort();
   }, [balances]);
   const { sync, isSyncing } = useSyncTransactions();
-  const { errorCount } = useAlerts();
+  const { unreadErrorCount } = useAlerts();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -270,8 +270,8 @@ export const AurumDashboard: React.FC = () => {
                             </IconButton>
                             <IconButton
                               label={
-                                errorCount > 0
-                                  ? `Notifications, ${errorCount} alerte${errorCount > 1 ? 's' : ''}`
+                                unreadErrorCount > 0
+                                  ? `Notifications, ${unreadErrorCount} alerte${unreadErrorCount > 1 ? 's' : ''}`
                                   : 'Notifications'
                               }
                               variant="plain"
@@ -279,7 +279,7 @@ export const AurumDashboard: React.FC = () => {
                               className="relative"
                             >
                               <Bell size={20} />
-                              {errorCount > 0 && (
+                              {unreadErrorCount > 0 && (
                                 <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-negative" />
                               )}
                             </IconButton>
