@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildMonthlySavingsAccounts } from '../../public/src/hooks/useMonthlySavingsPosition';
+import {
+  buildMonthlySavingsAccounts,
+  getMonthlySavingsBounds,
+} from '../../public/src/hooks/useMonthlySavingsPosition';
 
 describe('buildMonthlySavingsAccounts', () => {
   it('utilise les bornes exactes du mois terminé et conserve les comptes manquants', () => {
@@ -85,5 +88,56 @@ describe('buildMonthlySavingsAccounts', () => {
     });
 
     expect(accounts[0]).toMatchObject({ openingBalance: 1_000, closingBalance: 1_150 });
+  });
+
+  const lclPoint = (date: string, montant: number) => ({
+    assetId: 'nicolas_courant_lcl',
+    date,
+    nom: 'LCL',
+    montant,
+    type: 'courants',
+    owner: 'nicolas',
+  });
+  const june2026 = (history: ReturnType<typeof lclPoint>[]) =>
+    buildMonthlySavingsAccounts({
+      month: '2026-06',
+      isCompleteMonth: true,
+      liveOperatingBalances: [{ id: 'lcl', compte: 'LCL', current_balance: 1_300 }],
+      savingsBalances: [],
+      history,
+    });
+
+  it("prend le point de fin du mois précédent comme ouverture quand le 1er n'existe pas", () => {
+    const accounts = june2026([lclPoint('2026-05-31', 1_000), lclPoint('2026-07-01', 1_200)]);
+
+    expect(accounts[0]).toMatchObject({ openingBalance: 1_000, closingBalance: 1_200 });
+  });
+
+  it('retient le point le plus proche de la borne sans jamais la dépasser', () => {
+    const accounts = june2026([
+      lclPoint('2026-05-30', 900),
+      lclPoint('2026-05-31', 1_000),
+      lclPoint('2026-06-03', 1_050),
+      lclPoint('2026-06-30', 1_200),
+      lclPoint('2026-07-02', 1_250),
+    ]);
+
+    expect(accounts[0]).toMatchObject({ openingBalance: 1_000, closingBalance: 1_200 });
+  });
+
+  it('laisse la borne manquante quand le dernier point est trop ancien', () => {
+    const accounts = june2026([lclPoint('2026-05-28', 1_000), lclPoint('2026-07-01', 1_200)]);
+
+    expect(accounts[0]).toMatchObject({ openingBalance: null, closingBalance: 1_200 });
+  });
+});
+
+describe('getMonthlySavingsBounds', () => {
+  it("fait démarrer l'historique à charger quelques jours avant l'ouverture", () => {
+    expect(getMonthlySavingsBounds('2026-06')).toEqual({
+      historyStartDate: '2026-05-29',
+      openingDate: '2026-06-01',
+      closingDate: '2026-07-01',
+    });
   });
 });
