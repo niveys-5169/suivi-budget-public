@@ -775,7 +775,13 @@ def sync_portfolio_daily() -> int:
             continue
         current_value = _num(h.get("current_value"), h.get("currentValue"), h.get("value"))
         if current_value <= 0:
-            continue
+            # Position soldée (quantité 0) : on historise un point à 0, sinon le fill-forward
+            # de la timeline conserverait indéfiniment sa dernière valeur positive.
+            # Valeur absente sur une position encore détenue : on ignore (cours non chargé).
+            quantity = h.get("quantity")
+            if quantity is None or _num(quantity) > 0:
+                continue
+            current_value = 0.0
         owner = str(h.get("owner") or "Nicolas").strip() or "Nicolas"
         envelope = str(h.get("envelope") or h.get("account") or "").strip()
         net_invested = _num(h.get("total_invested"), h.get("total_cost"), h.get("totalCost"))
