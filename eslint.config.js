@@ -3,6 +3,7 @@
 // Run: `npm run lint` (check) / `npm run lint:fix` (apply fixes).
 
 import js from '@eslint/js';
+import { fixupPluginRules } from '@eslint/compat';
 import tseslint from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -30,6 +31,7 @@ export default tseslint.config(
       '**/*.min.js',
       '.worktrees/**',
       'venv/**',
+      '.cache/**',
       '.cline/**',
       '.claude/**',
     ],
@@ -52,7 +54,7 @@ export default tseslint.config(
       },
     },
     plugins: {
-      react: reactPlugin,
+      react: fixupPluginRules(reactPlugin),
       'react-hooks': reactHooks,
       'jsx-a11y': jsxA11y,
     },
