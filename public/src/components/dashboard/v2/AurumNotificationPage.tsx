@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Bell, AlertCircle, Info, CheckCircle2, ChevronRight, Zap, TrendingUp } from 'lucide-react';
 import { useAlerts } from '../../../hooks/useAlerts';
@@ -24,7 +24,11 @@ interface Props {
 }
 
 export const AurumNotificationPage: React.FC<Props> = ({ onNavigate }) => {
-  const { alerts } = useAlerts();
+  const { alerts, markAllRead } = useAlerts();
+
+  useEffect(() => {
+    markAllRead();
+  }, [markAllRead]);
 
   return (
     <div className="min-h-screen bg-bg text-white font-sans overflow-x-hidden selection:bg-gold/30 pb-40">
