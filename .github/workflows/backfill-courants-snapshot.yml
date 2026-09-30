@@ -1,0 +1,48 @@
+name: Backfill relevé comptes courants (capacité d'épargne)
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date du relevé à créer (AAAA-MM-JJ)'
+        type: string
+        default: '2026-06-01'
+      dry_run:
+        description: 'Simulation (affiche les relevés qui seraient créés sans toucher Firestore)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Backfill du relevé des comptes courants
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+          BACKFILL_DATE: ${{ inputs.date }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "▶ Mode dry-run : aucun relevé ne sera créé."
+            python scripts/backfill_courants_snapshot.py --date "$BACKFILL_DATE" --dry-run
+          else
+            echo "▶ Mode réel : création des relevés dans Firestore."
+            python scripts/backfill_courants_snapshot.py --date "$BACKFILL_DATE"
+          fi
