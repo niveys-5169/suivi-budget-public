@@ -22,4 +22,4 @@ cryptography==50.0.1
 Flask-CORS==6.0.5
 requests==2.34.2
 # starlette vulnerability fix: PYSEC-2026-161 (affects <1.0.1)
-starlette>=1.6.0
+starlette>=1.7.0
