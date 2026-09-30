@@ -27,6 +27,8 @@ interface BuildAccountsInput {
   liveOperatingBalances: Array<Partial<AccountBalance> & { id: string }>;
   savingsBalances: Array<Partial<SavingsBalance> & { id: string }>;
   history: OperatingHistoryEntry[];
+  /** Soldes Linxo (`account_balance_history`), du plus ancien au plus récent. */
+  balanceHistory?: OperatingHistoryEntry[];
 }
 
 const normalizedName = (value: string | undefined): string =>
@@ -64,11 +66,12 @@ export function getMonthlySavingsBounds(month: string): {
 const latestByName = (
   history: OperatingHistoryEntry[],
   boundary: string,
+  latest = boundary,
 ): Map<string, OperatingHistoryEntry> => {
   const earliest = shiftDate(boundary, -BOUNDARY_TOLERANCE_DAYS);
   const byName = new Map<string, OperatingHistoryEntry>();
   for (const entry of history) {
-    if (entry.date < earliest || entry.date > boundary) continue;
+    if (entry.date < earliest || entry.date > latest) continue;
     const key = normalizedName(entry.nom);
     const current = byName.get(key);
     if (!current || entry.date >= current.date) byName.set(key, entry);
@@ -90,6 +93,12 @@ export function buildMonthlySavingsAccounts(input: BuildAccountsInput): MonthlyS
   });
   const openingByName = latestByName(operatingHistory, openingDate);
   const closingByName = latestByName(operatingHistory, closingDate);
+  // Sans relevé à la borne, repli sur le dernier solde Linxo de la veille au plus tard :
+  // un solde du jour même peut déjà inclure des opérations du mois.
+  const linxoBefore = (boundary: string) =>
+    latestByName(input.balanceHistory ?? [], boundary, shiftDate(boundary, -1));
+  const openingFallback = linxoBefore(openingDate);
+  const closingFallback = linxoBefore(closingDate);
   const liveByName = new Map(
     input.liveOperatingBalances.map(
       (balance) => [normalizedName(balance.compte), balance] as const,
@@ -103,8 +112,8 @@ export function buildMonthlySavingsAccounts(input: BuildAccountsInput): MonthlyS
   ]);
 
   const operatingAccounts = [...names].filter(Boolean).map((key): MonthlySavingsAccount => {
-    const opening = openingByName.get(key);
-    const closing = closingByName.get(key);
+    const opening = openingByName.get(key) ?? openingFallback.get(key);
+    const closing = closingByName.get(key) ?? closingFallback.get(key);
     const live = liveByName.get(key);
     const name = opening?.nom || closing?.nom || live?.compte || key;
     return {
@@ -148,6 +157,7 @@ export function useMonthlySavingsPosition(
 ): { position: MonthlySavingsPosition | null; loading: boolean; error: Error | null } {
   const { accountBalances = [], loading: globalLoading = false } = useGlobalData();
   const [history, setHistory] = useState<OperatingHistoryEntry[]>([]);
+  const [balanceHistory, setBalanceHistory] = useState<OperatingHistoryEntry[]>([]);
   const [savingsBalances, setSavingsBalances] = useState<SavingsBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -162,13 +172,21 @@ export function useMonthlySavingsPosition(
       setLoading(true);
       setError(null);
       try {
-        const [historySnapshot, savingsSnapshot] = await Promise.all([
+        const [historySnapshot, balanceSnapshot, savingsSnapshot] = await Promise.all([
           getDocs(
             query(
               collection(db, 'placement_history'),
               where('date', '>=', historyStartDate),
               where('date', '<=', closingDate),
               orderBy('date', 'asc'),
+            ),
+          ),
+          getDocs(
+            query(
+              collection(db, 'account_balance_history'),
+              where('emailDate', '>=', new Date(`${historyStartDate}T00:00:00Z`)),
+              where('emailDate', '<', new Date(`${closingDate}T00:00:00Z`)),
+              orderBy('emailDate', 'asc'),
             ),
           ),
           getDocs(collection(db, 'savings_balances')),
@@ -191,12 +209,31 @@ export function useMonthlySavingsPosition(
             ];
           }),
         );
+        setBalanceHistory(
+          balanceSnapshot.docs.flatMap((snapshot) => {
+            const data = snapshot.data();
+            const montant = finiteBalance(data.solde ?? data.current_balance);
+            const emailDate: unknown = data.emailDate?.toDate?.();
+            if (!data.compte || !(emailDate instanceof Date) || montant === null) return [];
+            return [
+              {
+                assetId: String(data.compte),
+                date: emailDate.toISOString().slice(0, 10),
+                nom: String(data.compte),
+                montant,
+                type: 'courants',
+                owner: data.owner ? String(data.owner) : undefined,
+              },
+            ];
+          }),
+        );
         setSavingsBalances(
           savingsSnapshot.docs.map((snapshot) => mapFirestoreBalance<SavingsBalance>(snapshot)),
         );
       } catch (cause) {
         if (cancelled) return;
         setHistory([]);
+        setBalanceHistory([]);
         setSavingsBalances([]);
         setError(cause instanceof Error ? cause : new Error(String(cause)));
       } finally {
@@ -218,6 +255,7 @@ export function useMonthlySavingsPosition(
       liveOperatingBalances: accountBalances,
       savingsBalances,
       history,
+      balanceHistory,
     });
     return calculateMonthlySavingsPosition({
       month,
@@ -227,6 +265,7 @@ export function useMonthlySavingsPosition(
     });
   }, [
     accountBalances,
+    balanceHistory,
     globalLoading,
     history,
     isCompleteMonth,

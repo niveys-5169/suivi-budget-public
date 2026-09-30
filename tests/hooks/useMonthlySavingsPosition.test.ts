@@ -98,13 +98,17 @@ describe('buildMonthlySavingsAccounts', () => {
     type: 'courants',
     owner: 'nicolas',
   });
-  const june2026 = (history: ReturnType<typeof lclPoint>[]) =>
+  const june2026 = (
+    history: ReturnType<typeof lclPoint>[],
+    balanceHistory: ReturnType<typeof lclPoint>[] = [],
+  ) =>
     buildMonthlySavingsAccounts({
       month: '2026-06',
       isCompleteMonth: true,
       liveOperatingBalances: [{ id: 'lcl', compte: 'LCL', current_balance: 1_300 }],
       savingsBalances: [],
       history,
+      balanceHistory,
     });
 
   it("prend le point de fin du mois précédent comme ouverture quand le 1er n'existe pas", () => {
@@ -129,6 +133,39 @@ describe('buildMonthlySavingsAccounts', () => {
     const accounts = june2026([lclPoint('2026-05-28', 1_000), lclPoint('2026-07-01', 1_200)]);
 
     expect(accounts[0]).toMatchObject({ openingBalance: null, closingBalance: 1_200 });
+  });
+
+  it('se replie sur le dernier solde Linxo de la veille quand aucun relevé ne couvre la borne', () => {
+    const accounts = june2026(
+      [lclPoint('2026-04-30', 800), lclPoint('2026-06-03', 1_050), lclPoint('2026-07-01', 1_200)],
+      [lclPoint('2026-05-30', 950), lclPoint('2026-05-31', 990), lclPoint('2026-05-31', 1_000)],
+    );
+
+    expect(accounts[0]).toMatchObject({ openingBalance: 1_000, closingBalance: 1_200 });
+  });
+
+  it('ignore un solde Linxo daté du jour de la borne', () => {
+    const accounts = june2026([lclPoint('2026-07-01', 1_200)], [lclPoint('2026-06-01', 1_100)]);
+
+    expect(accounts[0]).toMatchObject({ openingBalance: null, closingBalance: 1_200 });
+  });
+
+  it("n'ajoute pas de compte connu seulement par ses soldes Linxo", () => {
+    const accounts = june2026(
+      [lclPoint('2026-05-31', 1_000), lclPoint('2026-07-01', 1_200)],
+      [{ ...lclPoint('2026-05-31', 50), assetId: 'Ancien compte', nom: 'Ancien compte' }],
+    );
+
+    expect(accounts.map((account) => account.name)).toEqual(['LCL']);
+  });
+
+  it('préfère le relevé patrimoine au solde Linxo', () => {
+    const accounts = june2026(
+      [lclPoint('2026-05-31', 1_000), lclPoint('2026-07-01', 1_200)],
+      [lclPoint('2026-05-31', 999), lclPoint('2026-06-30', 1_199)],
+    );
+
+    expect(accounts[0]).toMatchObject({ openingBalance: 1_000, closingBalance: 1_200 });
   });
 });
 
