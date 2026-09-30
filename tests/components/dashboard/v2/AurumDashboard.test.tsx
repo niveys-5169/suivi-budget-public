@@ -45,15 +45,6 @@ vi.mock('../../../../public/src/hooks/useBalances', () => ({
   }),
 }));
 
-vi.mock('../../../../public/src/hooks/useHealthScore', () => ({
-  useHealthScore: () => ({
-    score: 85,
-    grade: 'A',
-    subScores: [],
-    recommendations: [],
-  }),
-}));
-
 vi.mock('../../../../public/src/hooks/useCashflowForecast', () => ({
   useCashflowForecast: () => ({
     days: [
