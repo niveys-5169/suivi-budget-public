@@ -124,14 +124,17 @@ export const WealthPage: React.FC = () => {
       ),
     [credits, incomeRecurrences],
   );
-  // Même règle de filtrage par propriétaire que pour les actifs (useWealthAggregates).
+  // Même règle de filtrage par propriétaire que pour les actifs (useWealthAggregates),
+  // sauf les crédits « Commun » : le filtre n'a pas d'entrée « Commun » et ils
+  // disparaîtraient dès qu'un propriétaire est sélectionné.
   const filteredCredits = useMemo(
     () =>
       ownerScope === 'all'
         ? credits
-        : credits.filter((c) =>
-            ownerScope.some((s) => s.toLowerCase() === (c.owner || '').toLowerCase()),
-          ),
+        : credits.filter((c) => {
+            const owner = (c.owner || 'Commun').toLowerCase();
+            return owner === 'commun' || ownerScope.some((s) => s.toLowerCase() === owner);
+          }),
     [credits, ownerScope],
   );
   const [selectedCredit, setSelectedCredit] = useState<Credit | undefined>(undefined);
