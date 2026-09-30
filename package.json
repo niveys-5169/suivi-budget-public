@@ -34,7 +34,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@e965/xlsx": "0.20.3",
     "@hookform/resolvers": "^5.9.1",
-    "@sentry/react": "^10.75.0",
+    "@sentry/react": "^11.0.0",
     "firebase": "^12.19.0",
     "framer-motion": "^13.4.0",
     "lucide-react": "^1.47.0",
