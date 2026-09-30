@@ -1,7 +1,24 @@
 """Tests de sync_portfolio_daily : historisation des positions, y compris soldées."""
+import importlib.util
+import os
 from unittest.mock import MagicMock, patch
 
-import firebase_db
+
+def _load_functions_firebase_db():
+    """Charge explicitement functions/firebase_db.py (et non src/firebase_db.py).
+
+    sync_portfolio_daily n'existe que côté Cloud Functions. Dans la suite
+    complète, d'autres tests insèrent src/ en tête de sys.path à la collecte :
+    `import firebase_db` résoudrait alors la version src/.
+    """
+    path = os.path.join(os.path.dirname(__file__), "..", "functions", "firebase_db.py")
+    spec = importlib.util.spec_from_file_location("functions_firebase_db", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+firebase_db = _load_functions_firebase_db()
 
 
 def _holding(doc_id, **fields):
