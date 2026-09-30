@@ -32,20 +32,49 @@ interface BuildAccountsInput {
 const normalizedName = (value: string | undefined): string =>
   (value || '').trim().toLocaleLowerCase('fr');
 
+// Un relevé de fin de mois vaut solde d'ouverture du mois suivant : la borne accepte
+// le dernier point connu dans les jours qui la précèdent.
+const BOUNDARY_TOLERANCE_DAYS = 3;
+
+const shiftDate = (date: string, days: number): string => {
+  const shifted = new Date(`${date}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+};
+
 export function getMonthlySavingsBounds(month: string): {
+  historyStartDate: string;
   openingDate: string;
   closingDate: string;
 } {
   const match = /^(\d{4})-(\d{2})$/.exec(month);
-  if (!match) return { openingDate: '', closingDate: '' };
+  if (!match) return { historyStartDate: '', openingDate: '', closingDate: '' };
   const year = Number(match[1]);
   const monthIndex = Number(match[2]) - 1;
   const next = new Date(Date.UTC(year, monthIndex + 1, 1));
+  const openingDate = `${match[1]}-${match[2]}-01`;
   return {
-    openingDate: `${match[1]}-${match[2]}-01`,
+    historyStartDate: shiftDate(openingDate, -BOUNDARY_TOLERANCE_DAYS),
+    openingDate,
     closingDate: `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-01`,
   };
 }
+
+/** Dernier point de chaque compte à la borne, ou à défaut dans la tolérance qui la précède. */
+const latestByName = (
+  history: OperatingHistoryEntry[],
+  boundary: string,
+): Map<string, OperatingHistoryEntry> => {
+  const earliest = shiftDate(boundary, -BOUNDARY_TOLERANCE_DAYS);
+  const byName = new Map<string, OperatingHistoryEntry>();
+  for (const entry of history) {
+    if (entry.date < earliest || entry.date > boundary) continue;
+    const key = normalizedName(entry.nom);
+    const current = byName.get(key);
+    if (!current || entry.date >= current.date) byName.set(key, entry);
+  }
+  return byName;
+};
 
 const finiteBalance = (value: unknown): number | null => {
   const amount = Number(value);
@@ -59,16 +88,8 @@ export function buildMonthlySavingsAccounts(input: BuildAccountsInput): MonthlyS
     const type = entry.type.trim().toLocaleLowerCase('fr');
     return ['courants', 'courant', 'cash', 'liquidités', 'liquidites'].includes(type);
   });
-  const openingByName = new Map(
-    operatingHistory
-      .filter((entry) => entry.date === openingDate)
-      .map((entry) => [normalizedName(entry.nom), entry] as const),
-  );
-  const closingByName = new Map(
-    operatingHistory
-      .filter((entry) => entry.date === closingDate)
-      .map((entry) => [normalizedName(entry.nom), entry] as const),
-  );
+  const openingByName = latestByName(operatingHistory, openingDate);
+  const closingByName = latestByName(operatingHistory, closingDate);
   const liveByName = new Map(
     input.liveOperatingBalances.map(
       (balance) => [normalizedName(balance.compte), balance] as const,
@@ -133,7 +154,7 @@ export function useMonthlySavingsPosition(
   const isCompleteMonth = month < currentMonthKey();
 
   useEffect(() => {
-    const { openingDate, closingDate } = getMonthlySavingsBounds(month);
+    const { historyStartDate, openingDate, closingDate } = getMonthlySavingsBounds(month);
     if (!openingDate || globalLoading) return;
     let cancelled = false;
 
@@ -145,7 +166,7 @@ export function useMonthlySavingsPosition(
           getDocs(
             query(
               collection(db, 'placement_history'),
-              where('date', '>=', openingDate),
+              where('date', '>=', historyStartDate),
               where('date', '<=', closingDate),
               orderBy('date', 'asc'),
             ),
