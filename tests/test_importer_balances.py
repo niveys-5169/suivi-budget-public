@@ -110,6 +110,25 @@ def _run(importer, txs, soldes, coherence):
 _NO_PREVIOUS = {"previousSolde": None, "computedSolde": None, "linxoDelta": None, "ecart": None}
 
 
+def test_incremental_import_does_not_readmit_repeated_pending_transfer(importer):
+    new = {
+        "date": datetime(2026, 9, 30), "libelle": "INSTANTANE",
+        "compte": "LCL", "montant": -1500, "enAttente": True,
+    }
+    old = {**new, "id": "pending-29", "date": "2026-09-29"}
+    with patch.object(importer, "charger_transactions_existantes_pour_dedoublonnage", return_value=[old]), \
+         patch.object(importer, "sauvegarder_transactions") as save, \
+         patch.object(importer, "supprimer_transactions_par_ids") as remove, \
+         patch.object(importer, "charger_transactions_categorisees", return_value=[]), \
+         patch.object(importer, "charger_recurrences_actives", return_value=[]), \
+         patch.object(importer, "categorize_batch"), \
+         patch.object(importer, "_get_db", return_value=MagicMock()):
+        count = importer._persister([new], [])
+    assert count == 0
+    save.assert_not_called()
+    assert not remove.called or remove.call_args.args[0] == []
+
+
 def _solde(compte="BforBank Compte Courant", value=1234.56):
     return [{
         "compte": compte,

@@ -3,6 +3,8 @@ Tests unitaires pour src/dedup.py — logique de déduplication partagée.
 """
 from datetime import datetime
 
+import pytest
+
 from dedup import deduplicate, reconcile_pending
 
 
@@ -80,6 +82,77 @@ def test_malformed_rows_are_skipped():
 
 
 # ─── reconcile_pending ───────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("libelle", ["INSTANTANE", "SEPA"])
+def test_repeated_pending_transfer_is_not_imported(libelle):
+    """Mail LCL du 30/09 : répétition du virement en attente du 29/09."""
+    old = _stockee("pending-29", "2026-09-29", libelle, -1500, en_attente=True)
+    new = {**_tx(datetime(2026, 9, 30), libelle, -1500), "enAttente": True}
+    filtered, obsolete = reconcile_pending([new], [old])
+    # Exerce aussi la réadmission des « probables » de l'import incrémental.
+    imported, _, probable = deduplicate(filtered, [old])
+    assert imported + probable == []
+    assert obsolete == []
+
+
+def test_repeated_pending_transfers_in_batch_keep_oldest_date():
+    old = {**_tx(datetime(2026, 9, 29), "INSTANTANE", -1500), "enAttente": True}
+    new = {**old, "date": datetime(2026, 9, 30)}
+    filtered, obsolete = reconcile_pending([new, old], [])
+    assert filtered == [old]
+    assert obsolete == []
+
+
+@pytest.mark.parametrize("change", [
+    {"compte": "BforBank"}, {"montant": -1501}, {"libelle": "SEPA"},
+    {"date": datetime(2026, 10, 3)}, {"enAttente": False},
+])
+def test_pending_transfer_repeat_guard_requires_all_matching_fields(change):
+    old = _stockee("pending-29", "2026-09-29", "INSTANTANE", -1500, en_attente=True)
+    new = {**_tx(datetime(2026, 9, 30), "INSTANTANE", -1500), "enAttente": True, **change}
+    filtered, _ = reconcile_pending([new], [old])
+    assert filtered == [new]
+
+
+def test_repeat_guard_keeps_two_transfers_notified_on_same_date():
+    first = {**_tx(datetime(2026, 9, 30), "INSTANTANE", -1500), "enAttente": True}
+    second = {**first}
+    old = _stockee("pending-29", "2026-09-29", "INSTANTANE", -1500, en_attente=True)
+    assert reconcile_pending([first, second], [])[0] == [first, second]
+    assert reconcile_pending([first, second], [old])[0] == [second]
+
+
+@pytest.mark.parametrize("libelle", ["PayPal", "ASSURANCE LCL", ""])
+def test_repeat_guard_does_not_merge_other_pending_operations(libelle):
+    old = _stockee("pending-29", "2026-09-29", libelle, -1500, en_attente=True)
+    new = {**_tx(datetime(2026, 9, 30), libelle, -1500), "enAttente": True}
+    assert reconcile_pending([new], [old])[0] == [new]
+
+
+def test_pending_repeat_does_not_replace_a_realized_stored_transfer():
+    old = _stockee("realized-29", "2026-09-29", "INSTANTANE", -1500)
+    new = {**_tx(datetime(2026, 9, 30), "INSTANTANE", -1500), "enAttente": True}
+    assert reconcile_pending([new], [old]) == ([new], [])
+
+
+def test_pending_transfer_repeat_window_is_inclusive_and_not_extended():
+    old = _stockee("pending-29", "2026-09-29", "INSTANTANE", -1500, en_attente=True)
+    within = {**_tx("2026-10-02", "INSTANTANE", -1500), "enAttente": True}
+    outside = {**within, "date": "2026-10-03"}
+    assert reconcile_pending([within, outside], [old]) == ([outside], [])
+
+
+def test_pending_transfer_repeat_preserves_daily_multiplicity_across_batch():
+    old = {**_tx("2026-09-29", "INSTANTANE", -1500), "enAttente": True}
+    repeated = {**old, "date": "2026-09-30"}
+    assert reconcile_pending([repeated, repeated.copy(), old, old.copy()], [])[0] == [old, old]
+
+
+def test_pending_transfer_repeat_ignores_unusable_rows():
+    old = _stockee("pending-29", "2026-09-29", "INSTANTANE", -1500, en_attente=True)
+    malformed = [{**old, "date": "invalid"}, {**old, "montant": None}, {**old, "compte": ""}]
+    assert reconcile_pending(malformed, malformed)[0] == malformed
+
 
 def test_reconcile_pending_keeps_lonely_pending():
     """RÉGRESSION (mail LCL du 27/07/2026) : une opération « en attente » sans

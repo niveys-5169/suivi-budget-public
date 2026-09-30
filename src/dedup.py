@@ -7,10 +7,12 @@ the same 3-level deduplication algorithm.
 """
 
 from bisect import bisect_left, bisect_right
+from collections import Counter
 from datetime import datetime, date, timedelta
 
 LIBELLE_MAX_LEN = 40
 PROBABLE_WINDOW_DAYS = 3
+PENDING_TRANSFER_LABELS = frozenset({"INSTANTANE", "SEPA"})
 
 
 def _date_obj(valeur):
@@ -107,6 +109,48 @@ def _cle_compte_montant(tx: dict) -> tuple[str, str] | None:
         return None
 
 
+def _cle_virement_en_attente(tx: dict) -> tuple[str, str, str] | None:
+    """Seuls les virements génériques Linxo peuvent être re-notifiés datés du jour."""
+    libelle = str(tx.get("libelle", "")).strip()
+    cle = _cle_compte_montant(tx)
+    if tx.get("enAttente") and libelle in PENDING_TRANSFER_LABELS and cle and cle[0]:
+        return *cle, libelle
+    return None
+
+
+def _filtrer_virements_en_attente_repetes(nouvelles: list[dict], existantes: list[dict]) -> list[dict]:
+    """Garde le maximum d'occurrences par date, sans fusionner celles d'un même jour.
+
+    La première date reste canonique ; une répétition ignorée ne prolonge pas
+    la fenêtre. Les champs utilisateur du document stocké restent intacts.
+    """
+    par_date: dict[tuple[str, str, str], Counter[date]] = {}
+    for tx in existantes:
+        cle, d = _cle_virement_en_attente(tx), _date_obj(tx.get("date"))
+        if cle and d:
+            par_date.setdefault(cle, Counter())[d] += 1
+
+    occurrences: Counter[tuple[tuple[str, str, str], date]] = Counter()
+    gardees: set[int] = set()
+    # Gmail peut livrer les mails du plus récent au plus ancien.
+    ordre = sorted(enumerate(nouvelles), key=lambda item: _date_obj(item[1].get("date")) or date.max)
+    for i, tx in ordre:
+        cle, d = _cle_virement_en_attente(tx), _date_obj(tx.get("date"))
+        if not cle or not d:
+            gardees.add(i)
+            continue
+        occurrences[cle, d] += 1
+        dates = par_date.setdefault(cle, Counter())
+        couvertes = max(
+            (n for jour, n in dates.items() if abs((jour - d).days) <= PROBABLE_WINDOW_DAYS),
+            default=0,
+        )
+        if occurrences[cle, d] > couvertes:
+            gardees.add(i)
+            dates[d] = occurrences[cle, d]
+    return [tx for i, tx in enumerate(nouvelles) if i in gardees]
+
+
 def reconcile_pending(
     nouvelles: list[dict],
     existantes: list[dict],
@@ -120,7 +164,13 @@ def reconcile_pending(
     jamais être ignorés : une opération en attente sans contrepartie réalisée
     est conservée.
 
-    Deux passes, clé (compte, montant) et fenêtre ±PROBABLE_WINDOW_DAYS :
+    Avant la réconciliation, les notifications répétées de virements génériques
+    encore en attente (même compte, montant, libellé INSTANTANE/SEPA, ±3 jours)
+    sont retirées du nouveau lot si elles répètent un document stocké ou une
+    autre notification du lot. Ce filtre précède `deduplicate` pour que
+    l'import incrémental ne réadmette pas ces doublons « probables ».
+
+    Deux passes ensuite, clé (compte, montant) et fenêtre ±PROBABLE_WINDOW_DAYS :
       1. intra-lot : une nouvelle transaction « en attente » couverte par une
          nouvelle transaction réalisée est retirée du lot ;
       2. vs Firestore : une nouvelle transaction réalisée qui confirme une
@@ -134,6 +184,7 @@ def reconcile_pending(
     Returns:
         (nouvelles_filtrees, ids_en_attente_obsoletes)
     """
+    nouvelles = _filtrer_virements_en_attente_repetes(nouvelles, existantes)
     # ─── Passe 1 : intra-lot ────────────────────────────────────────────────
     realisees: dict[tuple[str, str], list[date]] = {}
     for tx in nouvelles:

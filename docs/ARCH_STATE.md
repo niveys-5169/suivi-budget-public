@@ -1,4 +1,4 @@
-# 🏗 Current Architectural State (mise à jour Juillet 2026)
+# 🏗 Current Architectural State (mise à jour septembre 2026)
 
 ## 🟢 Migrated (React / Premium Aurum V2)
 
@@ -230,6 +230,19 @@ entrée. **Décommissionné** : l'onglet Analyse › Récurrences (desktop —
 « Récurrences » de l'écran Analyse mobile (`MSegmentedControl`).
 
 ## 🔗 Infrastructure
+
+### Import Linxo : répétitions de virements en attente (septembre 2026)
+
+`reconcile_pending` (`src/dedup.py` et sa copie identique `functions/dedup.py`)
+filtre les notifications répétées de virements génériques encore en attente
+avant la réconciliation et la déduplication : même compte, montant et libellé
+`INSTANTANE` / `SEPA`, dates à ±3 jours. Le filtre couvre la base et le lot,
+préserve les occurrences d'un même jour et laisse intact le document stocké.
+Les opérations réalisées, cartes et prélèvements gardent leur traitement
+existant. Les soldes des mails restent actualisés.
+
+Règles, limites de cette heuristique, tests et déploiement :
+[`linxo-pending-transfers.md`](linxo-pending-transfers.md).
 
 - **Python Functions:** Manage ingestion and reconciliation (`functions/`).
 - **Bridge:** Google Apps Script (`Code.gs`) handles the connection between Google Sheets and Firestore.

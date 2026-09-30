@@ -75,6 +75,30 @@ def test_balance_written_directly_to_account_balances(mocked_main):
     assert save_soldes.call_args.kwargs.get("source") == "gmail"
 
 
+def test_repeated_lcl_pending_transfer_is_not_saved_but_balance_is_updated(mocked_main, mocker):
+    main, gmail, save_soldes = mocked_main
+    mocker.patch("main.parse_email_linxo", return_value=([{
+        "date": datetime(2026, 9, 30), "libelle": "INSTANTANE",
+        "compteLinxo": "LCL Compte Joint", "montant": -1500,
+        "categorieLinxo": "Virements internes", "enAttente": True,
+    }], [{"compte": "LCL Compte Joint", "solde": 1358.99, "status": "OK"}]))
+    mocker.patch("main.charger_transactions_existantes_pour_dedoublonnage", return_value=[{
+        "id": "pending-29", "date": "2026-09-29", "libelle": "INSTANTANE",
+        "compte": "LCL", "montant": -1500, "enAttente": True,
+    }])
+    save = mocker.patch("main.sauvegarder_transactions", side_effect=lambda txs, **kw: len(txs))
+    remove = mocker.patch("main.supprimer_transactions_par_ids")
+    mocker.patch("main.categorize_batch")
+
+    result = main._run_linxo_import_core(gmail)
+
+    assert result["transactionsImported"] == 0
+    assert not save.called or save.call_args.args[0] == []
+    assert not remove.called or remove.call_args.args[0] == []
+    assert save_soldes.call_args.args[0][0]["solde"] == 1358.99
+    main.marquer_email_traite.assert_called_once_with("msg-1")
+
+
 def test_multiple_soldes_imported(mocked_main, mocker):
     """Plusieurs comptes sont écrits dans account_balances."""
     main, gmail, save_soldes = mocked_main
