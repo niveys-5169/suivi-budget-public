@@ -81,7 +81,7 @@ export const usePreferences = (): UsePreferencesResult => {
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const debounceTimerRef = useRef<NodeJS.Timeout>();
+  const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const categoriesKey = getStorageKey(user?.uid, 'dashboard_categories');
   const viewModeKey = getStorageKey(user?.uid, 'transactions_view_mode');
