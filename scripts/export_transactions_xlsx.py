@@ -83,6 +83,14 @@ def fetch_transactions(db, since: str | None = None) -> list[dict]:
 
 # ─── Excel builder ───────────────────────────────────────────────────────────
 
+def _write_cell(ws, row: int, column: int, value):
+    """Write external strings as literal text, never as Excel formulas."""
+    cell = ws.cell(row=row, column=column, value=value)
+    if isinstance(value, str):
+        cell.data_type = "s"
+    return cell
+
+
 def build_workbook(transactions: list[dict]) -> openpyxl.Workbook:
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -128,7 +136,7 @@ def build_workbook(transactions: list[dict]) -> openpyxl.Workbook:
                     except Exception:
                         val = val_str
 
-            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell = _write_cell(ws, row_idx, col_idx, val)
             cell.fill = row_fill
 
     # Auto-filter
@@ -170,7 +178,7 @@ def add_stats_sheet(wb: openpyxl.Workbook, transactions: list[dict]) -> None:
     # Monthly summary
     h(ws, 1, 1, "Mois"); h(ws, 1, 2, "Recettes (€)"); h(ws, 1, 3, "Dépenses (€)"); h(ws, 1, 4, "Solde (€)")
     for i, (month, vals) in enumerate(sorted(by_month.items(), reverse=True), start=2):
-        ws.cell(row=i, column=1, value=month)
+        _write_cell(ws, i, 1, month)
         ws.cell(row=i, column=2, value=round(vals["recettes"], 2)).number_format = "#,##0.00"
         ws.cell(row=i, column=3, value=round(vals["depenses"], 2)).number_format = "#,##0.00"
         ws.cell(row=i, column=4, value=round(vals["recettes"] + vals["depenses"], 2)).number_format = "#,##0.00"
@@ -182,7 +190,7 @@ def add_stats_sheet(wb: openpyxl.Workbook, transactions: list[dict]) -> None:
     # Category breakdown (col 6+)
     h(ws, 1, 6, "Catégorie"); h(ws, 1, 7, "Total dépenses (€)")
     for i, (cat, total) in enumerate(sorted(by_cat.items(), key=lambda x: x[1]), start=2):
-        ws.cell(row=i, column=6, value=cat)
+        _write_cell(ws, i, 6, cat)
         ws.cell(row=i, column=7, value=round(total, 2)).number_format = "#,##0.00"
     ws.column_dimensions["F"].width = 28
     ws.column_dimensions["G"].width = 20
