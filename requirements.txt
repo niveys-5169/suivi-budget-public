@@ -9,7 +9,7 @@ firebase-admin==7.7.0
 # id %28default%29" — double encodage de l'ID de base). À déplafonner seulement
 # après vérification qu'un correctif amont existe.
 google-api-core==2.39.0
-google-cloud-core==2.7.0
+google-cloud-core==2.8.0
 google-cloud-firestore==2.32.0
 cryptography==50.0.1
 requests==2.34.2
