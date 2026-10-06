@@ -11,7 +11,7 @@ firebase-admin==7.7.0
 google-api-core==2.39.0
 google-cloud-core==2.7.0
 google-cloud-firestore==2.32.0
-cryptography==50.0.1
+cryptography==50.0.2
 requests==2.34.2
 # urllib3 est une dépendance transitive — épinglé pour contrôler les montées de
 # version. Mettre à jour en même temps que les audits de sécurité le signalent.
