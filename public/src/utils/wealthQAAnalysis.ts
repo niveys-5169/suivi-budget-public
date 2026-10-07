@@ -4,12 +4,13 @@ import type { WealthHistoryEntry } from '../types/patrimoine';
 import type { Holding } from '../hooks/usePortfolio';
 import { buildWealthTimeline, normalizeType, type WealthCategory } from './wealthTimeline';
 
-/** Répartition d'un patrimoine sur les 4 segments d'audit (retraite isolée). */
+/** Répartition d'un patrimoine sur les 5 segments d'audit (retraite et immobilier isolés). */
 export interface WealthBreakdown {
   courants: number;
   epargne: number;
   investissements: number;
   retraite: number;
+  immobilier: number;
   total: number;
 }
 
@@ -68,7 +69,7 @@ export interface WealthSummaryInput {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function emptyBreakdown(): WealthBreakdown {
-  return { courants: 0, epargne: 0, investissements: 0, retraite: 0, total: 0 };
+  return { courants: 0, epargne: 0, investissements: 0, retraite: 0, immobilier: 0, total: 0 };
 }
 
 function addToBreakdown(b: WealthBreakdown, cat: WealthCategory, value: number): void {
@@ -220,6 +221,7 @@ function historicalBreakdown(
     epargne: round2(point.byCat.epargne ?? 0),
     investissements: round2(point.byCat.investissements ?? 0),
     retraite: round2(point.byCat.retraite ?? 0),
+    immobilier: round2(point.byCat.immobilier ?? 0),
     total: round2(point.amount),
   };
 }
@@ -239,6 +241,7 @@ function roundBreakdown(b: WealthBreakdown): WealthBreakdown {
     epargne: round2(b.epargne),
     investissements: round2(b.investissements),
     retraite: round2(b.retraite),
+    immobilier: round2(b.immobilier),
     total: round2(b.total),
   };
 }

@@ -25,6 +25,8 @@ interface WealthCreditsSectionProps {
   savingsAmount: number;
   /** Investissements hors PER (le PER est bloqué, exclu du mobilisable). */
   investAmount: number;
+  /** Au moins un bien immobilier est suivi : il est compté dans le patrimoine net, pas dans la couverture. */
+  hasRealEstate?: boolean;
   /** Taux d'endettement du foyer, indépendant du filtre propriétaire (`null` si revenus inconnus). */
   tauxEndettementFoyer: number | null;
   onAddCredit: () => void;
@@ -39,6 +41,7 @@ export const WealthCreditsSection: React.FC<WealthCreditsSectionProps> = ({
   cashAmount,
   savingsAmount,
   investAmount,
+  hasRealEstate = false,
   tauxEndettementFoyer: debtRatio,
   onAddCredit,
   onEditCredit,
@@ -258,7 +261,11 @@ export const WealthCreditsSection: React.FC<WealthCreditsSectionProps> = ({
               )}
 
               <Text variant="footnote" tone="tertiary">
-                {t({ id: 'wealth.credits.coverage.noRealEstate' })}
+                {t({
+                  id: hasRealEstate
+                    ? 'wealth.credits.coverage.realEstateExcluded'
+                    : 'wealth.credits.coverage.noRealEstate',
+                })}
               </Text>
             </Card>
           )}

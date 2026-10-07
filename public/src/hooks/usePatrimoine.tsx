@@ -9,6 +9,11 @@ import { mapFirestoreBalance } from '../utils/balanceMapping';
 import { PatrimoineSnapshot, OwnerSnapshot, WealthHistoryEntry } from '../types/patrimoine';
 export type { WealthHistoryEntry } from '../types/patrimoine';
 import { toMillis } from '../utils/firestoreDate';
+import type {
+  BienImmobilier,
+  EstimationImmobiliere,
+  ModeValorisation,
+} from '../types/banking.types';
 
 export interface Placement {
   id: string;
@@ -17,6 +22,11 @@ export interface Placement {
   type: string;
   montant: number;
   commentaire?: string;
+  /** Biens immobiliers (`type: 'immobilier'`). */
+  bien?: BienImmobilier;
+  estimation?: EstimationImmobiliere;
+  modeValorisation?: ModeValorisation;
+  creditId?: string;
 }
 
 const PlacementDocZ = z.object({
@@ -25,6 +35,11 @@ const PlacementDocZ = z.object({
   owner: z.string().default(''),
   type: z.string().default('autre'),
   commentaire: z.string().optional(),
+  // Documents écrits par PropertyFormModal et le job d'estimation : non revalidés ici.
+  bien: z.custom<BienImmobilier>().optional(),
+  estimation: z.custom<EstimationImmobiliere>().optional(),
+  modeValorisation: z.enum(['estime', 'manuel']).optional().catch(undefined),
+  creditId: z.string().optional(),
 });
 
 const WealthHistoryEntryDocZ = z.object({ date: z.string() }).passthrough();

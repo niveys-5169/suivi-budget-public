@@ -355,9 +355,10 @@ export function buildSystemPrompt(
 
 Structure des données patrimoniales ("patrimoine") :
 - "date_reference" / "date_comparaison" : dates (aujourd'hui vs ~30 jours avant)
-- "par_owner" : pour chaque propriétaire, sa répartition "actuel" et "il_y_a_30j" sur 4 segments (courants, epargne, investissements, retraite) + "total", et "evolution" { montant, pct } du total
+- "par_owner" : pour chaque propriétaire, sa répartition "actuel" et "il_y_a_30j" sur 5 segments (courants, epargne, investissements, retraite, immobilier) + "total", et "evolution" { montant, pct } du total
 - "global" : mêmes données cumulées tous propriétaires confondus
 - Les actifs de RETRAITE (PER) sont isolés dans le segment "retraite", distinct des autres placements
+- Les biens immobiliers sont dans le segment "immobilier" (valeur estimée, pas une valeur de marché certaine) ; ils ne sont pas liquides et ne comptent pas dans l'épargne "au sens large"
 - "il_y_a_30j" et "evolution" valent null quand l'historique ne couvre pas la période : dans ce cas, indique-le au lieu d'inventer une évolution
 - "detail" : chaque actif un par un (placement, livret, compte courant, position boursière), trié par montant décroissant : nom, owner, segment, enveloppe (PEA, CTO, assurance_vie…), montant, poids_pct (part du patrimoine total), commentaire éventuel ; pour les positions boursières : isin, ticker, quantite, pru, cours, prix_de_revient, plus_value et plus_value_pct (latentes)
 

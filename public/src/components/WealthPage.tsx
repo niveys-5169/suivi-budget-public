@@ -24,6 +24,7 @@ import { WealthEvolutionBudgetChart } from './WealthEvolutionBudgetChart';
 import { WealthEvolutionTable } from './WealthEvolutionTable';
 import { WealthPositionsChart } from './WealthPositionsChart';
 import { PlacementFormModal } from './PlacementFormModal';
+import { PropertyFormModal } from './property/PropertyFormModal';
 import { CreditFormModal } from './CreditFormModal';
 import { WealthCreditsSection } from './WealthCreditsSection';
 import { AssetDetailModal, type AssetDetailTarget } from './shared/AssetDetailModal';
@@ -56,13 +57,14 @@ import { AuditExportButton } from './dashboard/v2/AuditExportButton';
 import { AuditImportButton } from './dashboard/v2/AuditImportButton';
 import { PositionsImportModal } from './dashboard/v2/PositionsImportModal';
 
-type CategoryKey = 'courants' | 'epargnelivrets' | 'investissements' | 'retraite';
+type CategoryKey = 'courants' | 'epargnelivrets' | 'investissements' | 'retraite' | 'immobilier';
 
 const CHART_CATEGORY_TO_ASSET_TYPES: Record<CategoryKey, string[]> = {
   courants: ['cash'],
   epargnelivrets: ['savings'],
   investissements: ['investissements'],
   retraite: ['retirement'],
+  immobilier: ['immobilier'],
 };
 
 export const WealthPage: React.FC = () => {
@@ -149,6 +151,8 @@ export const WealthPage: React.FC = () => {
     (Placement & Partial<LegacyPlacementFields>) | null
   >(null);
   const [isAddingAsset, setIsAddingAsset] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<Placement | null>(null);
+  const [isAddingProperty, setIsAddingProperty] = useState(false);
   const [detailTarget, setDetailTarget] = useState<AssetDetailTarget | null>(null);
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -225,6 +229,18 @@ export const WealthPage: React.FC = () => {
   // Crédits : owner-filtré mais jamais type-filtré, comme l'ancre de l'évolution.
   const amountAllTypes = (type: string) =>
     segmentsAllTypes.find((s) => s.type === type)?.amount || 0;
+
+  // Bien immobilier ouvert dans le détail : son placement et le crédit associé.
+  const detailPlacement = detailTarget
+    ? placements.find((p) => p.id === detailTarget.id)
+    : undefined;
+  const detailProperty =
+    detailPlacement?.type === 'immobilier'
+      ? {
+          placement: detailPlacement,
+          credit: credits.find((c) => c.id === detailPlacement.creditId),
+        }
+      : undefined;
 
   const dynamicOwners = [
     { id: 'nicolas', label: 'Nicolas' },
@@ -346,6 +362,7 @@ export const WealthPage: React.FC = () => {
           cashAmount={amountAllTypes('cash')}
           savingsAmount={amountAllTypes('savings')}
           investAmount={amountAllTypes('investissements')}
+          hasRealEstate={amountAllTypes('immobilier') > 0}
           tauxEndettementFoyer={tauxEndettementFoyer}
           onAddCredit={() => setIsAddingCredit(true)}
           onEditCredit={(credit) => setSelectedCredit(credit)}
@@ -576,10 +593,16 @@ export const WealthPage: React.FC = () => {
           txLoading: portfolioTxLoading,
           fetchTransactions: fetchPortfolioTransactions,
         }}
+        property={detailProperty}
         onEdit={
           detailTarget && placements.some((p) => p.id === detailTarget.id)
             ? (target) => {
                 setDetailTarget(null);
+                const property = placements.find((p) => p.id === target.id);
+                if (property?.type === 'immobilier') {
+                  setSelectedProperty(property);
+                  return;
+                }
                 setSelectedAsset({
                   id: target.id,
                   nom: target.name,
@@ -592,11 +615,26 @@ export const WealthPage: React.FC = () => {
         }
       />
 
+      {(selectedProperty || isAddingProperty) && (
+        <PropertyFormModal
+          placement={selectedProperty || undefined}
+          onClose={() => {
+            setSelectedProperty(null);
+            setIsAddingProperty(false);
+          }}
+          onSave={() => {}}
+        />
+      )}
+
       <AnimatePresence>
         {(selectedAsset || isAddingAsset) && (
           <PlacementFormModal
             placement={selectedAsset || undefined}
             previousAmount={previousAmount}
+            onSelectProperty={() => {
+              setIsAddingAsset(false);
+              setIsAddingProperty(true);
+            }}
             onClose={() => {
               setSelectedAsset(null);
               setIsAddingAsset(false);

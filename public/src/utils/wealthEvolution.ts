@@ -61,7 +61,13 @@ export interface WealthEvolution {
   points: WealthPoint[];
 }
 
-const CATEGORIES: WealthCategory[] = ['courants', 'epargne', 'investissements', 'retraite'];
+const CATEGORIES: WealthCategory[] = [
+  'courants',
+  'epargne',
+  'investissements',
+  'retraite',
+  'immobilier',
+];
 
 /** Montants live par catégorie (même convention que WealthPoint.byCat). */
 export type LiveByCat = Record<WealthCategory, number>;
@@ -72,11 +78,18 @@ const SEGMENT_TYPE_TO_CAT: Record<string, WealthCategory> = {
   savings: 'epargne',
   investissements: 'investissements',
   retirement: 'retraite',
+  immobilier: 'immobilier',
 };
 
 /** Convertit les segments live de useWealthAggregates en montants par catégorie. */
 export function segmentsToLiveByCat(segments?: { type: string; amount: number }[]): LiveByCat {
-  const byCat: LiveByCat = { courants: 0, epargne: 0, investissements: 0, retraite: 0 };
+  const byCat: LiveByCat = {
+    courants: 0,
+    epargne: 0,
+    investissements: 0,
+    retraite: 0,
+    immobilier: 0,
+  };
   (segments ?? []).forEach((s) => {
     const cat = SEGMENT_TYPE_TO_CAT[s.type];
     if (cat) byCat[cat] += s.amount || 0;
@@ -174,6 +187,7 @@ const CAT_TO_SCOPE_KEY: Record<WealthCategory, string> = {
   epargne: 'epargnelivrets',
   investissements: 'investissements',
   retraite: 'retraite',
+  immobilier: 'immobilier',
 };
 
 /**

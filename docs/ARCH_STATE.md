@@ -229,6 +229,28 @@ entrée. **Décommissionné** : l'onglet Analyse › Récurrences (desktop —
 `AnalyseRecurrencesPanel.tsx`, `drilldowns/RecurringDrillDown.tsx`) et le mode
 « Récurrences » de l'écran Analyse mobile (`MSegmentedControl`).
 
+## 🏠 Immobilier : estimation automatique (octobre 2026)
+
+Un bien est un document `placements` de `type: 'immobilier'` : l'historisation
+quotidienne existante (`take_patrimoine_snapshot`) copie son `montant`, donc la
+courbe d'évolution n'a besoin d'aucune collection dédiée.
+
+- **Données** — `BienImmobilier` / `EstimationImmobiliere` dans
+  `types/banking.types.ts` ; `modeValorisation` (`estime` | `manuel`) et
+  `creditId` (équité nette = valeur − `capitalRestantDu`).
+- **Calcul** — `src/property_estimator.py` (pur : série DV3F, ajustements
+  heuristiques bornés, réindexation INSEE) et `src/property_valuation.py`
+  (IGN, Cerema, INSEE, Firestore). Workflow `property-valuation.yml` : le 3 du
+  mois, à la demande, ou via `dispatch_github_workflow` (`estimate-property`,
+  bouton « Réestimer »). Règle d'écriture : `montant` n'est écrit que si
+  l'estimation réussit en mode `estime` ; seul un `montant` à 0 reçoit le coût
+  d'achat. Cerema (preprod) est instable : un échec est un statut
+  (`PROVIDER_UNAVAILABLE`), jamais une valeur effacée.
+- **UI** — `components/property/PropertyFormModal` (ouvert depuis « Immobilier »
+  dans `PlacementFormModal` ou en éditant un bien) et `PropertyValuationCard`
+  (dans `AssetDetailModal`). Catégorie `immobilier` dans `useWealthAggregates`,
+  `WealthCategory`, `computeWealthTotals`. Mobile : consultation seulement.
+
 ## 🔗 Infrastructure
 
 ### Import Linxo : répétitions de virements en attente (septembre 2026)

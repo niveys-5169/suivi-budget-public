@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   transactionFormSchema,
   placementFormSchema,
+  propertyFormSchema,
   budgetFormSchema,
   ravConfigSchema,
 } from '../../../public/src/lib/schemas/forms';
@@ -228,5 +229,85 @@ describe('ravConfigSchema', () => {
     expect(ravConfigSchema.safeParse({ ...baseValid, revenu_categories: ['ok', 42] }).success).toBe(
       false,
     );
+  });
+});
+
+describe('propertyFormSchema', () => {
+  const baseValid = {
+    nom: 'Appartement Nantes',
+    owner: 'Nicolas',
+    adresse: '10 rue de la Paix',
+    codePostal: '44000',
+    ville: 'Nantes',
+    nature: 'appartement' as const,
+    surface: 65,
+    pieces: 3,
+    sallesDeBain: null,
+    terrain: null,
+    etage: 2,
+    nbEtages: 5,
+    ascenseur: true,
+    garages: 0,
+    parkings: 1,
+    jardin: false,
+    terrasse: false,
+    balcon: true,
+    dpe: 'C' as const,
+    anneeConstruction: 1998,
+    prixAchat: 250000,
+    fraisNotaire: null,
+    fraisAgence: null,
+    travaux: null,
+    modeValorisation: 'estime' as const,
+    montant: null,
+    creditId: '',
+  };
+
+  it('accepts a valid property', () => {
+    expect(propertyFormSchema.safeParse(baseValid).success).toBe(true);
+  });
+
+  it('accepts no DPE (empty) and every class from A to G', () => {
+    for (const dpe of ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G']) {
+      expect(propertyFormSchema.safeParse({ ...baseValid, dpe }).success).toBe(true);
+    }
+    expect(propertyFormSchema.safeParse({ ...baseValid, dpe: 'H' }).success).toBe(false);
+  });
+
+  it('requires a surface above zero', () => {
+    expect(propertyFormSchema.safeParse({ ...baseValid, surface: 0 }).success).toBe(false);
+    expect(propertyFormSchema.safeParse({ ...baseValid, surface: -10 }).success).toBe(false);
+  });
+
+  it('requires address, postal code (5 digits) and city', () => {
+    expect(propertyFormSchema.safeParse({ ...baseValid, adresse: ' ' }).success).toBe(false);
+    expect(propertyFormSchema.safeParse({ ...baseValid, ville: '' }).success).toBe(false);
+    expect(propertyFormSchema.safeParse({ ...baseValid, codePostal: '4400' }).success).toBe(false);
+    expect(propertyFormSchema.safeParse({ ...baseValid, codePostal: 'AB123' }).success).toBe(false);
+  });
+
+  it('rejects an unknown nature', () => {
+    expect(propertyFormSchema.safeParse({ ...baseValid, nature: 'garage' }).success).toBe(false);
+  });
+
+  it('requires a value in manual mode only', () => {
+    const manual = { ...baseValid, modeValorisation: 'manuel' as const };
+    const missing = propertyFormSchema.safeParse(manual);
+    expect(missing.success).toBe(false);
+    expect(missing.error?.issues[0]?.path).toEqual(['montant']);
+    expect(propertyFormSchema.safeParse({ ...manual, montant: 295000 }).success).toBe(true);
+  });
+});
+
+describe('placementFormSchema — immobilier', () => {
+  it('accepts the immobilier type', () => {
+    const result = placementFormSchema.safeParse({
+      nom: 'Maison',
+      owner: 'Nicolas',
+      type: 'immobilier',
+      montant: 300000,
+      compte: '',
+    });
+    expect(result.success).toBe(true);
   });
 });

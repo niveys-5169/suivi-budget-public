@@ -1,4 +1,4 @@
-export type WealthCategory = 'courants' | 'epargne' | 'investissements' | 'retraite';
+export type WealthCategory = 'courants' | 'epargne' | 'investissements' | 'retraite' | 'immobilier';
 
 export { savingsAssetId, courantAssetId } from './assetId';
 
@@ -29,6 +29,7 @@ export function normalizeType(type: string): WealthCategory {
   if (['cash', 'courants', 'liquidités', 'liquidites', 'courant'].includes(t)) return 'courants';
   if (['savings', 'épargne', 'epargne', 'livret'].includes(t)) return 'epargne';
   if (['retirement', 'per', 'retraite'].includes(t)) return 'retraite';
+  if (['immobilier', 'real_estate'].includes(t)) return 'immobilier';
   return 'investissements';
 }
 
@@ -185,6 +186,7 @@ export function buildWealthTimeline(
       epargne: 0,
       investissements: 0,
       retraite: 0,
+      immobilier: 0,
     };
 
     // Déduplications (portefeuille & livrets)

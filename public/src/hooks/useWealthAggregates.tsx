@@ -65,6 +65,7 @@ export const useWealthAggregates = (
           )
             return 'investissements' as const;
           if (t === 'per' || t === 'retirement') return 'retirement' as const;
+          if (t === 'immobilier') return 'immobilier' as const;
           return 'investissements' as const;
         })(),
         value: Number(p.montant) || 0,
@@ -157,6 +158,7 @@ export const useWealthAggregates = (
       { type: 'savings', amount: 0, pct: 0 },
       { type: 'investissements', amount: 0, pct: 0 },
       { type: 'retirement', amount: 0, pct: 0 },
+      { type: 'immobilier', amount: 0, pct: 0 },
     ];
 
     filteredAssets.forEach((a) => {

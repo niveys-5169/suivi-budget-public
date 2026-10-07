@@ -48,7 +48,7 @@ describe('WealthFilterBar', () => {
 
   it('réactiver le dernier type masqué revient à « tous »', () => {
     const { onTypeScopeChange } = renderBar({
-      typeScope: ['courants', 'epargnelivrets', 'investissements'],
+      typeScope: ['courants', 'epargnelivrets', 'investissements', 'immobilier'],
     });
     fireEvent.click(screen.getByRole('button', { name: 'Retraite' }));
     expect(onTypeScopeChange).toHaveBeenCalledWith('all');

@@ -13,6 +13,8 @@ import { confirm } from '../lib/confirm';
 interface PlacementFormModalProps {
   placement?: Placement & Partial<LegacyPlacementFields>;
   previousAmount?: PlacementSnapshot | null;
+  /** Fourni quand « Immobilier » est proposé : bascule vers le formulaire de bien. */
+  onSelectProperty?: () => void;
   onClose: () => void;
   onSave: () => void;
 }
@@ -41,6 +43,7 @@ const ERROR_CLS = 'text-caption font-bold text-negative mt-1';
 export const PlacementFormModal: React.FC<PlacementFormModalProps> = ({
   placement,
   previousAmount,
+  onSelectProperty,
   onClose,
   onSave,
 }) => {
@@ -193,13 +196,20 @@ export const PlacementFormModal: React.FC<PlacementFormModalProps> = ({
               id="pf-type"
               disabled={isLive}
               aria-invalid={!!errors.type}
-              {...register('type')}
+              {...register('type', {
+                onChange: (e) => {
+                  if (e.target.value === 'immobilier') onSelectProperty?.();
+                },
+              })}
               className={`${FIELD_CLS} appearance-none`}
             >
               <option value="cash">{t({ id: 'placement.form.type.cash' })}</option>
               <option value="savings">{t({ id: 'placement.form.type.savings' })}</option>
               <option value="market">{t({ id: 'placement.form.type.market' })}</option>
               <option value="retirement">{t({ id: 'placement.form.type.retirement' })}</option>
+              {onSelectProperty && (
+                <option value="immobilier">{t({ id: 'placement.form.type.immobilier' })}</option>
+              )}
               <option value="other">{t({ id: 'placement.form.type.other' })}</option>
             </select>
             {errors.type && (

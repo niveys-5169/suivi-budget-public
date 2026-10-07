@@ -7,6 +7,7 @@ import {
   Wallet,
   Landmark,
   BarChart3,
+  Home,
   ShieldCheck,
   Plus,
   RefreshCw,
@@ -27,6 +28,7 @@ import { useWealthAggregates } from '../../hooks/useWealthAggregates';
 import { usePortfolio } from '../../hooks/usePortfolio';
 import { usePatrimoine } from '../../hooks/usePatrimoine';
 import { usePlacements } from '../../hooks/usePlacements';
+import { useCredits } from '../../hooks/useCredits';
 import { useWealthScope } from '../../hooks/useWealthScope';
 import { useGlobalData } from '../../context/GlobalDataContext';
 import { useWealthEvolution } from '../../hooks/useWealthEvolution';
@@ -42,6 +44,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   market: 'Investissements',
   investissements: 'Investissements',
   retirement: 'Retraite',
+  immobilier: 'Immobilier',
   other: 'Autres',
 };
 
@@ -50,6 +53,7 @@ const SEGMENT_ICONS: Record<string, LucideIcon> = {
   savings: Landmark,
   market: BarChart3,
   retirement: ShieldCheck,
+  immobilier: Home,
   other: BarChart3,
 };
 
@@ -58,6 +62,7 @@ const CHART_CATEGORY_TO_ASSET_TYPES: Record<string, string[]> = {
   epargnelivrets: ['savings'],
   investissements: ['investissements'],
   retraite: ['retirement'],
+  immobilier: ['immobilier'],
 };
 
 export const PatrimoineScreen: React.FC = () => {
@@ -75,6 +80,7 @@ export const PatrimoineScreen: React.FC = () => {
     fetchTransactions: fetchPortfolioTransactions,
   } = usePortfolio();
   const { placements, refresh: refreshPlacements } = usePlacements();
+  const { credits } = useCredits();
   const { placementHistory, patrimoineSnapshots } = usePatrimoine();
   const [editingPlacement, setEditingPlacement] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -118,6 +124,12 @@ export const PatrimoineScreen: React.FC = () => {
   const evolution1M = useWealthEvolution(placementHistory, '1M', ownerScope, undefined, liveByCat);
   const delta1M = evolutionForTypeScope(evolution1M, wealthTypeScope);
   const isPositive = delta1M.delta >= 0;
+
+  // Biens immobiliers : consultables ici, création et édition sur desktop.
+  const detailPlacement = detailTarget
+    ? placements.find((p) => p.id === detailTarget.id)
+    : undefined;
+  const isDetailProperty = detailPlacement?.type === 'immobilier';
 
   const getEditingPlacementData = () => {
     if (!editingPlacement) return undefined;
@@ -418,8 +430,16 @@ export const PatrimoineScreen: React.FC = () => {
           txLoading: portfolioTxLoading,
           fetchTransactions: fetchPortfolioTransactions,
         }}
+        property={
+          detailPlacement && isDetailProperty
+            ? {
+                placement: detailPlacement,
+                credit: credits.find((c) => c.id === detailPlacement.creditId),
+              }
+            : undefined
+        }
         onEdit={
-          detailTarget && placements.some((p) => p.id === detailTarget.id)
+          detailTarget && !isDetailProperty && placements.some((p) => p.id === detailTarget.id)
             ? (target) => {
                 setDetailTarget(null);
                 setEditingPlacement(target.id);

@@ -316,6 +316,106 @@ export interface Credit {
   commentaire?: string;
 }
 
+export type NatureBien = 'appartement' | 'maison';
+export type ClasseDpe = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
+/** `estime` : `montant` est réécrit chaque mois par le job d'estimation ; `manuel` : saisi par l'utilisateur. */
+export type ModeValorisation = 'estime' | 'manuel';
+
+/** Descriptif d'un bien immobilier (doc `placements`, champ `bien`). */
+export interface BienImmobilier {
+  adresse: string;
+  codePostal: string;
+  ville: string;
+  nature: NatureBien;
+  surface: number; // m²
+  pieces: number;
+  sallesDeBain?: number;
+  terrain?: number; // m², maison seulement
+  etage?: number; // appartement seulement
+  nbEtages?: number;
+  ascenseur?: boolean;
+  garages: number;
+  parkings: number;
+  jardin: boolean;
+  terrasse: boolean;
+  balcon: boolean;
+  dpe?: ClasseDpe;
+  anneeConstruction?: number;
+  prixAchat?: number;
+  fraisNotaire?: number;
+  fraisAgence?: number;
+  travaux?: number;
+  /** Cache du géocodage IGN, écrit par le job (vidé quand l'adresse change). */
+  codeInsee?: string;
+  lat?: number;
+  lon?: number;
+  scoreGeocodage?: number;
+}
+
+export type StatutEstimation =
+  | 'OK'
+  | 'INCOMPLETE_DATA'
+  | 'GEOCODING_FAILED'
+  | 'UNSUPPORTED_AREA'
+  | 'NO_COMPARABLE_DATA'
+  | 'PROVIDER_UNAVAILABLE';
+
+/** Codes d'ajustement heuristiques (voir `src/property_estimator.py`). */
+export type CodeAjustement =
+  | 'GROUND_FLOOR'
+  | 'NO_ELEVATOR'
+  | 'TOP_FLOOR_ELEVATOR'
+  | 'EXTRA_BATHROOM'
+  | 'GARDEN'
+  | 'TERRACE'
+  | 'BALCONY'
+  | `ENERGY_${ClasseDpe}`
+  | 'ERA_PRE_1949'
+  | 'ERA_1949_1974'
+  | 'ERA_2001_2012'
+  | 'ERA_POST_2012'
+  | 'GARAGE'
+  | 'PARKING'
+  | 'LAND';
+
+/** Un ajustement appliqué : facteur multiplicatif ou ajout en m² équivalents, avec son impact en €. */
+export interface AjustementEstimation {
+  code: CodeAjustement;
+  facteur?: number;
+  m2?: number;
+  montant: number;
+}
+
+/** Résultat du dernier calcul d'estimation (doc `placements`, champ `estimation`). */
+export interface EstimationImmobiliere {
+  statut: StatutEstimation;
+  date: string; // ISO yyyy-mm-dd
+  valeur?: number;
+  basse?: number;
+  haute?: number;
+  prixM2?: number;
+  echantillon?: number;
+  confiance?: 'faible' | 'moyenne' | 'haute';
+  millesime?: string;
+  echelle?: 'communes' | 'departements';
+  multiplicateur?: number;
+  ratioReindexation?: number;
+  ajustements?: AjustementEstimation[];
+}
+
+/** Placement de type `immobilier` : un bien estimé automatiquement ou valorisé à la main. */
+export interface PlacementImmobilier {
+  id: string;
+  nom: string;
+  owner: string;
+  type: 'immobilier';
+  montant: number;
+  modeValorisation: ModeValorisation;
+  creditId?: string;
+  bien: BienImmobilier;
+  estimation?: EstimationImmobiliere;
+}
+
 export interface MonthOverride {
   skipped?: boolean;
   linkedTxId?: string;

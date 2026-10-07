@@ -22,6 +22,7 @@ function point(date: string, amount: number, byCat?: Partial<WealthPoint['byCat'
       epargne: 0,
       investissements: 0,
       retraite: 0,
+      immobilier: 0,
       ...byCat,
     },
   };
@@ -107,9 +108,16 @@ describe('segmentsToLiveByCat', () => {
       { type: 'savings', amount: 200 },
       { type: 'investissements', amount: 300 },
       { type: 'retirement', amount: 50 },
+      { type: 'immobilier', amount: 400 },
       { type: 'inconnu', amount: 999 },
     ]);
-    expect(byCat).toEqual({ courants: 100, epargne: 200, investissements: 300, retraite: 50 });
+    expect(byCat).toEqual({
+      courants: 100,
+      epargne: 200,
+      investissements: 300,
+      retraite: 50,
+      immobilier: 400,
+    });
   });
 });
 
@@ -118,7 +126,7 @@ describe('appendLiveTodayPoint', () => {
     point('2026-06-01', 150, { courants: 60, epargne: 90 }),
     point('2026-07-01', 160, { courants: 65, epargne: 95 }),
   ];
-  const live = { courants: 70, epargne: 100, investissements: 30, retraite: 0 };
+  const live = { courants: 70, epargne: 100, investissements: 30, retraite: 0, immobilier: 0 };
 
   it('le point live devient le point de fin quand la fenêtre inclut aujourd’hui', () => {
     const now = new Date('2026-07-10T12:00:00Z');

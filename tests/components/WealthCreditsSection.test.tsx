@@ -64,6 +64,19 @@ describe('WealthCreditsSection', () => {
     expect(screen.queryByText(/Patrimoine net/)).not.toBeInTheDocument();
   });
 
+  it("précise que la résidence n'est pas comptée tant qu'aucun bien n'est suivi", () => {
+    render(<WealthCreditsSection {...baseProps} />);
+    expect(screen.getByText(/résidence principale n'est pas comptée/)).toBeInTheDocument();
+  });
+
+  it('indique que les biens immobiliers sont dans le patrimoine net mais pas dans la couverture', () => {
+    render(<WealthCreditsSection {...baseProps} hasRealEstate />);
+    expect(screen.queryByText(/résidence principale n'est pas comptée/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/comptés dans le patrimoine net mais pas dans cette couverture/),
+    ).toBeInTheDocument();
+  });
+
   it('has no axe violations', async () => {
     const { container } = render(<WealthCreditsSection {...baseProps} />);
     const results = await axe(container);
