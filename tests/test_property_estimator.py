@@ -7,6 +7,9 @@ import property_estimator
 from property_estimator import (
     AJOUT_MAX_M2,
     calculer_ajustements,
+    choisir_dpe,
+    comparables_locaux,
+    detail_reindexation,
     choisir_serie,
     cle_trimestre,
     commune_parente,
@@ -218,11 +221,14 @@ def test_multiplicateur_borne_a_075_et_125_et_montants_ramenes_a_l_effet_reel(mo
     haut = calculer_ajustements({"nature": "maison"}, 100000, 3000)
     assert haut.multiplicateur == 1.25
     assert sum(a["montant"] for a in haut.detail) == 25000
+    assert haut.borne == "max" and haut.somme == pytest.approx(0.6)
+    assert sum(a["facteurApplique"] for a in haut.detail) == pytest.approx(0.25)
 
     monkeypatch.setattr(property_estimator, "_facteurs", lambda bien: [("A", -0.4), ("B", -0.2)])
     bas = calculer_ajustements({"nature": "maison"}, 100000, 3000)
     assert bas.multiplicateur == 0.75
     assert sum(a["montant"] for a in bas.detail) == -25000
+    assert bas.borne == "min"
 
 
 def test_ajouts_m2_valorises_au_prix_local():
@@ -416,3 +422,194 @@ def test_dvf_compatible_avec_construire_resultat():
     lignes = lignes_depuis_dvf({"2024": [_mutation(f"m{i}", 300000, "Maison", 100) for i in range(20)]})
     res = construire_resultat(lignes, {"nature": "maison", "surface": 80}, "communes")
     assert res["prixM2"] == 3000 and res["valeur"] == 240000 and res["echantillon"] == 20
+
+
+# --- comparables_locaux -------------------------------------------------------
+
+LAT, LON = 47.2184, -1.5536
+M_PAR_DEG_LAT = 111_195.0
+
+
+def _voisine(idm, prix_m2, metres=100.0, surface=100, local="Maison", date_="2025-03-01"):
+    """Vente DVF `metres` au nord du bien."""
+    ligne = _mutation(idm, prix_m2 * surface, local, surface, "5")
+    ligne["latitude"] = str(LAT + metres / M_PAR_DEG_LAT)
+    ligne["longitude"] = str(LON)
+    ligne["date_mutation"] = date_
+    return ligne
+
+
+def _bien_maison():
+    return {"nature": "maison", "surface": 100}
+
+
+def test_comparables_prix_median_dans_le_rayon_et_reference():
+    ventes = {"2025": [_voisine(f"m{i}", 3000 + 10 * i, metres=50 + 10 * i) for i in range(20)]}
+    res = comparables_locaux(ventes, _bien_maison(), LAT, LON)
+    assert res["echelle"] == "voisinage"
+    assert res["rayon"] == 300
+    assert res["echantillon"] == 20
+    assert res["prixM2"] == pytest.approx(3095)
+    assert res["valeur"] == pytest.approx(309500)
+    assert res["q25M2"] < res["prixM2"] < res["q75M2"]
+    assert res["basse"] == pytest.approx(res["q25M2"] * 100)
+    assert res["confiance"] == "moyenne"  # 20 ventes < 30
+    assert res["millesime"] == "2025"
+    assert len(res["comparables"]) == 5
+    distances = [c["distanceM"] for c in res["comparables"]]
+    assert distances == sorted(distances)
+    assert set(res["comparables"][0]) == {"date", "distanceM", "surface", "pieces", "prixM2"}
+
+
+def test_comparables_haute_confiance_si_30_ventes_proches():
+    ventes = {"2025": [_voisine(f"m{i}", 3000, metres=100) for i in range(30)]}
+    assert comparables_locaux(ventes, _bien_maison(), LAT, LON)["confiance"] == "haute"
+
+
+def test_comparables_rayon_elargi_jusqu_au_seuil():
+    proches = [_voisine(f"p{i}", 3000, metres=100) for i in range(5)]
+    loin = [_voisine(f"l{i}", 3000, metres=800) for i in range(12)]
+    res = comparables_locaux({"2025": proches + loin}, _bien_maison(), LAT, LON)
+    assert res["rayon"] == 1000 and res["echantillon"] == 17
+    assert res["confiance"] == "moyenne"
+
+
+def test_comparables_insuffisants_donnent_none():
+    ventes = {"2025": [_voisine(f"m{i}", 3000) for i in range(14)]}
+    assert comparables_locaux(ventes, _bien_maison(), LAT, LON) is None
+    hors_rayon = {"2025": [_voisine(f"m{i}", 3000, metres=5000) for i in range(30)]}
+    assert comparables_locaux(hors_rayon, _bien_maison(), LAT, LON) is None
+
+
+def test_comparables_filtrent_nature_et_surface():
+    bons = [_voisine(f"b{i}", 3000) for i in range(15)]
+    ecartes = [
+        _voisine("app", 9000, local="Appartement"),
+        _voisine("petit", 9000, surface=60),
+        _voisine("grand", 9000, surface=140),
+    ]
+    res = comparables_locaux({"2025": bons + ecartes}, _bien_maison(), LAT, LON)
+    assert res["echantillon"] == 15 and res["prixM2"] == 3000
+
+
+def test_comparables_ignorent_les_ventes_sans_coordonnees():
+    sans_gps = [_mutation(f"s{i}", 300000, "Maison", 100) for i in range(30)]
+    assert comparables_locaux({"2025": sans_gps}, _bien_maison(), LAT, LON) is None
+
+
+def test_comparables_ecretent_les_valeurs_aberrantes():
+    ventes = [_voisine(f"m{i}", 3000 + i, metres=100) for i in range(20)]
+    ventes.append(_voisine("fou", 25000, metres=100))
+    res = comparables_locaux({"2025": ventes}, _bien_maison(), LAT, LON)
+    assert res["echantillon"] == 20
+    assert res["prixM2"] < 3100
+
+
+def test_comparables_reindexent_chaque_annee():
+    ventes = {
+        "2023": [_voisine(f"a{i}", 3000, date_="2023-05-01") for i in range(10)],
+        "2025": [_voisine(f"b{i}", 3000, date_="2025-05-01") for i in range(10)],
+    }
+    res = comparables_locaux(
+        ventes, _bien_maison(), LAT, LON, ratios={"2023": 1.10, "2025": 1.0}
+    )
+    assert res["millesime"] == "2023-2025"
+    assert res["prixM2"] == pytest.approx(3150)  # médiane de 10×3300 et 10×3000
+    assert res["ratios"] == {"2023": 1.10, "2025": 1.0}
+    assert {c["prixM2"] for c in res["comparables"]} <= {3000}  # prix brut affiché
+
+
+# --- choisir_dpe --------------------------------------------------------------
+
+AUJOURD_HUI = date(2026, 10, 7)
+
+
+def _dpe(etiquette="D", surface=60.0, **extra):
+    ligne = {
+        "etiquette_dpe": etiquette,
+        "surface_habitable_logement": surface,
+        "type_batiment": "appartement",
+        "date_fin_validite_dpe": "2034-01-01",
+    }
+    ligne.update(extra)
+    return ligne
+
+
+def _appart(**extra):
+    return {"nature": "appartement", "surface": 60, **extra}
+
+
+def test_dpe_unique_est_retenu_avec_annee_et_etage():
+    cand = [_dpe("D", 60.5, annee_construction=1962, numero_etage_appartement=4)]
+    assert choisir_dpe(cand, _appart(), AUJOURD_HUI) == {
+        "dpe": "D",
+        "anneeConstruction": 1962,
+        "etage": 4,
+    }
+
+
+def test_dpe_etiquettes_concordantes_malgre_plusieurs_candidats():
+    cand = [_dpe("E", 60), _dpe("E", 59.5), _dpe("E", 60.8)]
+    assert choisir_dpe(cand, _appart(), AUJOURD_HUI) == {"dpe": "E"}
+
+
+def test_dpe_ambigu_ne_devine_pas():
+    assert choisir_dpe([_dpe("D", 60), _dpe("F", 60.5)], _appart(), AUJOURD_HUI) is None
+
+
+def test_dpe_ecarte_surface_type_expiration_et_etage():
+    cand = [
+        _dpe("A", 80),  # mauvaise surface
+        _dpe("B", 60, type_batiment="maison"),
+        _dpe("C", 60, date_fin_validite_dpe="2026-10-06"),  # expiré
+        _dpe("G", 60, numero_etage_appartement=2),  # autre étage
+    ]
+    assert choisir_dpe(cand, _appart(etage=4), AUJOURD_HUI) is None
+    assert choisir_dpe(cand, _appart(etage=2), AUJOURD_HUI) == {"dpe": "G", "etage": 2}
+
+
+def test_dpe_sans_candidat_ou_etiquette_inconnue():
+    assert choisir_dpe([], _appart(), AUJOURD_HUI) is None
+    assert choisir_dpe([_dpe(None, 60)], _appart(), AUJOURD_HUI) is None
+
+
+# --- detail_reindexation / justification des ajustements ------------------------
+
+
+def test_detail_reindexation_donne_indices_et_trimestres():
+    serie = {"2024Q3": 120.0, "2026Q2": 125.1}
+    detail = detail_reindexation(serie, "2024", date(2026, 10, 7))
+    assert detail == {
+        "trimestreDepart": "2024Q3",
+        "indiceDepart": 120.0,
+        "trimestreActuel": "2026Q2",
+        "indiceActuel": 125.1,
+        "ratio": pytest.approx(125.1 / 120.0),
+    }
+    assert detail_reindexation(serie, "2010", date(2026, 10, 7)) is None
+
+
+def test_ajustements_valeur_origine_et_facteur_applique():
+    bien = {"nature": "appartement", "etage": 0, "garages": 1}
+    aj = calculer_ajustements(bien, 100000, 4000, detecte={"dpe": "G"})
+    detail = _codes(aj)
+    assert detail["GROUND_FLOOR"]["valeurBien"] == 0
+    assert detail["GROUND_FLOOR"]["origine"] == "saisi"
+    assert detail["ENERGY_G"]["valeurBien"] == "G"
+    assert detail["ENERGY_G"]["origine"] == "ademe"
+    assert detail["GARAGE"]["valeurBien"] == 1
+    assert detail["ENERGY_G"]["facteurApplique"] == pytest.approx(-0.10)
+    assert aj.somme == pytest.approx(-0.13) and aj.borne is None
+
+
+def test_la_saisie_prime_sur_le_dpe_detecte():
+    aj = calculer_ajustements({"nature": "maison", "dpe": "B"}, 1e5, 3000, detecte={"dpe": "G"})
+    assert set(_codes(aj)) == {"ENERGY_B"}
+    assert _codes(aj)["ENERGY_B"]["origine"] == "saisi"
+
+
+def test_somme_des_facteurs_et_absence_de_plafond_atteint():
+    bien = {"nature": "appartement", "etage": 10, "ascenseur": False, "dpe": "G"}
+    aj = calculer_ajustements(bien, 100000, 4000)
+    assert aj.somme == pytest.approx(-0.20)  # -0,10 (étage) -0,10 (DPE)
+    assert aj.borne is None  # ×0,80 reste dans [0,75 ; 1,25]
