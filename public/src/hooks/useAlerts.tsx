@@ -2,7 +2,6 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useBudget } from './useBudget';
 import { useTransactionContext } from '../context/TransactionContext';
 import { useGlobalData } from '../context/GlobalDataContext';
-import { useAppState } from '../context/AppStateContext';
 import { computeAlerts } from '../utils/computeAlerts';
 import type { Alert } from '../types/banking.types';
 
@@ -12,6 +11,11 @@ const STORAGE_KEY = 'readAlertKeys';
 // La clé inclut `desc` (mois, montants) pour qu'une alerte qui change de
 // contenu redevienne non lue.
 const alertKey = (a: Alert) => `${a.id}|${a.desc}`;
+
+const currentMonthKey = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
 
 const listeners = new Set<() => void>();
 let readKeys: string[] | null = null;
@@ -60,7 +64,10 @@ export const useAlerts = (): {
   const { budgets } = useBudget();
   const { transactions } = useTransactionContext();
   const { recurrences } = useGlobalData();
-  const { monthKey } = useAppState();
+
+  // Mois réel, indépendant du mois sélectionné dans l'UI (persisté en localStorage) :
+  // sinon les alertes restent figées sur un ancien mois.
+  const monthKey = currentMonthKey();
 
   const alerts = useMemo(
     () =>
