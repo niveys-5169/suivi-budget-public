@@ -398,6 +398,7 @@ export interface EstimationImmobiliere {
   confiance?: 'faible' | 'moyenne' | 'haute';
   millesime?: string;
   echelle?: 'communes' | 'departements';
+  source?: 'cerema' | 'dvf';
   multiplicateur?: number;
   ratioReindexation?: number;
   ajustements?: AjustementEstimation[];

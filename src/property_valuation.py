@@ -8,6 +8,7 @@ Pour chaque document `placements` de type `immobilier`, calcule une estimation
 
   - IGN Géoplateforme : adresse → code INSEE (mis en cache dans `bien.codeInsee`) ;
   - Cerema DV3F       : prix médian au m² par commune, avec quartiles et nombre de ventes ;
+                        quand il est indisponible, repli sur les ventes DVF (Etalab) ;
   - INSEE (BDM)       : indice des prix des logements anciens, pour ramener le
                         millésime DVF à la date du jour.
 
@@ -31,6 +32,8 @@ Usage :
 """
 
 import argparse
+import csv
+import io
 import logging
 import re
 import sys
@@ -47,6 +50,7 @@ from property_estimator import (
     construire_resultat,
     cout_achat,
     departement,
+    lignes_depuis_dvf,
     ratio_reindexation,
     zone_supportee,
 )
@@ -56,6 +60,7 @@ log = logging.getLogger(__name__)
 
 GEOCODE_URL = "https://data.geopf.fr/geocodage/search"
 CEREMA_URL = "https://apidf-preprod.cerema.fr/indicateurs/dv3f/prix/annuel/"
+DVF_URL = "https://files.data.gouv.fr/geo-dvf/latest/csv"
 INSEE_URL = "https://api.insee.fr/series/BDM/V1/data/SERIES_BDM/{idbank}"
 
 # Indice des prix des logements anciens : appartements, maisons, ensemble.
@@ -67,6 +72,7 @@ HTTP_ATTEMPTS = 2
 HTTP_BACKOFF_S = 2.0
 SCORE_GEOCODAGE_MIN = 0.4
 CEREMA_MAX_PAGES = 5
+DVF_ANNEES = 3
 
 OBS_RE = re.compile(r'TIME_PERIOD="(\d{4})-Q([1-4])"\s+OBS_VALUE="([0-9.]+)"')
 
@@ -140,6 +146,26 @@ def lignes_pour_bien(code_insee: str) -> tuple[list[dict], str]:
     return lignes_cerema(departement(code_insee), "departements"), "departements"
 
 
+def _csv_dvf(code: str, annee: int) -> list[dict]:
+    """Ventes DVF d'une commune pour un millésime ; vide si le fichier n'existe pas (404)."""
+    resp = _get(f"{DVF_URL}/{annee}/communes/{departement(code)}/{code}.csv")
+    return list(csv.DictReader(io.StringIO(resp.text))) if resp else []
+
+
+def lignes_dvf(code_insee: str, aujourd_hui: date) -> list[dict]:
+    """Repli du Cerema : indicateurs recalculés depuis les ventes DVF des DVF_ANNEES derniers millésimes."""
+    codes = [code_insee, commune_parente(code_insee)]
+    for code in filter(None, codes):
+        par_annee = {
+            str(annee): _csv_dvf(code, annee)
+            for annee in range(aujourd_hui.year - 1, aujourd_hui.year - 1 - DVF_ANNEES, -1)
+        }
+        lignes = lignes_depuis_dvf(par_annee)
+        if lignes:
+            return lignes
+    return []
+
+
 def serie_insee(idbank: str) -> dict[str, float]:
     """Indice INSEE par trimestre, clé `AAAAQn`. Le XML est lu par regex (aucune dépendance)."""
     resp = _get(INSEE_URL.format(idbank=idbank))
@@ -198,7 +224,11 @@ def estimer_bien(doc: dict, aujourd_hui: date | None = None) -> tuple[dict, dict
         if not zone_supportee(code_insee):
             return _statut("UNSUPPORTED_AREA", aujourd_hui), cache
 
-        lignes, echelle = lignes_pour_bien(code_insee)
+        try:
+            lignes, echelle, source = *lignes_pour_bien(code_insee), "cerema"
+        except ProviderError as e:
+            log.warning("Cerema indisponible (%s), repli sur DVF", e)
+            lignes, echelle, source = lignes_dvf(code_insee, aujourd_hui), "communes", "dvf"
         resultat = construire_resultat(lignes, bien, echelle)
         if resultat is None:
             return _statut("NO_COMPARABLE_DATA", aujourd_hui), cache
@@ -217,6 +247,7 @@ def estimer_bien(doc: dict, aujourd_hui: date | None = None) -> tuple[dict, dict
 
     estimation = {
         **_statut("OK", aujourd_hui),
+        "source": source,
         "valeur": round(valeur),
         "basse": round(basse),
         "haute": round(haute),

@@ -264,8 +264,11 @@ courbe d'évolution n'a besoin d'aucune collection dédiée.
   mois, à la demande, ou via `dispatch_github_workflow` (`estimate-property`,
   bouton « Réestimer »). Règle d'écriture : `montant` n'est écrit que si
   l'estimation réussit en mode `estime` ; seul un `montant` à 0 reçoit le coût
-  d'achat. Cerema (preprod) est instable : un échec est un statut
-  (`PROVIDER_UNAVAILABLE`), jamais une valeur effacée.
+  d'achat. Cerema (preprod) est instable : s'il est HS, repli sur les ventes DVF
+  géolocalisées (`files.data.gouv.fr/geo-dvf`, 3 derniers millésimes, médianes et
+  quartiles recalculés par nos soins, `estimation.source = "dvf"`, écart possible
+  de quelques % avec les indicateurs Cerema). Si DVF est aussi HS, un échec est
+  un statut (`PROVIDER_UNAVAILABLE`), jamais une valeur effacée.
 - **UI** — `components/property/PropertyFormModal` (ouvert depuis « Immobilier »
   dans `PlacementFormModal` ou en éditant un bien) et `PropertyValuationCard`
   (dans `AssetDetailModal`). Catégorie `immobilier` dans `useWealthAggregates`,

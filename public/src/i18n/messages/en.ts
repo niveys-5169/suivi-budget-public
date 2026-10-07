@@ -524,6 +524,8 @@ const en: Record<MessageId, string> = {
   'property.card.confidence.haute': 'High confidence',
   'property.card.sales': '{count} sales in {year}',
   'property.card.scale.departements': 'département median',
+  'property.card.source.cerema': 'Source: Cerema indicators (DV3F)',
+  'property.card.source.dvf': 'Source: raw DVF sales (Cerema indicators unavailable)',
   'property.card.updated': 'Updated {date}',
   'property.card.equity': 'Net equity',
   'property.card.equity.debt': 'Remaining principal: {amount}',

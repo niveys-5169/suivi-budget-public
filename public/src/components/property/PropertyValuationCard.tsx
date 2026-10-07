@@ -141,6 +141,11 @@ export const PropertyValuationCard: React.FC<PropertyValuationCardProps> = ({
                   {t({ id: 'property.card.scale.departements' })}
                 </Text>
               )}
+              {estimation.source && (
+                <Text variant="footnote" tone="tertiary">
+                  {t({ id: `property.card.source.${estimation.source}` })}
+                </Text>
+              )}
               <Text variant="footnote" tone="tertiary">
                 {t({ id: 'property.card.updated' }, { date: frDate(estimation.date) })}
               </Text>
