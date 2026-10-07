@@ -382,8 +382,52 @@ export type CodeAjustement =
 export interface AjustementEstimation {
   code: CodeAjustement;
   facteur?: number;
+  /** Facteur réellement appliqué (après plafonnement du multiplicateur). */
+  facteurApplique?: number;
   m2?: number;
   montant: number;
+  /** Valeur du bien qui motive l'ajustement (étiquette, étage, année, nombre…). */
+  valeurBien?: string | number | boolean | null;
+  /** `ademe` : valeur trouvée dans l'open data faute de saisie. */
+  origine?: 'saisi' | 'ademe';
+}
+
+/** Vente comparable affichée pour justifier le prix au m² (données DVF publiques). */
+export interface ComparableEstimation {
+  date: string;
+  distanceM: number;
+  surface: number;
+  pieces: number;
+  prixM2: number;
+}
+
+/** Réindexation INSEE : indices de départ/actuel, ou ratios par millésime pour les comparables. */
+export type ReindexationEstimation =
+  | {
+      trimestreDepart: string;
+      indiceDepart: number;
+      trimestreActuel: string;
+      indiceActuel: number;
+      ratio: number;
+    }
+  | { integree: true; ratios: Record<string, number> };
+
+/** Traçabilité du calcul : pourquoi ce prix au m², ces comparables, ce multiplicateur. */
+export interface JustificationEstimation {
+  reference: {
+    serie: string;
+    prixM2: number;
+    q25M2: number;
+    q75M2: number;
+    millesime: string;
+    echantillon: number;
+    echelle: 'communes' | 'departements' | 'voisinage';
+    rayon?: number;
+    source: 'cerema' | 'dvf' | 'dvf-voisinage';
+  };
+  comparables?: ComparableEstimation[];
+  reindexation?: ReindexationEstimation;
+  multiplicateur: { somme: number; applique: number; borne: 'min' | 'max' | null };
 }
 
 /** Résultat du dernier calcul d'estimation (doc `placements`, champ `estimation`). */
@@ -397,8 +441,13 @@ export interface EstimationImmobiliere {
   echantillon?: number;
   confiance?: 'faible' | 'moyenne' | 'haute';
   millesime?: string;
-  echelle?: 'communes' | 'departements';
-  source?: 'cerema' | 'dvf';
+  echelle?: 'communes' | 'departements' | 'voisinage';
+  source?: 'cerema' | 'dvf' | 'dvf-voisinage';
+  /** Rayon (m) des ventes comparables, pour l'échelle `voisinage`. */
+  rayon?: number;
+  /** Caractéristiques trouvées dans le DPE ADEME faute de saisie. */
+  dpeDetecte?: { dpe?: ClasseDpe; anneeConstruction?: number; etage?: number; source: 'ademe' };
+  justification?: JustificationEstimation;
   multiplicateur?: number;
   ratioReindexation?: number;
   ajustements?: AjustementEstimation[];

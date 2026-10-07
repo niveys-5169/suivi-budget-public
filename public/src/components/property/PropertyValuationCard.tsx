@@ -14,6 +14,7 @@ import { fmt } from '../../utils/format';
 import { toast } from '../../lib/toast';
 import { triggerGitHubWorkflow } from '../../services/firebase-api';
 import { Amount, Badge, Button, Card, Separator, Stack, Text, type BadgeTone } from '../../ui';
+import { PropertyValuationBreakdown } from './PropertyValuationBreakdown';
 
 /** Sous-ensemble d'un placement immobilier lu par la carte (compatible avec les deux hooks). */
 export interface PropertyValuationPlacement {
@@ -143,7 +144,14 @@ export const PropertyValuationCard: React.FC<PropertyValuationCardProps> = ({
               )}
               {estimation.source && (
                 <Text variant="footnote" tone="tertiary">
-                  {t({ id: `property.card.source.${estimation.source}` })}
+                  {estimation.source === 'dvf-voisinage' && estimation.rayon !== undefined
+                    ? t({ id: 'property.card.source.dvf-voisinage' }, { rayon: estimation.rayon })
+                    : t({ id: `property.card.source.${estimation.source}` })}
+                </Text>
+              )}
+              {estimation.dpeDetecte?.dpe && (
+                <Text variant="footnote" tone="tertiary">
+                  {t({ id: 'property.card.dpe.detected' }, { classe: estimation.dpeDetecte.dpe })}
                 </Text>
               )}
               <Text variant="footnote" tone="tertiary">
@@ -218,7 +226,13 @@ export const PropertyValuationCard: React.FC<PropertyValuationCardProps> = ({
             >
               {t({ id: 'property.card.how' })}
             </Button>
-            {showDetail && (
+            {showDetail && estimation.justification && bien && (
+              <PropertyValuationBreakdown
+                estimation={{ ...estimation, justification: estimation.justification }}
+                bien={bien}
+              />
+            )}
+            {showDetail && !estimation.justification && (
               <Stack gap="sm" as="ul" aria-label={t({ id: 'property.card.how' })}>
                 {base !== null && bien && (
                   <Stack as="li" direction="row" justify="between" gap="md">
