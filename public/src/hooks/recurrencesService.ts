@@ -66,11 +66,13 @@ export async function createRecurrenceFromTransaction(tx: Transaction) {
 
 /**
  * Met à jour les champs éditables d'une récurrence (libellé, catégorie, montant,
- * date d'ancrage).
+ * historique des montants, date d'ancrage).
  */
 export async function updateRecurrence(
   id: string,
-  patch: Partial<Pick<Recurrence, 'label' | 'category' | 'expectedAmount' | 'anchorDate'>>,
+  patch: Partial<
+    Pick<Recurrence, 'label' | 'category' | 'expectedAmount' | 'amountHistory' | 'anchorDate'>
+  >,
 ) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);

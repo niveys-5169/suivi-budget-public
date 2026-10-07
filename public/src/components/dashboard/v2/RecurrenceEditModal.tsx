@@ -21,6 +21,8 @@ interface RecurrenceEditModalProps {
   ) => Promise<void>;
   /** Supprime la récurrence courante. La confirmation est gérée par l'appelant. */
   onDelete: () => void;
+  /** Ouvre le réajustement de montant à partir d'un mois (hausse d'assurance…). */
+  onReadjust?: () => void;
 }
 
 const INPUT_CLS =
@@ -44,6 +46,7 @@ export const RecurrenceEditModal: React.FC<RecurrenceEditModalProps> = ({
   onClose,
   onSave,
   onDelete,
+  onReadjust,
 }) => {
   const [label, setLabel] = useState('');
   const [category, setCategory] = useState('');
@@ -125,6 +128,15 @@ export const RecurrenceEditModal: React.FC<RecurrenceEditModalProps> = ({
             Montant attendu
           </label>
           <MoneyInput id="rec-amount" className={INPUT_CLS} value={amount} onChange={setAmount} />
+          {onReadjust && (
+            <button
+              type="button"
+              onClick={onReadjust}
+              className="mt-2 ml-1 text-caption font-semibold text-gold hover:underline"
+            >
+              Le montant a changé ? Réajuster à partir d&apos;un mois
+            </button>
+          )}
         </div>
 
         <div>

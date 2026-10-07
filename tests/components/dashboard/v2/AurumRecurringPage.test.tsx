@@ -39,6 +39,15 @@ const mockRecurrences = [
   },
 ];
 
+const mockBudgets = vi.hoisted(() => ({
+  list: [] as unknown[],
+  updateBudget: vi.fn(),
+}));
+vi.mock('../../../../public/src/hooks/useBudget', () => ({
+  useBudget: () => ({ baseBudgets: mockBudgets.list }),
+}));
+vi.mock('../../../../public/src/api/budgets', () => ({ updateBudget: mockBudgets.updateBudget }));
+
 vi.mock('../../../../public/src/context/GlobalDataContext', () => ({
   useGlobalData: () => ({ recurrences: mockRecurrences }),
 }));
@@ -115,6 +124,39 @@ describe('AurumRecurringPage — suppression', () => {
 
     expect(recurrencesService.removeRecurrence).toHaveBeenCalledWith('r-loyer');
     confirmSpy.mockRestore();
+  });
+});
+
+describe('AurumRecurringPage — réajustement', () => {
+  it('réajuste à partir du mois affiché et répercute l’écart sur le budget', async () => {
+    mockBudgets.list = [
+      {
+        id: 'Logement',
+        categorie: 'Logement',
+        nom: 'Logement',
+        montant: 1000,
+        actif: true,
+        type: 'mensuel',
+      },
+    ];
+    renderPage();
+
+    const label = screen.getByText('Loyer');
+    const row = label.closest('div')!.parentElement!.parentElement as HTMLElement;
+    fireEvent.click(within(row).getByTitle(/Modifier/i));
+    fireEvent.click(screen.getByRole('button', { name: /Réajuster à partir d'un mois/i }));
+
+    fireEvent.change(screen.getByLabelText('Nouveau montant'), { target: { value: '950' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Réajuster' }));
+    });
+
+    expect(recurrencesService.updateRecurrence).toHaveBeenCalledWith('r-loyer', {
+      expectedAmount: -950,
+      amountHistory: [{ until: '2026-06', amount: -900 }],
+    });
+    expect(mockBudgets.updateBudget).toHaveBeenCalledWith('Logement', { montant: 1050 });
+    mockBudgets.list = [];
   });
 });
 
