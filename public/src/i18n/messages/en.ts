@@ -525,6 +525,8 @@ const en: Record<MessageId, string> = {
   'property.card.sales': '{count} sales in {year}',
   'property.card.scale.departements': 'département median',
   'property.card.source.cerema': 'Source: Cerema indicators (DV3F)',
+  'property.card.source.dvf-voisinage': 'Source: DVF sales within {rayon} m of the property',
+  'property.card.dpe.detected': 'Detected EPC (ADEME): {classe}',
   'property.card.source.dvf': 'Source: raw DVF sales (Cerema indicators unavailable)',
   'property.card.updated': 'Updated {date}',
   'property.card.equity': 'Net equity',
@@ -538,7 +540,7 @@ const en: Record<MessageId, string> = {
   'property.card.how.reindex.none': 'INSEE reindexation not applied (index unavailable)',
   'property.card.how.total': 'Estimated value',
   'property.card.warning':
-    'Indicative estimate at municipality level: it ignores the real condition and exact location of the property. Adjustment coefficients are heuristics, not calibrated on sales.',
+    'Indicative estimate based on past sales: it ignores the real condition, works and view of the property. Adjustment coefficients are heuristics, not calibrated on sales.',
   'property.status.INCOMPLETE_DATA':
     'Incomplete data: fill in the address, type and surface of the property.',
   'property.status.GEOCODING_FAILED': 'Address not found: check the address, postal code and city.',
@@ -561,6 +563,69 @@ const en: Record<MessageId, string> = {
   'property.adjustment.ERA_POST_2012': 'Built after 2012',
   'property.adjustment.GARAGE': 'Garage ({m2} m² equivalent)',
   'property.adjustment.PARKING': 'Parking ({m2} m² equivalent)',
+  'property.why.nature.maison': 'houses',
+  'property.why.nature.appartement': 'apartments',
+  'property.why.reference.title': 'Reference price per m²',
+  'property.why.reference.voisinage':
+    'Median of {count} sales of {nature} between {min} and {max} m², within {rayon} m of the property ({millesime}), each brought up to today.',
+  'property.why.reference.communes':
+    'Median of {count} sales of {nature} in the municipality in {millesime}.',
+  'property.why.reference.departements':
+    'Median of {count} sales of {nature} in the département in {millesime}: few sales locally, so less precise.',
+  'property.why.comparables.title': 'The {count} closest comparable sales',
+  'property.why.comparables.row': '{date} · {distance} m · {surface} m²',
+  'property.why.comparables.price': '{price}/m²',
+  'property.why.reindex.title': 'Brought up to the current market',
+  'property.why.reindex.integree':
+    'Older sale prices are brought up to today with the INSEE existing-homes price index. Coefficient applied to each year:',
+  'property.why.reindex.year': 'Sales of {year}',
+  'property.why.reindex.detail':
+    'INSEE existing-homes price index: {fromValue} ({from}) → {toValue} ({to}).',
+  'property.why.adjustments.title': 'Adjustments specific to your property',
+  'property.why.adjustments.none':
+    'No adjustment: the property is valued at the local median price.',
+  'property.why.adjustments.heuristic':
+    'These coefficients are flat estimates, not values measured on sales: DVF knows neither the floor, the EPC nor outdoor spaces.',
+  'property.why.multiplier.capped':
+    'Sum of factors: {sum}. The multiplier is capped between × 0.75 and × 1.25 and amounts are scaled to the effect actually applied.',
+  'property.why.origin.ademe': 'Detected (ADEME)',
+  'property.why.value.floor': 'floor {v}',
+  'property.why.value.bathrooms': '{v} bathrooms',
+  'property.why.value.year': 'built in {v}',
+  'property.why.total.title': 'Retained value',
+  'property.why.range':
+    'The range spans the 1st to 3rd quartile of prices per m² ({low} – {high}), with the same adjustments: half of the comparable sales fall in this interval.',
+  'property.why.confidence.title': 'Reliability',
+  'property.why.confidence.haute':
+    'High: at least 30 comparable sales within 600 m, or a very large sample.',
+  'property.why.confidence.moyenne':
+    'Medium: 15 to 49 comparable sales, or sales further from the property.',
+  'property.why.confidence.faible':
+    'Low: fewer than 15 sales or département-level price. A rough indication only.',
+  'property.why.GROUND_FLOOR':
+    'A ground floor usually sells for less (overlooking, noise, light): flat discount.',
+  'property.why.NO_ELEVATOR':
+    'Without a lift from the 3rd floor, value drops about 1 point per floor, down to −10%.',
+  'property.why.TOP_FLOOR_ELEVATOR': 'Top floor served by a lift: light and view, flat premium.',
+  'property.why.EXTRA_BATHROOM': 'Each bathroom beyond the first adds 2%, capped at +4%.',
+  'property.why.GARDEN':
+    'Garden: larger premium for an apartment than for a house, whose land is already in the price.',
+  'property.why.TERRACE': 'Terrace: flat premium.',
+  'property.why.BALCONY': 'Balcony: flat premium.',
+  'property.why.ENERGY':
+    'The EPC weighs on price: discount for energy-hungry homes (E, F, G), premium for efficient ones (A, B). Flat coefficient.',
+  'property.why.ERA_PRE_1949':
+    'Construction period only counts without an EPC, which already reflects it largely.',
+  'property.why.ERA_1949_1974':
+    'Construction period only counts without an EPC, which already reflects it largely.',
+  'property.why.ERA_2001_2012':
+    'Construction period only counts without an EPC, which already reflects it largely.',
+  'property.why.ERA_POST_2012':
+    'Construction period only counts without an EPC, which already reflects it largely.',
+  'property.why.GARAGE': 'A garage is valued as extra living m² at the local price per m².',
+  'property.why.PARKING': 'A parking space is valued as extra m² at the local price per m².',
+  'property.why.LAND':
+    'Land beyond 500 m² is valued as capped equivalent m² at the local price per m².',
   'property.adjustment.LAND': 'Land ({m2} m² equivalent)',
   'wealth.credits.form.title.new': 'New credit',
   'wealth.credits.form.title.edit': 'Edit credit',

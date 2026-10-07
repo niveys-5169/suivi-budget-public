@@ -44,11 +44,12 @@ class FakeResponse:
 class Reseau:
     """Routeur d'URL pour `requests.get` : chaque source a sa réponse (ou sa panne)."""
 
-    def __init__(self, cerema=None, ign=None, insee=None, dvf=None):
+    def __init__(self, cerema=None, ign=None, insee=None, dvf=None, ademe=None):
         self.cerema = cerema or (lambda params: FakeResponse(payload=CEREMA))
         self.ign = ign or (lambda params: FakeResponse(payload=IGN))
         self.insee = insee or (lambda params: FakeResponse(text=INSEE_XML))
         self.dvf = dvf or (lambda url: FakeResponse(status_code=503))
+        self.ademe = ademe or (lambda params: FakeResponse(payload={"results": []}))
         self.appels = []
 
     def __call__(self, url, params=None, timeout=None):
@@ -57,6 +58,8 @@ class Reseau:
             return self.ign(params)
         if url.startswith(pv.CEREMA_URL):
             return self.cerema(params)
+        if url.startswith(pv.ADEME_URL):
+            return self.ademe(params)
         if url.startswith(pv.DVF_URL):
             return self.dvf(url)
         if "api.insee.fr" in url:
@@ -79,17 +82,20 @@ def _panne(params):
     return FakeResponse(status_code=503, text="Service Unavailable")
 
 
-def _csv_dvf(prix_m2, nb=20, surface=100):
-    """CSV DVF géolocalisé : `nb` ventes de maisons à `prix_m2` €/m²."""
-    champs = ["id_mutation", "nature_mutation", "valeur_fonciere", "type_local",
-              "surface_reelle_bati", "nombre_pieces_principales"]
+def _csv_dvf(prix_m2, nb=20, surface=100, lat=None, lon=None, metres_pas=0.0):
+    """CSV DVF géolocalisé : `nb` ventes de maisons à `prix_m2` €/m² (GPS si `lat`/`lon`)."""
+    champs = ["id_mutation", "date_mutation", "nature_mutation", "valeur_fonciere", "type_local",
+              "surface_reelle_bati", "nombre_pieces_principales", "latitude", "longitude"]
     sortie = io.StringIO()
     ecrivain = csv.DictWriter(sortie, fieldnames=champs)
     ecrivain.writeheader()
     for i in range(nb):
-        ecrivain.writerow({"id_mutation": f"m{i}", "nature_mutation": "Vente",
-                           "valeur_fonciere": prix_m2 * surface, "type_local": "Maison",
-                           "surface_reelle_bati": surface, "nombre_pieces_principales": 5})
+        ecrivain.writerow({"id_mutation": f"m{i}", "date_mutation": "2025-03-01",
+                           "nature_mutation": "Vente", "valeur_fonciere": prix_m2 * surface,
+                           "type_local": "Maison", "surface_reelle_bati": surface,
+                           "nombre_pieces_principales": 5,
+                           "latitude": "" if lat is None else lat + i * metres_pas / 111195,
+                           "longitude": "" if lon is None else lon})
     return sortie.getvalue()
 
 
@@ -183,6 +189,129 @@ def test_cerema_503_donne_provider_unavailable(monkeypatch):
     estimation, _ = pv.estimer_bien(_maison(codeInsee="44109"), AUJOURD_HUI)
     assert estimation == {"statut": "PROVIDER_UNAVAILABLE", "date": "2026-10-07"}
     assert len(r.appels_vers(pv.CEREMA_URL)) == pv.HTTP_ATTEMPTS
+
+
+IGN_LAT, IGN_LON = IGN["features"][0]["geometry"]["coordinates"][1], IGN["features"][0]["geometry"]["coordinates"][0]
+
+
+def _dvf_voisinage(prix_m2=4000, nb=20):
+    def dvf(url):
+        if "/2025/" in url:
+            return FakeResponse(text=_csv_dvf(prix_m2, nb, lat=IGN_LAT, lon=IGN_LON, metres_pas=5))
+        return FakeResponse(status_code=404)
+
+    return dvf
+
+
+def _lancer(monkeypatch, doc, **routes):
+    r = Reseau(**routes)
+    monkeypatch.setattr(pv.requests, "get", r)
+    monkeypatch.setattr(pv.time, "sleep", lambda s: None)
+    estimation, cache = pv.estimer_bien(doc, AUJOURD_HUI)
+    return estimation, cache, r
+
+
+def test_comparables_locaux_preferes_a_la_mediane_communale(monkeypatch):
+    estimation, _, r = _lancer(monkeypatch, _maison(), dvf=_dvf_voisinage(4000))
+    assert estimation["statut"] == "OK"
+    assert estimation["source"] == "dvf-voisinage"
+    assert estimation["echelle"] == "voisinage"
+    assert estimation["rayon"] == 300
+    ratio_2025 = 125.1 / 127.5  # fixture INSEE : T3 2025 → T2 2026, déjà appliqué aux ventes
+    assert estimation["prixM2"] == pytest.approx(4000 * ratio_2025, abs=0.01)
+    assert estimation["valeur"] == round(4000 * ratio_2025 * 100)  # pas de second ratio
+    assert estimation["confiance"] == "moyenne"
+    assert "ratioReindexation" in estimation and estimation["ratioReindexation"] is None
+    assert r.appels_vers(pv.CEREMA_URL) == []
+
+
+def test_comparables_reindexes_par_millesime(monkeypatch):
+    estimation, _, _ = _lancer(monkeypatch, _maison(), dvf=_dvf_voisinage(4000))
+    just = estimation["justification"]
+    assert just["reindexation"]["integree"] is True
+    assert list(just["reindexation"]["ratios"]) == ["2025"]
+    assert just["reindexation"]["ratios"]["2025"] == pytest.approx(125.1 / 127.5)
+
+
+def test_trop_peu_de_comparables_retombe_sur_le_cerema(monkeypatch):
+    estimation, _, r = _lancer(monkeypatch, _maison(), dvf=_dvf_voisinage(4000, nb=5))
+    assert estimation["source"] == "cerema" and estimation["echelle"] == "communes"
+    assert len(r.appels_vers(pv.CEREMA_URL)) == 1
+
+
+def test_comparables_sans_coordonnees_connues_ne_sont_pas_tentes(monkeypatch):
+    _, _, r = _lancer(monkeypatch, _maison(codeInsee="44109"), dvf=_dvf_voisinage())
+    assert r.appels_vers(pv.DVF_URL) == []
+
+
+def test_dvf_en_panne_avec_coordonnees_retombe_sur_le_cerema(monkeypatch):
+    estimation, _, _ = _lancer(monkeypatch, _maison())
+    assert estimation["statut"] == "OK" and estimation["source"] == "cerema"
+
+
+def test_cerema_et_dvf_en_panne_avec_coordonnees(monkeypatch):
+    estimation, _, r = _lancer(monkeypatch, _maison(), cerema=_panne)
+    assert estimation["statut"] == "PROVIDER_UNAVAILABLE"
+    assert len(r.appels_vers(pv.DVF_URL)) == pv.HTTP_ATTEMPTS  # DVF n'est pas retenté
+
+
+def test_justification_cerema_complete(reseau):
+    estimation, _ = pv.estimer_bien(_maison(dpe="G"), AUJOURD_HUI)
+    just = estimation["justification"]
+    assert just["reference"] == {
+        "serie": "cod111", "prixM2": 3300, "q25M2": 2900, "q75M2": 3800,
+        "millesime": "2024", "echantillon": 170, "echelle": "communes", "source": "cerema",
+    }
+    assert "comparables" not in just
+    assert just["reindexation"]["trimestreDepart"] == "2024Q3"
+    assert just["reindexation"]["ratio"] == pytest.approx(125.1 / 120.0)
+    assert just["multiplicateur"] == {"somme": -0.1, "applique": 0.9, "borne": None}
+
+
+def test_justification_voisinage_liste_cinq_comparables(monkeypatch):
+    estimation, _, _ = _lancer(monkeypatch, _maison(), dvf=_dvf_voisinage())
+    comparables = estimation["justification"]["comparables"]
+    assert len(comparables) == 5
+    assert [c["distanceM"] for c in comparables] == sorted(c["distanceM"] for c in comparables)
+    assert estimation["justification"]["reference"]["rayon"] == 300
+
+
+def _dpe_maison(etiquette="G", **extra):
+    ligne = {"etiquette_dpe": etiquette, "surface_habitable_logement": 100.0,
+             "type_batiment": "maison", "date_fin_validite_dpe": "2034-01-01"}
+    ligne.update(extra)
+    return ligne
+
+
+def test_dpe_detecte_applique_et_trace(monkeypatch):
+    ademe = lambda params: FakeResponse(payload={"results": [_dpe_maison("G", annee_construction=1960)]})
+    estimation, _, r = _lancer(monkeypatch, _maison(), ademe=ademe)
+    assert estimation["dpeDetecte"] == {"dpe": "G", "anneeConstruction": 1960, "source": "ademe"}
+    energie = next(a for a in estimation["ajustements"] if a["code"] == "ENERGY_G")
+    assert energie["origine"] == "ademe" and energie["valeurBien"] == "G"
+    assert estimation["multiplicateur"] == 0.9
+    appel = r.appels_vers(pv.ADEME_URL)[0][1]
+    assert appel["geo_distance"].endswith(f",{pv.ADEME_RAYON_M}")
+
+
+def test_dpe_saisi_prime_et_ademe_n_est_pas_appele(monkeypatch):
+    doc = _maison(dpe="B", anneeConstruction=1990)
+    estimation, _, r = _lancer(monkeypatch, doc, ademe=lambda p: FakeResponse(payload={"results": [_dpe_maison("G")]}))
+    assert "dpeDetecte" not in estimation
+    assert r.appels_vers(pv.ADEME_URL) == []
+    assert {a["code"] for a in estimation["ajustements"]} == {"ENERGY_B"}
+
+
+def test_dpe_detecte_ne_remplace_pas_une_saisie_partielle(monkeypatch):
+    ademe = lambda p: FakeResponse(payload={"results": [_dpe_maison("G", annee_construction=1960)]})
+    estimation, _, _ = _lancer(monkeypatch, _maison(dpe="B"), ademe=ademe)
+    assert estimation["dpeDetecte"] == {"anneeConstruction": 1960, "source": "ademe"}
+    assert {a["code"] for a in estimation["ajustements"]} == {"ENERGY_B"}
+
+
+def test_ademe_en_panne_n_empeche_pas_l_estimation(monkeypatch):
+    estimation, _, _ = _lancer(monkeypatch, _maison(), ademe=_panne)
+    assert estimation["statut"] == "OK" and "dpeDetecte" not in estimation
 
 
 def test_cerema_503_repli_sur_dvf(monkeypatch):

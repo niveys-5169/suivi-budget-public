@@ -153,6 +153,150 @@ describe('PropertyValuationCard', () => {
     expect(screen.queryByText(/Source :/)).not.toBeInTheDocument();
   });
 
+  describe('justification détaillée', () => {
+    const justified: EstimationImmobiliere = {
+      ...okEstimation,
+      source: 'dvf-voisinage',
+      echelle: 'voisinage',
+      rayon: 300,
+      ratioReindexation: undefined,
+      dpeDetecte: { dpe: 'G', anneeConstruction: 1962, source: 'ademe' },
+      ajustements: [
+        {
+          code: 'ENERGY_G',
+          facteur: -0.1,
+          facteurApplique: -0.1,
+          montant: -33000,
+          valeurBien: 'G',
+          origine: 'ademe',
+        },
+        { code: 'GARAGE', m2: 12, montant: 39600, valeurBien: 1, origine: 'saisi' },
+      ],
+      justification: {
+        reference: {
+          serie: 'cod111',
+          prixM2: 3300,
+          q25M2: 2900,
+          q75M2: 3800,
+          millesime: '2023-2025',
+          echantillon: 44,
+          echelle: 'voisinage',
+          rayon: 300,
+          source: 'dvf-voisinage',
+        },
+        comparables: [
+          { date: '2025-07-30', distanceM: 59, surface: 98, pieces: 5, prixM2: 3450 },
+          { date: '2023-09-22', distanceM: 120, surface: 105, pieces: 4, prixM2: 3100 },
+        ],
+        reindexation: { integree: true, ratios: { '2023': 0.9557, '2025': 0.9812 } },
+        multiplicateur: { somme: -0.1, applique: 0.9, borne: null },
+      },
+    };
+
+    const open = (estimation: EstimationImmobiliere = justified) => {
+      render(<PropertyValuationCard placement={placement({ estimation })} today={TODAY} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Comment ce chiffre est construit' }));
+    };
+
+    it('affiche la source avec le rayon et le DPE détecté', () => {
+      render(
+        <PropertyValuationCard placement={placement({ estimation: justified })} today={TODAY} />,
+      );
+      expect(screen.getByText('Source : ventes DVF à moins de 300 m du bien')).toBeInTheDocument();
+      expect(screen.getByText('DPE détecté (ADEME) : G')).toBeInTheDocument();
+    });
+
+    it('explique le prix de référence et liste les ventes comparables', () => {
+      open();
+      expect(
+        screen.getByText(/Médiane de 44 ventes de maisons de 70 à 130 m², à moins de 300 m/),
+      ).toBeInTheDocument();
+      expect(screen.getByText(`Prix médian ${eur(3300)}/m² × 100 m²`)).toBeInTheDocument();
+      expect(screen.getByText('Les 2 ventes comparables les plus proches')).toBeInTheDocument();
+      expect(screen.getByText(`${eur(3450)}/m²`)).toBeInTheDocument();
+      expect(screen.getByText(/59 m · 98 m²/)).toBeInTheDocument();
+    });
+
+    it('détaille la réindexation par millésime', () => {
+      open();
+      expect(screen.getByText('Ventes de 2023')).toBeInTheDocument();
+      expect(screen.getByText('× 0,9557')).toBeInTheDocument();
+      expect(screen.getByText('× 0,9812')).toBeInTheDocument();
+    });
+
+    it('justifie chaque coefficient et signale la valeur détectée', () => {
+      open();
+      expect(screen.getByText('Détecté (ADEME)')).toBeInTheDocument();
+      expect(screen.getByText(/Le DPE pèse sur le prix/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Un garage est valorisé comme des m² habitables/),
+      ).toBeInTheDocument();
+      expect(screen.getByText('DPE G (-10,0 %)')).toBeInTheDocument();
+      expect(screen.getByText('× 0,90')).toBeInTheDocument();
+      expect(screen.getByText(/pas des valeurs mesurées sur des ventes/)).toBeInTheDocument();
+    });
+
+    it('explique la fourchette et la fiabilité', () => {
+      open();
+      expect(screen.getByText(new RegExp(`${eur(2900)} – ${eur(3800)}`))).toBeInTheDocument();
+      expect(screen.getByText(/Élevée : au moins 30 ventes comparables/)).toBeInTheDocument();
+    });
+
+    it('signale un multiplicateur plafonné', () => {
+      const plafonne = {
+        ...justified,
+        justification: {
+          ...justified.justification!,
+          multiplicateur: { somme: -0.4, applique: 0.75, borne: 'min' as const },
+        },
+      };
+      open(plafonne);
+      expect(screen.getByText(/plafonné entre × 0,75 et × 1,25/)).toBeInTheDocument();
+    });
+
+    it('détaille la réindexation INSEE et le prix communal (Cerema)', () => {
+      const cerema: EstimationImmobiliere = {
+        ...justified,
+        source: 'cerema',
+        echelle: 'communes',
+        rayon: undefined,
+        dpeDetecte: undefined,
+        justification: {
+          ...justified.justification!,
+          reference: {
+            ...justified.justification!.reference,
+            echelle: 'communes',
+            source: 'cerema',
+            millesime: '2024',
+            echantillon: 170,
+          },
+          comparables: undefined,
+          reindexation: {
+            trimestreDepart: '2024Q3',
+            indiceDepart: 120,
+            trimestreActuel: '2026Q2',
+            indiceActuel: 125.1,
+            ratio: 1.0425,
+          },
+        },
+      };
+      open(cerema);
+      expect(
+        screen.getByText(/Médiane de 170 ventes de maisons dans la commune en 2024/),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/120,0 \(2024Q3\) → 125,1 \(2026Q2\)/)).toBeInTheDocument();
+      expect(screen.getByText('× 1,0425')).toBeInTheDocument();
+      expect(screen.queryByText(/ventes comparables les plus proches/)).not.toBeInTheDocument();
+    });
+
+    it('sans justification (ancienne estimation), garde le détail historique', () => {
+      render(<PropertyValuationCard placement={placement()} today={TODAY} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Comment ce chiffre est construit' }));
+      expect(screen.queryByTestId('property-breakdown')).not.toBeInTheDocument();
+      expect(screen.getByText('× 0,90')).toBeInTheDocument();
+    });
+  });
+
   it('détaille la construction du chiffre : prix au m², ajustements, multiplicateur, INSEE', () => {
     render(<PropertyValuationCard placement={placement()} today={TODAY} />);
 

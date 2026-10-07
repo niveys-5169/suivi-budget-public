@@ -527,6 +527,8 @@ const fr = {
   'property.card.sales': '{count} ventes en {year}',
   'property.card.scale.departements': 'médiane départementale',
   'property.card.source.cerema': 'Source : indicateurs Cerema (DV3F)',
+  'property.card.source.dvf-voisinage': 'Source : ventes DVF à moins de {rayon} m du bien',
+  'property.card.dpe.detected': 'DPE détecté (ADEME) : {classe}',
   'property.card.source.dvf': 'Source : ventes DVF brutes (indicateurs Cerema indisponibles)',
   'property.card.updated': 'Mis à jour le {date}',
   'property.card.equity': 'Équité nette',
@@ -540,7 +542,7 @@ const fr = {
   'property.card.how.reindex.none': 'Réindexation INSEE non appliquée (indice indisponible)',
   'property.card.how.total': 'Valeur estimée',
   'property.card.warning':
-    "Estimation indicative, établie à l'échelle de la commune : elle ignore l'état réel du bien et son emplacement exact. Les coefficients d'ajustement sont des heuristiques, non calibrées sur des ventes.",
+    "Estimation indicative établie à partir des ventes passées : elle ignore l'état réel du bien, ses travaux et sa vue. Les coefficients d'ajustement sont des heuristiques, non calibrées sur des ventes.",
   'property.status.INCOMPLETE_DATA':
     "Données incomplètes : renseignez l'adresse, la nature et la surface du bien.",
   'property.status.GEOCODING_FAILED':
@@ -565,6 +567,73 @@ const fr = {
   'property.adjustment.ERA_POST_2012': 'Construction après 2012',
   'property.adjustment.GARAGE': 'Garage ({m2} m² équivalents)',
   'property.adjustment.PARKING': 'Parking ({m2} m² équivalents)',
+  'property.why.nature.maison': 'maisons',
+  'property.why.nature.appartement': 'appartements',
+  'property.why.reference.title': 'Prix de référence au m²',
+  'property.why.reference.voisinage':
+    'Médiane de {count} ventes de {nature} de {min} à {max} m², à moins de {rayon} m du bien ({millesime}), chacune ramenée à aujourd’hui.',
+  'property.why.reference.communes':
+    'Médiane de {count} ventes de {nature} dans la commune en {millesime}.',
+  'property.why.reference.departements':
+    'Médiane de {count} ventes de {nature} dans le département en {millesime} : peu de ventes dans la commune, donc moins précis.',
+  'property.why.comparables.title': 'Les {count} ventes comparables les plus proches',
+  'property.why.comparables.row': '{date} · {distance} m · {surface} m²',
+  'property.why.comparables.price': '{price}/m²',
+  'property.why.reindex.title': 'Mise à jour au prix du marché actuel',
+  'property.why.reindex.integree':
+    'Les prix de vente anciens sont ramenés à aujourd’hui avec l’indice INSEE des prix des logements anciens. Coefficient appliqué à chaque millésime :',
+  'property.why.reindex.year': 'Ventes de {year}',
+  'property.why.reindex.detail':
+    'Indice INSEE des prix des logements anciens : {fromValue} ({from}) → {toValue} ({to}).',
+  'property.why.adjustments.title': 'Ajustements propres à votre bien',
+  'property.why.adjustments.none':
+    'Aucun ajustement : le bien est valorisé au prix médian du secteur.',
+  'property.why.adjustments.heuristic':
+    'Ces coefficients sont des estimations forfaitaires, pas des valeurs mesurées sur des ventes : DVF ne connaît ni l’étage, ni le DPE, ni les extérieurs.',
+  'property.why.multiplier.capped':
+    'Somme des facteurs : {sum}. Le multiplicateur est plafonné entre × 0,75 et × 1,25 et les montants sont ramenés à l’effet réellement appliqué.',
+  'property.why.origin.ademe': 'Détecté (ADEME)',
+  'property.why.value.floor': 'étage {v}',
+  'property.why.value.bathrooms': '{v} salles de bain',
+  'property.why.value.year': 'construit en {v}',
+  'property.why.total.title': 'Valeur retenue',
+  'property.why.range':
+    'La fourchette va du 1er au 3e quartile des prix au m² ({low} – {high}), avec les mêmes ajustements : la moitié des ventes comparables se situent dans cet intervalle.',
+  'property.why.confidence.title': 'Fiabilité',
+  'property.why.confidence.haute':
+    'Élevée : au moins 30 ventes comparables à moins de 600 m, ou un échantillon très large.',
+  'property.why.confidence.moyenne':
+    'Moyenne : entre 15 et 49 ventes comparables, ou ventes plus éloignées du bien.',
+  'property.why.confidence.faible':
+    'Faible : moins de 15 ventes ou prix départemental. L’estimation est une simple indication.',
+  'property.why.GROUND_FLOOR':
+    'Un rez-de-chaussée se vend en général moins cher (vis-à-vis, bruit, luminosité) : décote forfaitaire.',
+  'property.why.NO_ELEVATOR':
+    'Sans ascenseur à partir du 3e étage, la valeur baisse d’environ 1 point par étage, jusqu’à −10 %.',
+  'property.why.TOP_FLOOR_ELEVATOR':
+    'Dernier étage desservi par un ascenseur : luminosité et vue, prime forfaitaire.',
+  'property.why.EXTRA_BATHROOM':
+    'Chaque salle de bain au-delà de la première ajoute 2 %, dans la limite de +4 %.',
+  'property.why.GARDEN':
+    'Jardin : prime plus forte pour un appartement que pour une maison, dont le terrain est déjà dans le prix.',
+  'property.why.TERRACE': 'Terrasse : prime forfaitaire.',
+  'property.why.BALCONY': 'Balcon : prime forfaitaire.',
+  'property.why.ENERGY':
+    'Le DPE pèse sur le prix : décote pour les logements énergivores (E, F, G), prime pour les plus sobres (A, B). Coefficient forfaitaire.',
+  'property.why.ERA_PRE_1949':
+    'Prise en compte de l’époque de construction seulement en l’absence de DPE, qui la reflète déjà en grande partie.',
+  'property.why.ERA_1949_1974':
+    'Prise en compte de l’époque de construction seulement en l’absence de DPE, qui la reflète déjà en grande partie.',
+  'property.why.ERA_2001_2012':
+    'Prise en compte de l’époque de construction seulement en l’absence de DPE, qui la reflète déjà en grande partie.',
+  'property.why.ERA_POST_2012':
+    'Prise en compte de l’époque de construction seulement en l’absence de DPE, qui la reflète déjà en grande partie.',
+  'property.why.GARAGE':
+    'Un garage est valorisé comme des m² habitables supplémentaires, au prix du m² du secteur.',
+  'property.why.PARKING':
+    'Une place de parking est valorisée comme des m² supplémentaires, au prix du m² du secteur.',
+  'property.why.LAND':
+    'Le terrain au-delà de 500 m² est valorisé en m² équivalents, plafonnés, au prix du m² du secteur.',
   'property.adjustment.LAND': 'Terrain ({m2} m² équivalents)',
   'wealth.credits.form.title.new': 'Nouveau crédit',
   'wealth.credits.form.title.edit': 'Modifier le crédit',

@@ -264,11 +264,18 @@ courbe d'évolution n'a besoin d'aucune collection dédiée.
   mois, à la demande, ou via `dispatch_github_workflow` (`estimate-property`,
   bouton « Réestimer »). Règle d'écriture : `montant` n'est écrit que si
   l'estimation réussit en mode `estime` ; seul un `montant` à 0 reçoit le coût
-  d'achat. Cerema (preprod) est instable : s'il est HS, repli sur les ventes DVF
-  géolocalisées (`files.data.gouv.fr/geo-dvf`, 3 derniers millésimes, médianes et
-  quartiles recalculés par nos soins, `estimation.source = "dvf"`, écart possible
-  de quelques % avec les indicateurs Cerema). Si DVF est aussi HS, un échec est
-  un statut (`PROVIDER_UNAVAILABLE`), jamais une valeur effacée.
+  d'achat. Ordre des sources du prix au m² : (1) **comparables locaux** — ventes
+  DVF géolocalisées (`files.data.gouv.fr/geo-dvf`, 3 derniers millésimes) à
+  300 m → 2 km du bien, surface ±30 %, ≥ 15 ventes, chacune réindexée INSEE
+  (`source = "dvf-voisinage"`) ; (2) indicateurs Cerema communaux
+  (`"cerema"`) ; (3) si le Cerema (preprod, instable) est HS, médianes DVF
+  recalculées à l'échelle de la commune (`"dvf"`). Si tout est HS, un échec est
+  un statut (`PROVIDER_UNAVAILABLE`), jamais une valeur effacée. Le DPE, l'année
+  et l'étage manquants sont cherchés dans l'open data ADEME (rayon 15 m, surface
+  ±3 %, une seule étiquette possible sinon on ne devine pas) : `estimation.dpeDetecte`,
+  jamais écrit dans `bien`, la saisie prime. `estimation.justification` trace le
+  calcul (référence, 5 comparables, réindexation, multiplicateur) et alimente
+  `PropertyValuationBreakdown`. Les coefficients d'ajustement restent forfaitaires.
 - **UI** — `components/property/PropertyFormModal` (ouvert depuis « Immobilier »
   dans `PlacementFormModal` ou en éditant un bien) et `PropertyValuationCard`
   (dans `AssetDetailModal`). Catégorie `immobilier` dans `useWealthAggregates`,
