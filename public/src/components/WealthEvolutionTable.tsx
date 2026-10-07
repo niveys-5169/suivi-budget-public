@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Card } from './shared/Card';
 import { PeriodPills } from './shared/PeriodPills';
 import { useWealthEvolution } from '../hooks/useWealthEvolution';
+import { evolutionForTypeScope } from '../utils/wealthEvolution';
 import type { EvolutionPeriod, CatEvolution, LiveByCat } from '../utils/wealthEvolution';
 import type { RawHistoryEntry, WealthCategory } from '../utils/wealthTimeline';
 import type { OwnerScope } from '../hooks/useWealthScope';
@@ -94,7 +95,8 @@ export const WealthEvolutionTable: React.FC<WealthEvolutionTableProps> = ({
     {
       key: 'total',
       label: t({ id: 'wealth.evolution.total' }),
-      evo: evolution.total,
+      // Limité aux catégories visibles : evolution.total somme TOUTES les catégories.
+      evo: evolutionForTypeScope(evolution, wealthTypeScope),
       emphasis: true,
     },
   ];

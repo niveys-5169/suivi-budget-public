@@ -14,6 +14,7 @@ seulement des ordres de grandeur bornés (multiplicateur dans [0,75 ; 1,25],
 ajouts limités à 60 m²). Le frontend les affiche tous à l'utilisateur.
 """
 
+import math
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -39,6 +40,19 @@ COMMUNES_PARENTES = (
 # Repli DVF : bornes de prix au m² au-delà desquelles une vente est jugée aberrante.
 DVF_PRIX_M2_MIN = 500.0
 DVF_PRIX_M2_MAX = 30000.0
+
+# Comparables locaux : ventes DVF proches, de surface voisine, réindexées à aujourd'hui.
+RAYONS_COMPARABLES_M = (300, 600, 1000, 2000)
+SEUIL_COMPARABLES = 15
+SEUIL_COMPARABLES_HAUTE = 30
+RAYON_HAUTE_CONFIANCE_M = 600
+SURFACE_COMPARABLE_MIN = 0.7
+SURFACE_COMPARABLE_MAX = 1.3
+NB_COMPARABLES_AFFICHES = 5
+
+# DPE ADEME : tolérance de surface pour reconnaître le logement.
+DPE_TOLERANCE_SURFACE = 0.03
+DPE_TOLERANCE_SURFACE_MIN_M2 = 2.0
 
 MULTIPLICATEUR_MIN = 0.75
 MULTIPLICATEUR_MAX = 1.25
@@ -138,6 +152,8 @@ def construire_resultat(lignes: list[dict], bien: dict, echelle: str) -> dict | 
             "millesime": str(ligne.get("annee")),
             "prixM2": median,
             "valeur": median * surface,
+            "q25M2": q25,
+            "q75M2": q75,
             "basse": q25 * surface,
             "haute": q75 * surface,
             "echantillon": echantillon,
@@ -147,8 +163,8 @@ def construire_resultat(lignes: list[dict], bien: dict, echelle: str) -> dict | 
     return None
 
 
-def _ventes_dvf(lignes: list[dict]) -> list[tuple[str, float, int]]:
-    """(série de base, prix au m², pièces) des ventes mono-local exploitables d'un millésime DVF."""
+def _ventes_dvf(lignes: list[dict]) -> list[dict]:
+    """Ventes mono-local exploitables d'un millésime DVF : série, prix/m², pièces, surface, date, GPS."""
     par_mutation: dict[str, list[dict]] = defaultdict(list)
     for ligne in lignes:
         if ligne.get("nature_mutation") == "Vente" and ligne.get("type_local") in (
@@ -169,7 +185,17 @@ def _ventes_dvf(lignes: list[dict]) -> list[tuple[str, float, int]]:
         if not DVF_PRIX_M2_MIN <= prix_m2 <= DVF_PRIX_M2_MAX:
             continue
         serie = SERIE_MAISON if local["type_local"] == "Maison" else SERIE_APPARTEMENT
-        ventes.append((serie, prix_m2, int(_num(local.get("nombre_pieces_principales")))))
+        ventes.append(
+            {
+                "serie": serie,
+                "prix_m2": prix_m2,
+                "pieces": int(_num(local.get("nombre_pieces_principales"))),
+                "surface": surface,
+                "date": local.get("date_mutation"),
+                "lat": _num(local.get("latitude")) or None,
+                "lon": _num(local.get("longitude")) or None,
+            }
+        )
     return ventes
 
 
@@ -183,7 +209,8 @@ def lignes_depuis_dvf(lignes_par_annee: dict[str, list[dict]]) -> list[dict]:
     resultat = []
     for annee in sorted(lignes_par_annee):
         prix_par_serie: dict[str, list[float]] = defaultdict(list)
-        for serie, prix_m2, pieces in _ventes_dvf(lignes_par_annee[annee]):
+        for vente in _ventes_dvf(lignes_par_annee[annee]):
+            serie, prix_m2, pieces = vente["serie"], vente["prix_m2"], vente["pieces"]
             prix_par_serie[serie].append(prix_m2)
             if serie == SERIE_APPARTEMENT and pieces >= 1:
                 prix_par_serie[f"{serie}x{min(pieces, 5)}"].append(prix_m2)
@@ -206,6 +233,142 @@ def lignes_depuis_dvf(lignes_par_annee: dict[str, list[dict]]) -> list[dict]:
     return resultat
 
 
+def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Distance à vol d'oiseau en mètres (haversine)."""
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    a = (
+        math.sin((phi2 - phi1) / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
+    )
+    return 2 * 6_371_000 * math.asin(math.sqrt(a))
+
+
+def _quartiles(prix: list[float]) -> tuple[float, float, float]:
+    if len(prix) < 2:
+        return (prix[0],) * 3
+    q25, mediane, q75 = statistics.quantiles(prix, n=4, method="inclusive")
+    return q25, mediane, q75
+
+
+def _ecreter(candidats: list[dict]) -> list[dict]:
+    """Retire les prix hors de [Q1 − 1,5·IQR ; Q3 + 1,5·IQR] (ventes atypiques)."""
+    if len(candidats) < 4:
+        return candidats
+    q1, _, q3 = _quartiles([c["prix"] for c in candidats])
+    marge = 1.5 * (q3 - q1)
+    return [c for c in candidats if q1 - marge <= c["prix"] <= q3 + marge]
+
+
+def comparables_locaux(
+    ventes_par_annee: dict[str, list[dict]],
+    bien: dict,
+    lat: float,
+    lon: float,
+    ratios: dict[str, float] | None = None,
+) -> dict | None:
+    """Prix au m² tiré des ventes DVF proches du bien, au format de `construire_resultat`.
+
+    Même nature, surface dans [0,7 ; 1,3] × celle du bien. Le rayon passe de 300 m à
+    2 km jusqu'à SEUIL_COMPARABLES ventes. Chaque prix est réindexé à aujourd'hui avec
+    le ratio de son millésime (`ratios`, 1 par défaut). None si les ventes manquent :
+    l'appelant retombe sur la médiane communale.
+    """
+    ratios = ratios or {}
+    surface = _num(bien.get("surface"))
+    serie = SERIE_MAISON if bien.get("nature") == "maison" else SERIE_APPARTEMENT
+    pool = []
+    for annee, lignes in ventes_par_annee.items():
+        for vente in _ventes_dvf(lignes):
+            if vente["serie"] != serie or vente["lat"] is None or vente["lon"] is None:
+                continue
+            if not SURFACE_COMPARABLE_MIN * surface <= vente["surface"] <= SURFACE_COMPARABLE_MAX * surface:
+                continue
+            pool.append(
+                {
+                    "annee": str(annee),
+                    "distance": distance_m(lat, lon, vente["lat"], vente["lon"]),
+                    "prix": vente["prix_m2"] * ratios.get(str(annee), 1.0),
+                    "vente": vente,
+                }
+            )
+
+    for rayon in RAYONS_COMPARABLES_M:
+        retenus = _ecreter([c for c in pool if c["distance"] <= rayon])
+        if len(retenus) >= SEUIL_COMPARABLES:
+            break
+    else:
+        return None
+
+    q25, mediane, q75 = _quartiles([c["prix"] for c in retenus])
+    annees = sorted(c["annee"] for c in retenus)
+    plus_proches = sorted(retenus, key=lambda c: c["distance"])[:NB_COMPARABLES_AFFICHES]
+    haute = len(retenus) >= SEUIL_COMPARABLES_HAUTE and rayon <= RAYON_HAUTE_CONFIANCE_M
+    return {
+        "serie": serie,
+        "millesime": annees[0] if annees[0] == annees[-1] else f"{annees[0]}-{annees[-1]}",
+        "prixM2": mediane,
+        "valeur": mediane * surface,
+        "q25M2": q25,
+        "q75M2": q75,
+        "basse": q25 * surface,
+        "haute": q75 * surface,
+        "echantillon": len(retenus),
+        "confiance": "haute" if haute else "moyenne",
+        "echelle": "voisinage",
+        "rayon": rayon,
+        "ratios": {annee: ratios.get(annee, 1.0) for annee in sorted(set(annees))},
+        "comparables": [
+            {
+                "date": c["vente"]["date"],
+                "distanceM": round(c["distance"]),
+                "surface": round(c["vente"]["surface"]),
+                "pieces": c["vente"]["pieces"],
+                "prixM2": round(c["vente"]["prix_m2"]),
+            }
+            for c in plus_proches
+        ],
+    }
+
+
+def choisir_dpe(candidats: list[dict], bien: dict, aujourd_hui: date) -> dict | None:
+    """DPE ADEME du logement parmi les diagnostics géolocalisés autour de l'adresse.
+
+    On ne retient que les diagnostics de même type, de surface proche (±3 %, au moins ±2 m²),
+    encore valides et, si l'étage est connu, du même étage. Une seule étiquette possible
+    → on la retourne (avec année de construction et étage s'ils concordent) ; sinon None :
+    on ne devine pas entre plusieurs logements.
+    """
+    surface = _num(bien.get("surface"))
+    tolerance = max(DPE_TOLERANCE_SURFACE_MIN_M2, DPE_TOLERANCE_SURFACE * surface)
+    etage = bien.get("etage")
+    retenus = []
+    for c in candidats:
+        if c.get("type_batiment") != bien.get("nature"):
+            continue
+        if abs(_num(c.get("surface_habitable_logement")) - surface) > tolerance:
+            continue
+        fin = c.get("date_fin_validite_dpe")
+        if fin and str(fin)[:10] < aujourd_hui.isoformat():
+            continue
+        etage_dpe = c.get("numero_etage_appartement")
+        if etage is not None and etage_dpe is not None and etage_dpe != etage:
+            continue
+        if c.get("etiquette_dpe") in FACTEUR_DPE:
+            retenus.append(c)
+
+    if not retenus or len({c["etiquette_dpe"] for c in retenus}) != 1:
+        return None
+    detecte: dict = {"dpe": retenus[0]["etiquette_dpe"]}
+    for champ, cle in (
+        ("anneeConstruction", "annee_construction"),
+        ("etage", "numero_etage_appartement"),
+    ):
+        valeurs = {c.get(cle) for c in retenus}
+        if len(valeurs) == 1 and None not in valeurs:
+            detecte[champ] = valeurs.pop()
+    return detecte
+
+
 @dataclass
 class Ajustements:
     """Correction du prix DVF : `borne × multiplicateur + ajout`, avec le détail affiché."""
@@ -213,6 +376,8 @@ class Ajustements:
     multiplicateur: float = 1.0
     ajout: float = 0.0
     detail: list[dict] = field(default_factory=list)
+    somme: float = 0.0  # somme brute des facteurs, avant plafonnement
+    borne: str | None = None  # "min" | "max" si le plafond a joué
 
     def appliquer(self, borne: float) -> float:
         """Même transformation pour la médiane, q25 et q75 : la fourchette encadre toujours l'estimation."""
@@ -285,25 +450,86 @@ def _ajouts_m2(bien: dict) -> list[tuple[str, float]]:
     return ajouts
 
 
-def calculer_ajustements(bien: dict, base: float, prix_m2: float) -> Ajustements:
-    """Ajustements heuristiques du bien. `base` = médiane × surface, `prix_m2` = médiane au m²."""
-    facteurs = _facteurs(bien)
+CHAMP_PAR_CODE_FACTEUR = {
+    "GROUND_FLOOR": "etage",
+    "NO_ELEVATOR": "etage",
+    "TOP_FLOOR_ELEVATOR": "etage",
+    "EXTRA_BATHROOM": "sallesDeBain",
+    "GARDEN": "jardin",
+    "TERRACE": "terrasse",
+    "BALCONY": "balcon",
+}
+CHAMP_PAR_CODE_AJOUT = {"GARAGE": "garages", "PARKING": "parkings", "LAND": "terrain"}
+
+
+def _champ_du_facteur(code: str) -> str:
+    if code.startswith("ENERGY_"):
+        return "dpe"
+    if code.startswith("ERA_"):
+        return "anneeConstruction"
+    return CHAMP_PAR_CODE_FACTEUR.get(code, "")
+
+
+def _valeur_affichee(code: str, bien: dict):
+    """Valeur du bien qui motive le facteur (étiquette, étage, année…) ; True pour un équipement."""
+    valeur = bien.get(_champ_du_facteur(code))
+    return valeur if not isinstance(valeur, bool) else True
+
+
+def calculer_ajustements(
+    bien: dict, base: float, prix_m2: float, detecte: dict | None = None
+) -> Ajustements:
+    """Ajustements heuristiques du bien. `base` = médiane × surface, `prix_m2` = médiane au m².
+
+    `detecte` : caractéristiques trouvées dans l'open data (DPE, année, étage). Elles
+    ne comblent que les champs que l'utilisateur n'a pas saisis ; chaque ligne du détail
+    indique son `origine` (« saisi » ou « ademe »).
+    """
+    effectif = dict(bien)
+    utilises = set()
+    for champ, valeur in (detecte or {}).items():
+        if valeur is not None and bien.get(champ) in (None, ""):
+            effectif[champ] = valeur
+            utilises.add(champ)
+
+    def origine(champ: str) -> str:
+        return "ademe" if champ in utilises else "saisi"
+
+    facteurs = _facteurs(effectif)
     somme = sum(facteur for _, facteur in facteurs)
-    multiplicateur = min(max(1 + somme, MULTIPLICATEUR_MIN), MULTIPLICATEUR_MAX)
+    brut = 1 + somme
+    multiplicateur = min(max(brut, MULTIPLICATEUR_MIN), MULTIPLICATEUR_MAX)
+    borne = "min" if brut < MULTIPLICATEUR_MIN else "max" if brut > MULTIPLICATEUR_MAX else None
     # Si le multiplicateur est borné, chaque facteur est ramené à sa part de l'effet réel
     # pour que les montants affichés somment à la correction effectivement appliquée.
     echelle = (multiplicateur - 1) / somme if somme else 1.0
 
     detail: list[dict] = [
-        {"code": code, "facteur": facteur, "montant": round(base * facteur * echelle)}
+        {
+            "code": code,
+            "facteur": facteur,
+            "facteurApplique": round(facteur * echelle, 4),
+            "montant": round(base * facteur * echelle),
+            "valeurBien": _valeur_affichee(code, effectif),
+            "origine": origine(_champ_du_facteur(code)),
+        }
         for code, facteur in facteurs
     ]
-    ajouts = _ajouts_m2(bien)
+    ajouts = _ajouts_m2(effectif)
     detail += [
-        {"code": code, "m2": round(m2, 1), "montant": round(m2 * prix_m2)} for code, m2 in ajouts
+        {
+            "code": code,
+            "m2": round(m2, 1),
+            "montant": round(m2 * prix_m2),
+            "valeurBien": effectif.get(CHAMP_PAR_CODE_AJOUT[code]),
+            "origine": "saisi",
+        }
+        for code, m2 in ajouts
     ]
     ajout = sum(m2 for _, m2 in ajouts) * prix_m2
-    return Ajustements(multiplicateur=multiplicateur, ajout=ajout, detail=detail)
+    return Ajustements(
+        multiplicateur=multiplicateur, ajout=ajout, detail=detail, somme=somme, borne=borne
+    )
 
 
 def cle_trimestre(jour: date) -> str:
@@ -311,16 +537,17 @@ def cle_trimestre(jour: date) -> str:
     return f"{jour.year}Q{(jour.month - 1) // 3 + 1}"
 
 
-def _derniere_valeur(serie: dict[str, float], cle: str) -> float | None:
-    """Dernière valeur de la série à ce trimestre ou avant (les clés AAAAQn se trient)."""
+def _derniere_valeur(serie: dict[str, float], cle: str) -> tuple[str, float] | None:
+    """(trimestre, valeur) de la série à ce trimestre ou avant (les clés AAAAQn se trient)."""
     anterieures = [k for k in serie if k <= cle]
-    return serie[max(anterieures)] if anterieures else None
+    if not anterieures:
+        return None
+    dernier = max(anterieures)
+    return dernier, serie[dernier]
 
 
-def ratio_reindexation(
-    serie: dict[str, float], annee_millesime, aujourd_hui: date
-) -> float | None:
-    """Rapport de l'indice INSEE aujourd'hui sur l'indice à mi-année du millésime DVF.
+def detail_reindexation(serie: dict[str, float], annee_millesime, aujourd_hui: date) -> dict | None:
+    """Indices INSEE et ratio entre mi-année du millésime DVF et aujourd'hui, ou None.
 
     Le point de départ est juillet de l'année du millésime. Pour chaque date on
     retient la dernière valeur publiée à cette date ou avant. None s'il manque
@@ -330,8 +557,22 @@ def ratio_reindexation(
         depart = date(int(annee_millesime), 7, 1)
     except (TypeError, ValueError):
         return None
-    valeur_depart = _derniere_valeur(serie, cle_trimestre(depart))
-    valeur_actuelle = _derniere_valeur(serie, cle_trimestre(aujourd_hui))
-    if not valeur_depart or valeur_actuelle is None:
+    point_depart = _derniere_valeur(serie, cle_trimestre(depart))
+    point_actuel = _derniere_valeur(serie, cle_trimestre(aujourd_hui))
+    if not point_depart or not point_depart[1] or point_actuel is None:
         return None
-    return valeur_actuelle / valeur_depart
+    return {
+        "trimestreDepart": point_depart[0],
+        "indiceDepart": point_depart[1],
+        "trimestreActuel": point_actuel[0],
+        "indiceActuel": point_actuel[1],
+        "ratio": point_actuel[1] / point_depart[1],
+    }
+
+
+def ratio_reindexation(
+    serie: dict[str, float], annee_millesime, aujourd_hui: date
+) -> float | None:
+    """Rapport de l'indice INSEE aujourd'hui sur l'indice à mi-année du millésime DVF."""
+    detail = detail_reindexation(serie, annee_millesime, aujourd_hui)
+    return detail["ratio"] if detail else None
