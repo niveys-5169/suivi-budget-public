@@ -8,13 +8,20 @@ import type { RawHistoryEntry, WealthCategory } from '../utils/wealthTimeline';
 import type { OwnerScope } from '../hooks/useWealthScope';
 import { fmt } from '../utils/format';
 
-const CAT_ORDER: WealthCategory[] = ['courants', 'epargne', 'investissements', 'retraite'];
+const CAT_ORDER: WealthCategory[] = [
+  'courants',
+  'epargne',
+  'investissements',
+  'retraite',
+  'immobilier',
+];
 
 const CAT_LABEL_IDS: Record<WealthCategory, string> = {
   courants: 'wealth.kpi.cash',
   epargne: 'wealth.kpi.savings',
   investissements: 'wealth.kpi.investments',
   retraite: 'wealth.evolution.cat.retirement',
+  immobilier: 'wealth.evolution.cat.realEstate',
 };
 
 /** WealthCategory → clé de wealthTypeScope (format graphique). */
@@ -23,6 +30,7 @@ const CAT_TO_SCOPE_KEY: Record<WealthCategory, string> = {
   epargne: 'epargnelivrets',
   investissements: 'investissements',
   retraite: 'retraite',
+  immobilier: 'immobilier',
 };
 
 const DATE_INPUT_CLS =

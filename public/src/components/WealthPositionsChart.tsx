@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CHART_COLORS } from '../lib/colors';
+import { categoryColor } from '../ui';
 import type { WealthHistoryEntry } from '../types/patrimoine';
 import {
   ResponsiveContainer,
@@ -21,6 +22,7 @@ const SERIES = [
   { key: 'epargne', label: 'Épargne', color: CHART_COLORS.gold },
   { key: 'investissements', label: 'Investissements', color: '#3B82F6' },
   { key: 'retraite', label: 'Retraite', color: '#8B5CF6' },
+  { key: 'immobilier', label: 'Immobilier', color: categoryColor.housing },
 ] as const;
 
 type SeriesKey = (typeof SERIES)[number]['key'];
@@ -100,6 +102,7 @@ const WealthPositionsChartImpl: React.FC<Props> = ({ placementHistory = [] }) =>
       epargne: p.byCat.epargne,
       investissements: p.byCat.investissements,
       retraite: p.byCat.retraite,
+      immobilier: p.byCat.immobilier,
     }));
   }, [placementHistory, timeRange, now]);
 

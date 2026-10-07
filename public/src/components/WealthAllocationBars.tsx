@@ -1,5 +1,6 @@
 import React from 'react';
 import { CHART_COLORS } from '../lib/colors';
+import { categoryColor } from '../ui';
 import { motion } from 'framer-motion';
 
 interface Segment {
@@ -17,6 +18,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   savings: 'Épargne de précaution',
   investissements: 'Investissements',
   retirement: 'Retraite',
+  immobilier: 'Immobilier',
 };
 
 const SEGMENT_COLORS: Record<string, string> = {
@@ -24,6 +26,7 @@ const SEGMENT_COLORS: Record<string, string> = {
   savings: '#94A3B8',
   investissements: CHART_COLORS.gold,
   retirement: '#64748B',
+  immobilier: categoryColor.housing,
 };
 
 export const WealthAllocationBars: React.FC<WealthAllocationBarsProps> = ({ segments }) => {

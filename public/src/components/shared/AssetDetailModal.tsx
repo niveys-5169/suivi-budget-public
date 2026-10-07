@@ -19,6 +19,11 @@ import { safeSegment } from '../../utils/portfolioReconstruction';
 import { CHART_COLORS } from '../../lib/colors';
 import { fmt } from '../../utils/format';
 import { BarChart3 } from 'lucide-react';
+import type { Credit } from '../../types/banking.types';
+import {
+  PropertyValuationCard,
+  type PropertyValuationPlacement,
+} from '../property/PropertyValuationCard';
 
 export interface AssetDetailTarget {
   kind: 'asset' | 'holding';
@@ -46,6 +51,8 @@ interface AssetDetailModalProps {
   portfolio: AssetDetailPortfolio;
   /** Fourni uniquement pour les placements manuels : bascule vers la modale d'édition. */
   onEdit?: (target: AssetDetailTarget) => void;
+  /** Bien immobilier (placement + crédit associé) : affiche la carte d'estimation. */
+  property?: { placement: PropertyValuationPlacement; credit?: Credit };
 }
 
 const TYPE_LABEL_IDS: Record<string, string> = {
@@ -53,6 +60,7 @@ const TYPE_LABEL_IDS: Record<string, string> = {
   savings: 'wealth.kpi.savings',
   investissements: 'wealth.kpi.investments',
   retirement: 'wealth.evolution.cat.retirement',
+  immobilier: 'wealth.evolution.cat.realEstate',
 };
 
 const TX_LABEL_IDS: Record<string, string> = {
@@ -86,6 +94,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
   placementHistory,
   portfolio,
   onEdit,
+  property,
 }) => {
   const { formatMessage: t } = useIntl();
   const [period, setPeriod] = useState<EvolutionPeriod>('1Y');
@@ -204,6 +213,10 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
             {target.owner}
           </span>
         </div>
+
+        {property && target.type === 'immobilier' && (
+          <PropertyValuationCard placement={property.placement} credit={property.credit} />
+        )}
 
         {/* Période d'analyse */}
         <PeriodPills

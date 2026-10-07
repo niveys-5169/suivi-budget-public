@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { CHART_COLORS } from '../lib/colors';
+import { categoryColor } from '../ui';
 import {
   AreaChart,
   Area,
@@ -29,7 +30,7 @@ interface HistoryEntry {
   value?: number;
 }
 
-type CategoryKey = 'courants' | 'epargnelivrets' | 'investissements' | 'retraite';
+type CategoryKey = 'courants' | 'epargnelivrets' | 'investissements' | 'retraite' | 'immobilier';
 
 interface ChartDataPoint {
   timestamp: number;
@@ -38,6 +39,7 @@ interface ChartDataPoint {
   epargnelivrets: number;
   investissements: number;
   retraite: number;
+  immobilier: number;
   total: number;
 }
 
@@ -55,6 +57,7 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
   epargnelivrets: 'Épargne',
   investissements: 'Investissements',
   retraite: 'Retraite',
+  immobilier: 'Immobilier',
 };
 
 const CATEGORY_COLORS: Record<CategoryKey, string> = {
@@ -62,6 +65,7 @@ const CATEGORY_COLORS: Record<CategoryKey, string> = {
   epargnelivrets: CHART_COLORS.gold, // Gold
   investissements: '#3B82F6', // Blue
   retraite: '#A78BFA', // Light Violet / Lavender
+  immobilier: categoryColor.housing,
 };
 
 const CATEGORY_MAPPING: Record<WealthCategory, CategoryKey> = {
@@ -69,6 +73,7 @@ const CATEGORY_MAPPING: Record<WealthCategory, CategoryKey> = {
   epargne: 'epargnelivrets',
   investissements: 'investissements',
   retraite: 'retraite',
+  immobilier: 'immobilier',
 };
 
 const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> = ({
@@ -134,6 +139,7 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
         epargnelivrets: p.byCat.epargne,
         investissements: p.byCat.investissements,
         retraite: p.byCat.retraite,
+        immobilier: p.byCat.immobilier,
         total: p.amount,
       };
 

@@ -31,12 +31,70 @@ export type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 export const placementFormSchema = z.object({
   nom: requiredString("Nom de l'actif requis"),
   owner: requiredString('Propriétaire requis'),
-  type: z.enum(['cash', 'savings', 'market', 'retirement', 'other']),
+  type: z.enum(['cash', 'savings', 'market', 'retirement', 'immobilier', 'other']),
   montant: finiteNumber('Valeur requise'),
   compte: z.string(),
 });
 
 export type PlacementFormValues = z.infer<typeof placementFormSchema>;
+
+/** Nombre facultatif : `null` = champ laissé vide. */
+const optionalAmount = (msg: string) =>
+  z
+    .number({ message: msg })
+    .refine((v) => Number.isFinite(v) && v >= 0, { message: msg })
+    .nullable();
+
+const nonNegativeInt = (msg: string) => z.number({ message: msg }).int(msg).min(0, msg);
+
+export const propertyFormSchema = z
+  .object({
+    nom: requiredString('Nom du bien requis'),
+    owner: requiredString('Propriétaire requis'),
+    adresse: requiredString('Adresse requise'),
+    codePostal: z
+      .string()
+      .trim()
+      .regex(/^\d{5}$/, 'Code postal invalide (5 chiffres)'),
+    ville: requiredString('Ville requise'),
+    nature: z.enum(['appartement', 'maison']),
+    surface: finiteNumber('Surface requise').refine((v) => v > 0, {
+      message: 'La surface doit être > 0',
+    }),
+    pieces: z.number({ message: 'Nombre de pièces requis' }).int().min(1, 'Au moins 1 pièce'),
+    sallesDeBain: optionalAmount('Nombre invalide'),
+    terrain: optionalAmount('Surface invalide'),
+    etage: optionalAmount('Étage invalide'),
+    nbEtages: optionalAmount("Nombre d'étages invalide"),
+    ascenseur: z.boolean(),
+    garages: nonNegativeInt('Nombre invalide'),
+    parkings: nonNegativeInt('Nombre invalide'),
+    jardin: z.boolean(),
+    terrasse: z.boolean(),
+    balcon: z.boolean(),
+    dpe: z.enum(['', 'A', 'B', 'C', 'D', 'E', 'F', 'G']),
+    anneeConstruction: optionalAmount('Année invalide'),
+    prixAchat: optionalAmount('Montant invalide'),
+    fraisNotaire: optionalAmount('Montant invalide'),
+    fraisAgence: optionalAmount('Montant invalide'),
+    travaux: optionalAmount('Montant invalide'),
+    modeValorisation: z.enum(['estime', 'manuel']),
+    /** Valeur saisie, utilisée seulement en mode `manuel`. */
+    montant: optionalAmount('Montant invalide'),
+    /** Id du crédit associé ; vide = aucun. */
+    creditId: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.modeValorisation === 'manuel' && !data.montant) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['montant'],
+        message: 'Valeur requise en mode manuel',
+      });
+    }
+  });
+
+export type PropertyFormValues = z.infer<typeof propertyFormSchema>;
 
 export const creditFormSchema = z.object({
   nom: requiredString('Nom du crédit requis'),

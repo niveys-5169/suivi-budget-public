@@ -12,13 +12,20 @@ import type { RawHistoryEntry, WealthCategory } from '../../utils/wealthTimeline
 import type { OwnerScope } from '../../hooks/useWealthScope';
 import { formatCurrency } from '../../lib/formatters';
 
-const CAT_ORDER: WealthCategory[] = ['courants', 'epargne', 'investissements', 'retraite'];
+const CAT_ORDER: WealthCategory[] = [
+  'courants',
+  'epargne',
+  'investissements',
+  'retraite',
+  'immobilier',
+];
 
 const CAT_LABEL_IDS: Record<WealthCategory, string> = {
   courants: 'wealth.kpi.cash',
   epargne: 'wealth.kpi.savings',
   investissements: 'wealth.kpi.investments',
   retraite: 'wealth.evolution.cat.retirement',
+  immobilier: 'wealth.evolution.cat.realEstate',
 };
 
 const CAT_TO_SCOPE_KEY: Record<WealthCategory, string> = {
@@ -26,6 +33,7 @@ const CAT_TO_SCOPE_KEY: Record<WealthCategory, string> = {
   epargne: 'epargnelivrets',
   investissements: 'investissements',
   retraite: 'retraite',
+  immobilier: 'immobilier',
 };
 
 const eur = (v: number) => formatCurrency(v, 'EUR', 'fr-FR', { maximumFractionDigits: 0 });

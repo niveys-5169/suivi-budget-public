@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CHART_COLORS } from '../../lib/colors';
+import { categoryColor } from '../../ui';
 import {
   ResponsiveContainer,
   LineChart,
@@ -26,6 +27,7 @@ const SERIES = [
   { key: 'epargne', label: 'Épargne', color: CHART_COLORS.gold },
   { key: 'investissements', label: 'Invest.', color: CHART_COLORS.blue },
   { key: 'retraite', label: 'Retraite', color: CHART_COLORS.violet },
+  { key: 'immobilier', label: 'Immo.', color: categoryColor.housing },
 ] as const;
 
 type SeriesKey = (typeof SERIES)[number]['key'];
@@ -48,6 +50,7 @@ export const MPositionsChart: React.FC<Props> = ({ placementHistory, period }) =
         epargne: p.byCat.epargne,
         investissements: p.byCat.investissements,
         retraite: p.byCat.retraite,
+        immobilier: p.byCat.immobilier,
       }));
   }, [placementHistory, period]);
 

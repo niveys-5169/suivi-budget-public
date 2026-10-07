@@ -29,6 +29,11 @@ describe('normalizeType', () => {
     expect(normalizeType('PER')).toBe('retraite');
   });
 
+  it('maps immobilier to its own category', () => {
+    expect(normalizeType('immobilier')).toBe('immobilier');
+    expect(normalizeType('Immobilier')).toBe('immobilier');
+  });
+
   it('defaults unknown types to investissements', () => {
     expect(normalizeType('pea')).toBe('investissements');
     expect(normalizeType('')).toBe('investissements');
@@ -78,6 +83,22 @@ describe('buildWealthTimeline', () => {
     const points = buildWealthTimeline(history);
     expect(points).toHaveLength(2);
     expect(points[1]!.amount).toBe(10000 + 5500);
+  });
+
+  it('tracks a property as its own immobilier category, valued by the monthly estimate', () => {
+    const history = [
+      { assetId: 'bien_1', date: '2024-01-03', montant: 300000, type: 'immobilier' },
+      { assetId: 'livret_a', date: '2024-01-03', montant: 8000, type: 'epargne' },
+      // seule l'estimation mensuelle bouge : le livret est reporté
+      { assetId: 'bien_1', date: '2024-02-03', montant: 306000, type: 'immobilier' },
+    ];
+    const points = buildWealthTimeline(history);
+    expect(points).toHaveLength(2);
+    expect(points[0]!.byCat.immobilier).toBe(300000);
+    expect(points[1]!.byCat.immobilier).toBe(306000);
+    expect(points[1]!.byCat.epargne).toBe(8000);
+    expect(points[1]!.byCat.investissements).toBe(0);
+    expect(points[1]!.amount).toBe(314000);
   });
 
   it('splits amount by category in byCat', () => {

@@ -126,12 +126,14 @@ export interface WealthTotals {
   epargne: number;
   bourse: number;
   per: number;
+  immobilier: number;
   total: number;
 }
 
 /**
  * Totaux patrimoniaux : liquidités, épargne (livrets + placements manuels hors
- * retraite), bourse (valeur live du portefeuille), retraite (PER).
+ * retraite et immobilier), bourse (valeur live du portefeuille), retraite (PER),
+ * immobilier (biens estimés ou valorisés à la main).
  * NB : `current_balance || solde` est volontaire (un solde courant à 0 retombe
  * sur l'ancien champ `solde`) — même convention dans les deux consommateurs.
  */
@@ -151,19 +153,24 @@ export function computeWealthTotals(
   );
 
   let per = 0;
+  let immobilier = 0;
   const epargneManuel = (placements || []).reduce((s, p) => {
     const t = (p.type || '').toLowerCase();
     if (t === 'per' || t === 'retirement') {
       per += Number(p.montant) || 0;
       return s;
     }
+    if (t === 'immobilier') {
+      immobilier += Number(p.montant) || 0;
+      return s;
+    }
     return s + (Number(p.montant) || 0);
   }, 0);
 
   const epargne = epargnelivrets + epargneManuel;
-  const total = courants + epargne + portfolioValue + per;
+  const total = courants + epargne + portfolioValue + per + immobilier;
 
-  return { courants, epargne, bourse: portfolioValue, per, total };
+  return { courants, epargne, bourse: portfolioValue, per, immobilier, total };
 }
 
 /**

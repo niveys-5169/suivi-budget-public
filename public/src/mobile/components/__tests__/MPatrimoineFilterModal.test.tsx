@@ -165,7 +165,7 @@ describe('MPatrimoineFilterModal', () => {
         <MPatrimoineFilterModal
           {...defaultProps}
           onChangeType={onChangeType}
-          wealthTypeScope={['courants', 'epargnelivrets', 'investissements']}
+          wealthTypeScope={['courants', 'epargnelivrets', 'investissements', 'immobilier']}
         />,
       );
 

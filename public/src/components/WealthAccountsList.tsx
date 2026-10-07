@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { CHART_COLORS } from '../lib/colors';
 import { motion } from 'framer-motion';
-import { ChevronRight, Shield, TrendingUp, Wallet, PiggyBank, Briefcase } from 'lucide-react';
+import { ChevronRight, Home, Shield, TrendingUp, Wallet, PiggyBank, Briefcase } from 'lucide-react';
 
 interface Account {
   id: string;
   name: string;
   ownerId: string;
-  type: 'cash' | 'savings' | 'investissements' | 'retirement';
+  type: 'cash' | 'savings' | 'investissements' | 'retirement' | 'immobilier';
   balance: number;
 }
 
@@ -21,6 +21,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   savings: PiggyBank,
   investissements: TrendingUp,
   retirement: Shield,
+  immobilier: Home,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -28,6 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
   savings: 'Épargne',
   investissements: 'Investissements',
   retirement: 'Retraite',
+  immobilier: 'Immobilier',
 };
 
 export const OWNER_COLORS: Record<string, string> = {
@@ -45,6 +47,7 @@ export const WealthAccountsList: React.FC<WealthAccountsListProps> = ({ rows, on
       savings: [],
       investissements: [],
       retirement: [],
+      immobilier: [],
     };
     rows.forEach((row) => {
       if (groups[row.type]) groups[row.type]!.push(row);

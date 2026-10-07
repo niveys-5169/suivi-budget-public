@@ -1,0 +1,59 @@
+name: Estimation immobilière (mensuelle)
+
+on:
+  schedule:
+    # Le 3 de chaque mois à 05:00 UTC
+    - cron: '0 5 3 * *'
+  repository_dispatch:
+    # Déclenché depuis le dashboard (bouton "Réestimer") via dispatch_github_workflow
+    types: [estimate-property]
+  workflow_dispatch:
+    inputs:
+      placement_id:
+        description: 'ID du placement à estimer (vide = tous les biens immobiliers)'
+        type: string
+        default: ''
+      dry_run:
+        description: 'Simulation (calcule et affiche sans écrire dans Firestore)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  estimate:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Estimer les biens immobiliers
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+          # Passés par l'environnement (jamais interpolés dans le script) : le
+          # payload d'un repository_dispatch n'est pas une entrée de confiance.
+          PLACEMENT_ID: ${{ github.event.client_payload.placementId || inputs.placement_id }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=()
+          if [ -n "$PLACEMENT_ID" ]; then
+            args+=(--placement-id "$PLACEMENT_ID")
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "▶ Mode dry-run : aucune écriture dans Firestore."
+            args+=(--dry-run)
+          fi
+          python src/property_valuation.py "${args[@]}"

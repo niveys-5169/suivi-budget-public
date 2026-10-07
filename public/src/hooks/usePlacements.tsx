@@ -19,6 +19,11 @@ import { db as dbModular } from '../services/firebase';
 import { parseDateInput } from '../utils/date';
 import type { PlacementSnapshot } from '../types/patrimoine';
 import { withRetry } from '../utils/withRetry';
+import type {
+  BienImmobilier,
+  EstimationImmobiliere,
+  ModeValorisation,
+} from '../types/banking.types';
 
 export type Placement = {
   id: string;
@@ -28,6 +33,12 @@ export type Placement = {
   montant: number;
   commentaire?: string;
   updatedAt?: Timestamp | null;
+  /** Biens immobiliers (`type: 'immobilier'`) : descriptif, valorisation et dernière estimation. */
+  bien?: BienImmobilier;
+  estimation?: EstimationImmobiliere;
+  modeValorisation?: ModeValorisation;
+  /** Id du crédit associé (vide ou absent = aucun). */
+  creditId?: string;
 };
 
 /** Champs legacy tolérés sur d'anciens documents placement. */
@@ -45,6 +56,9 @@ export type AddPlacementInput = {
   type: string;
   montant: number;
   commentaire?: string;
+  bien?: BienImmobilier;
+  modeValorisation?: ModeValorisation;
+  creditId?: string;
 };
 
 export type UpdatePlacementInput = Partial<AddPlacementInput>;

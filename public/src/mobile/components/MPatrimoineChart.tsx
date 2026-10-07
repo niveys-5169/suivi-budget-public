@@ -20,6 +20,7 @@ const SCOPE_KEY_TO_CAT: Record<string, WealthCategory> = {
   epargnelivrets: 'epargne',
   investissements: 'investissements',
   retraite: 'retraite',
+  immobilier: 'immobilier',
 };
 
 interface Props {

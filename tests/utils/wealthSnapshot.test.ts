@@ -100,7 +100,7 @@ const holding = (over: Partial<HoldingLike>): HoldingLike => ({
 });
 
 describe('computeWealthTotals', () => {
-  it('splits balances, savings, manual placements, PER and portfolio value', () => {
+  it('splits balances, savings, manual placements, PER, real estate and portfolio value', () => {
     const totals = computeWealthTotals(
       [{ compte: 'LCL', current_balance: 1000 }],
       [{ compte: 'Livret A', current_balance: 500 }],
@@ -113,9 +113,10 @@ describe('computeWealthTotals', () => {
     );
     expect(totals).toEqual({
       courants: 1000,
-      epargne: 2500, // 500 livrets + 2000 manuel (hors PER/retirement)
+      epargne: 500, // livrets seuls : l'immobilier et le PER ont leur propre poste
       bourse: 1500,
       per: 500,
+      immobilier: 2000,
       total: 5500,
     });
   });
@@ -139,6 +140,7 @@ describe('computeWealthTotals', () => {
       epargne: 0,
       bourse: 0,
       per: 0,
+      immobilier: 0,
       total: 0,
     });
   });

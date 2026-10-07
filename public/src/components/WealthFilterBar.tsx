@@ -8,6 +8,7 @@ const TYPE_OPTIONS = [
   { value: 'epargnelivrets', labelId: 'wealth.kpi.savings' },
   { value: 'investissements', labelId: 'wealth.kpi.investments' },
   { value: 'retraite', labelId: 'wealth.evolution.cat.retirement' },
+  { value: 'immobilier', labelId: 'wealth.evolution.cat.realEstate' },
 ];
 const ALL_TYPES = TYPE_OPTIONS.map((o) => o.value);
 

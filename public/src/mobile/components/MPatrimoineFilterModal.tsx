@@ -19,6 +19,7 @@ const TYPE_OPTIONS = [
   { value: 'epargnelivrets', label: 'Épargne' },
   { value: 'investissements', label: 'Investissements' },
   { value: 'retraite', label: 'Retraite' },
+  { value: 'immobilier', label: 'Immobilier' },
 ];
 
 /** Bascule une valeur dans un scope, en normalisant vers 'all' si vide ou complet. */

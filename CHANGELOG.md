@@ -8,6 +8,16 @@ Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
 ### Added
 
+- **Estimation immobilière automatique** : un placement `type: 'immobilier'`
+  porte le descriptif du bien (`bien`), son mode de valorisation (`estime` ou
+  `manuel`), un crédit associé (équité nette) et la dernière `estimation`.
+  Le job mensuel `property-valuation.yml` (`src/property_valuation.py`, logique
+  pure dans `src/property_estimator.py`) combine Cerema DV3F (prix médian au m²
+  par commune), IGN Géoplateforme (adresse → code INSEE) et l'indice INSEE des
+  prix des logements anciens, puis applique des ajustements heuristiques bornés,
+  tous affichés (`PropertyValuationCard`). Un échec de source ne modifie jamais
+  `montant` ; la courbe d'évolution vient du snapshot quotidien existant.
+  Nouvelle catégorie « Immobilier » dans les agrégats, l'allocation et la timeline.
 - **Mouvements postérieurs au solde, calculés en direct** : `mouvementsDepuisSolde`
   additionne les transactions du compte arrivées dans un mail Linxo plus
   récent que celui du solde affiché. S'il y en a, le solde n'a pas suivi :

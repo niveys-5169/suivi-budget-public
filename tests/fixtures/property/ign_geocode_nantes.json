@@ -1,0 +1,17 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-1.553621, 47.218371] },
+      "properties": {
+        "label": "10 Rue de la Paix 44000 Nantes",
+        "score": 0.91,
+        "citycode": "44109",
+        "postcode": "44000",
+        "city": "Nantes"
+      }
+    }
+  ],
+  "query": "10 rue de la paix 44000 nantes"
+}
