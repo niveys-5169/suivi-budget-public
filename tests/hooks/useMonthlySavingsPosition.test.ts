@@ -1,8 +1,35 @@
-import { describe, expect, it } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildMonthlySavingsAccounts,
   getMonthlySavingsBounds,
+  useMonthlySavingsPosition,
 } from '../../public/src/hooks/useMonthlySavingsPosition';
+
+const firestore = vi.hoisted(() => ({
+  history: [] as Array<Record<string, unknown>>,
+  whereCalls: [] as Array<[string, string, string]>,
+}));
+
+vi.mock('firebase/firestore', () => ({
+  collection: (_db: unknown, name: string) => ({ name }),
+  where: (field: string, op: string, value: string) => {
+    firestore.whereCalls.push([field, op, value]);
+    return { field, op, value };
+  },
+  orderBy: (field: string) => ({ field }),
+  query: (source: { name: string }) => source,
+  getDocs: async (source: { name: string }) => ({
+    docs:
+      source.name === 'placement_history'
+        ? firestore.history.map((data, index) => ({ id: `h${index}`, data: () => data }))
+        : [],
+  }),
+}));
+vi.mock('../../public/src/services/firebase', () => ({ db: {} }));
+vi.mock('../../public/src/context/GlobalDataContext', () => ({
+  useGlobalData: () => ({ accountBalances: [], loading: false }),
+}));
 
 describe('buildMonthlySavingsAccounts', () => {
   it('utilise les bornes exactes du mois terminé et conserve les comptes manquants', () => {
@@ -139,5 +166,73 @@ describe('getMonthlySavingsBounds', () => {
       openingDate: '2026-06-01',
       closingDate: '2026-07-01',
     });
+  });
+});
+
+describe('useMonthlySavingsPosition — cumul depuis janvier', () => {
+  const lclPoint = (date: string, montant: number) => ({
+    assetId: 'nicolas_courant_lcl',
+    date,
+    nom: 'LCL',
+    montant,
+    type: 'courants',
+    owner: 'nicolas',
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-07T12:00:00Z'));
+    firestore.whereCalls = [];
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('charge l’historique depuis janvier et cumule la capacité des mois écoulés', async () => {
+    firestore.history = [
+      lclPoint('2026-01-01', 1_000),
+      lclPoint('2026-02-01', 1_100),
+      lclPoint('2026-03-01', 1_250),
+      lclPoint('2026-04-01', 1_250),
+    ];
+
+    const { result } = renderHook(() => useMonthlySavingsPosition('2026-03', []));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(firestore.whereCalls).toContainEqual(['date', '>=', '2025-12-29']);
+    expect(firestore.whereCalls).toContainEqual(['date', '<=', '2026-04-01']);
+    expect(result.current.position).toMatchObject({ month: '2026-03', savingsCapacity: 0 });
+    expect(result.current.yearToDate).toEqual({
+      fromMonth: '2026-01',
+      toMonth: '2026-03',
+      savingsCapacity: 250,
+      netSavings: 0,
+      unavailableMonths: [],
+    });
+  });
+
+  it('signale les mois sans soldes et ne cumule rien', async () => {
+    firestore.history = [
+      lclPoint('2026-01-01', 1_000),
+      lclPoint('2026-03-01', 1_250),
+      lclPoint('2026-04-01', 1_250),
+    ];
+
+    const { result } = renderHook(() => useMonthlySavingsPosition('2026-03', []));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.yearToDate).toMatchObject({
+      savingsCapacity: null,
+      unavailableMonths: ['2026-01', '2026-02'],
+    });
+  });
+
+  it('n’expose pas de cumul pendant le chargement', () => {
+    firestore.history = [];
+    const { result } = renderHook(() => useMonthlySavingsPosition('2026-03', []));
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.yearToDate).toBeNull();
   });
 });

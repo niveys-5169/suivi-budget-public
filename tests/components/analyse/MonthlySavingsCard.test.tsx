@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { MonthlySavingsCard } from '../../../public/src/components/analyse/MonthlySavingsCard';
-import type { MonthlySavingsPosition } from '../../../public/src/types/banking.types';
+import type {
+  MonthlySavingsPosition,
+  YearToDateSavings,
+} from '../../../public/src/types/banking.types';
 
 const position = (overrides: Partial<MonthlySavingsPosition> = {}): MonthlySavingsPosition => ({
   month: '2026-09',
@@ -26,6 +29,15 @@ const position = (overrides: Partial<MonthlySavingsPosition> = {}): MonthlySavin
     reconciliationDelta: 0,
   },
   breakdown: { entries: [], accounts: [] },
+  ...overrides,
+});
+
+const yearToDate = (overrides: Partial<YearToDateSavings> = {}): YearToDateSavings => ({
+  fromMonth: '2026-01',
+  toMonth: '2026-09',
+  savingsCapacity: 4_200,
+  netSavings: 2_500,
+  unavailableMonths: [],
   ...overrides,
 });
 
@@ -227,5 +239,48 @@ describe('MonthlySavingsCard', () => {
     expect(
       screen.getByText(/affectée à un autre mois, montant égal à l'écart/),
     ).toBeInTheDocument();
+  });
+
+  it('affiche le cumul depuis janvier sous le montant principal', () => {
+    render(<MonthlySavingsCard position={position()} loading={false} yearToDate={yearToDate()} />);
+
+    const row = screen.getByText('Cumul depuis janvier').parentElement!;
+    expect(row).toHaveTextContent(/4\s?200,00/);
+    expect(screen.getByText(/dont .*2\s?500,00.* épargnés/)).toBeInTheDocument();
+  });
+
+  it('masque le cumul en janvier, où il égale le mois affiché', () => {
+    render(
+      <MonthlySavingsCard
+        position={position({ month: '2026-01' })}
+        loading={false}
+        yearToDate={yearToDate({ toMonth: '2026-01' })}
+      />,
+    );
+
+    expect(screen.queryByText('Cumul depuis janvier')).not.toBeInTheDocument();
+  });
+
+  it('liste les mois sans soldes quand le cumul est indisponible', () => {
+    render(
+      <MonthlySavingsCard
+        position={position()}
+        loading={false}
+        yearToDate={yearToDate({
+          savingsCapacity: null,
+          unavailableMonths: ['2026-02', '2026-03'],
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Cumul depuis janvier')).toBeInTheDocument();
+    expect(screen.getByText('Soldes manquants : 2026-02, 2026-03')).toBeInTheDocument();
+    expect(screen.queryByText(/épargnés/)).not.toBeInTheDocument();
+  });
+
+  it('n’affiche pas de cumul sans données', () => {
+    render(<MonthlySavingsCard position={position()} loading={false} yearToDate={null} />);
+
+    expect(screen.queryByText('Cumul depuis janvier')).not.toBeInTheDocument();
   });
 });

@@ -278,6 +278,18 @@ export interface MonthlySavingsPosition {
   breakdown: MonthlySavingsBreakdown;
 }
 
+/** Cumul de la capacité d'épargne de janvier jusqu'au mois affiché (inclus). */
+export interface YearToDateSavings {
+  /** Premier mois cumulé (`YYYY-01`). */
+  fromMonth: string;
+  /** Mois affiché (`YYYY-MM`). */
+  toMonth: string;
+  /** `null` si au moins un mois de la période est indisponible. */
+  savingsCapacity: number | null;
+  netSavings: number;
+  unavailableMonths: string[];
+}
+
 export type AccountStatus =
   | 'reconciled'
   | 'pending_review'

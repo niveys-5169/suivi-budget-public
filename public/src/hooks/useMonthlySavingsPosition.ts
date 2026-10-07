@@ -3,13 +3,17 @@ import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useGlobalData } from '../context/GlobalDataContext';
 import { mapFirestoreBalance } from '../utils/balanceMapping';
-import { calculateMonthlySavingsPosition } from '../utils/monthlySavings';
+import {
+  calculateMonthlySavingsPosition,
+  summarizeYearToDateSavings,
+} from '../utils/monthlySavings';
 import type {
   AccountBalance,
   MonthlySavingsAccount,
   MonthlySavingsPosition,
   SavingsBalance,
   Transaction,
+  YearToDateSavings,
 } from '../types/banking.types';
 
 interface OperatingHistoryEntry {
@@ -142,20 +146,35 @@ const currentMonthKey = (): string => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 };
 
+/** Mois `YYYY-01` … `month` (inclus), dans l'ordre chronologique. */
+const monthsFromJanuary = (month: string): string[] => {
+  const last = Number(month.slice(5, 7));
+  return Array.from(
+    { length: last },
+    (_, index) => `${month.slice(0, 4)}-${String(index + 1).padStart(2, '0')}`,
+  );
+};
+
 export function useMonthlySavingsPosition(
   month: string,
   transactions: Transaction[],
-): { position: MonthlySavingsPosition | null; loading: boolean; error: Error | null } {
+): {
+  position: MonthlySavingsPosition | null;
+  yearToDate: YearToDateSavings | null;
+  loading: boolean;
+  error: Error | null;
+} {
   const { accountBalances = [], loading: globalLoading = false } = useGlobalData();
   const [history, setHistory] = useState<OperatingHistoryEntry[]>([]);
   const [savingsBalances, setSavingsBalances] = useState<SavingsBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const isCompleteMonth = month < currentMonthKey();
 
   useEffect(() => {
-    const { historyStartDate, openingDate, closingDate } = getMonthlySavingsBounds(month);
+    const { openingDate, closingDate } = getMonthlySavingsBounds(month);
     if (!openingDate || globalLoading) return;
+    // Un seul chargement couvre toute l'année pour permettre le cumul depuis janvier.
+    const { historyStartDate } = getMonthlySavingsBounds(`${month.slice(0, 4)}-01`);
     let cancelled = false;
 
     const load = async () => {
@@ -210,31 +229,29 @@ export function useMonthlySavingsPosition(
     };
   }, [globalLoading, month]);
 
-  const position = useMemo(() => {
-    if (loading || globalLoading) return null;
-    const accounts = buildMonthlySavingsAccounts({
-      month,
-      isCompleteMonth,
-      liveOperatingBalances: accountBalances,
-      savingsBalances,
-      history,
+  const { position, yearToDate } = useMemo(() => {
+    if (loading || globalLoading) return { position: null, yearToDate: null };
+    const currentMonth = currentMonthKey();
+    const positions = monthsFromJanuary(month).map((monthKey) => {
+      const isCompleteMonth = monthKey < currentMonth;
+      return calculateMonthlySavingsPosition({
+        month: monthKey,
+        accounts: buildMonthlySavingsAccounts({
+          month: monthKey,
+          isCompleteMonth,
+          liveOperatingBalances: accountBalances,
+          savingsBalances,
+          history,
+        }),
+        transactions,
+        isCompleteMonth,
+      });
     });
-    return calculateMonthlySavingsPosition({
-      month,
-      accounts,
-      transactions,
-      isCompleteMonth,
-    });
-  }, [
-    accountBalances,
-    globalLoading,
-    history,
-    isCompleteMonth,
-    loading,
-    month,
-    savingsBalances,
-    transactions,
-  ]);
+    return {
+      position: positions[positions.length - 1] ?? null,
+      yearToDate: summarizeYearToDateSavings(positions),
+    };
+  }, [accountBalances, globalLoading, history, loading, month, savingsBalances, transactions]);
 
-  return { position, loading: loading || globalLoading, error };
+  return { position, yearToDate, loading: loading || globalLoading, error };
 }

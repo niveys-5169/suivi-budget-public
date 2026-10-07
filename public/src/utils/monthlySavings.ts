@@ -16,6 +16,7 @@ import type {
   MonthlySavingsStatus,
   Transaction,
   TransferKind,
+  YearToDateSavings,
 } from '../types/banking.types';
 
 const CURRENCY_TOLERANCE = 0.01;
@@ -313,5 +314,25 @@ export function calculateMonthlySavingsPosition(
       entries: entries.sort((a, b) => a.date.localeCompare(b.date)),
       accounts: accountReconciliations,
     },
+  };
+}
+
+/**
+ * Cumule les positions mensuelles (ordonnées de janvier au mois affiché).
+ * La capacité cumulée est `null` dès qu'un mois est indisponible : aucune fausse précision.
+ */
+export function summarizeYearToDateSavings(positions: MonthlySavingsPosition[]): YearToDateSavings {
+  const unavailableMonths = positions
+    .filter((position) => position.dataQuality.calculationStatus === 'UNAVAILABLE')
+    .map((position) => position.month);
+  return {
+    fromMonth: positions[0]?.month ?? '',
+    toMonth: positions[positions.length - 1]?.month ?? '',
+    savingsCapacity:
+      unavailableMonths.length > 0
+        ? null
+        : roundCurrency(positions.reduce((sum, position) => sum + position.savingsCapacity!, 0)),
+    netSavings: roundCurrency(positions.reduce((sum, position) => sum + position.netSavings, 0)),
+    unavailableMonths,
   };
 }

@@ -6,7 +6,7 @@ import * as useTransactionsModule from '../../../public/src/hooks/useTransaction
 import * as globalDataModule from '../../../public/src/context/GlobalDataContext';
 
 const monthlySavingsSpy = vi.hoisted(() =>
-  vi.fn(() => ({ position: null, loading: true, error: null })),
+  vi.fn(() => ({ position: null, yearToDate: null, loading: true, error: null })),
 );
 
 // Mock dependencies
