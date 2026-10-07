@@ -309,6 +309,7 @@ export const AnalyseSection: React.FC = () => {
           <div className="space-y-4">
             <MonthlySavingsCard
               position={monthlySavings.position}
+              yearToDate={monthlySavings.yearToDate}
               loading={monthlySavings.loading}
               error={monthlySavings.error}
             />

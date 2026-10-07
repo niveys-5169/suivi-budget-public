@@ -5,7 +5,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 const monthlySavingsSpy = vi.hoisted(() =>
-  vi.fn(() => ({ position: null, loading: true, error: null })),
+  vi.fn(() => ({ position: null, yearToDate: null, loading: true, error: null })),
 );
 
 // Mock hooks

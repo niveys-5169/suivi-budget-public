@@ -40,7 +40,10 @@ vi.mock('react-intl', async (importOriginal) => {
   return {
     ...actual,
     useIntl: () => ({
-      formatMessage: ({ id }: { id: string }) => (frMessages as Record<string, string>)[id] ?? id,
+      formatMessage: ({ id }: { id: string }, values?: Record<string, unknown>) =>
+        ((frMessages as Record<string, string>)[id] ?? id).replace(/\{(\w+)\}/g, (match, key) =>
+          values && key in values ? String(values[key]) : match,
+        ),
       formatNumber: (v: number) => String(v),
       formatDate: (v: Date | string | number) => String(v),
       locale: 'fr',

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMonthlySavingsPosition } from '../../public/src/utils/monthlySavings';
-import type { MonthlySavingsInput, Transaction } from '../../public/src/types/banking.types';
+import {
+  calculateMonthlySavingsPosition,
+  summarizeYearToDateSavings,
+} from '../../public/src/utils/monthlySavings';
+import type {
+  MonthlySavingsInput,
+  MonthlySavingsPosition,
+  Transaction,
+} from '../../public/src/types/banking.types';
 
 const transaction = (overrides: Partial<Transaction>): Transaction => ({
   id: 'tx',
@@ -498,5 +505,58 @@ describe('calculateMonthlySavingsPosition', () => {
   it('conserve le caractère provisoire du mois courant', () => {
     const result = calculateMonthlySavingsPosition(input({ isCompleteMonth: false }));
     expect(result.isCompleteMonth).toBe(false);
+  });
+});
+
+describe('summarizeYearToDateSavings', () => {
+  const monthPosition = (
+    month: string,
+    savingsCapacity: number | null,
+    netSavings: number,
+  ): MonthlySavingsPosition => {
+    const base = calculateMonthlySavingsPosition(input({ month, transactions: [] }));
+    return {
+      ...base,
+      savingsCapacity,
+      netSavings,
+      dataQuality: {
+        ...base.dataQuality,
+        calculationStatus: savingsCapacity === null ? 'UNAVAILABLE' : 'COMPLETE',
+      },
+    };
+  };
+
+  it('cumule la capacité et l’épargne nette de janvier au mois affiché', () => {
+    const result = summarizeYearToDateSavings([
+      monthPosition('2026-01', 100.1, 50),
+      monthPosition('2026-02', -20.2, 0),
+      monthPosition('2026-03', 300.15, 120.05),
+    ]);
+
+    expect(result).toEqual({
+      fromMonth: '2026-01',
+      toMonth: '2026-03',
+      savingsCapacity: 380.05,
+      netSavings: 170.05,
+      unavailableMonths: [],
+    });
+  });
+
+  it('rend la capacité nulle et liste les mois indisponibles', () => {
+    const result = summarizeYearToDateSavings([
+      monthPosition('2026-01', 100, 50),
+      monthPosition('2026-02', null, 0),
+      monthPosition('2026-03', 300, 120),
+    ]);
+
+    expect(result.savingsCapacity).toBeNull();
+    expect(result.unavailableMonths).toEqual(['2026-02']);
+    expect(result.netSavings).toBe(170);
+  });
+
+  it('couvre un seul mois quand on affiche janvier', () => {
+    const result = summarizeYearToDateSavings([monthPosition('2026-01', 80, 30)]);
+
+    expect(result).toMatchObject({ fromMonth: '2026-01', toMonth: '2026-01', savingsCapacity: 80 });
   });
 });

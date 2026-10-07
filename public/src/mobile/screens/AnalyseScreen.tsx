@@ -183,6 +183,7 @@ export const AnalyseScreen: React.FC = () => {
       <div className="px-4">
         <MonthlySavingsCard
           position={monthlySavings.position}
+          yearToDate={monthlySavings.yearToDate}
           loading={monthlySavings.loading}
           error={monthlySavings.error}
         />

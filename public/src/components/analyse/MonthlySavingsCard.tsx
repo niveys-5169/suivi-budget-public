@@ -7,10 +7,13 @@ import type {
   MonthlySavingsEntry,
   MonthlySavingsEntryKind,
   MonthlySavingsPosition,
+  YearToDateSavings,
 } from '../../types/banking.types';
+import { formatCurrency } from '../../lib/formatters';
 
 interface Props {
   position: MonthlySavingsPosition | null;
+  yearToDate?: YearToDateSavings | null;
   loading: boolean;
   error?: Error | null;
 }
@@ -226,7 +229,36 @@ const SavingsFormulaTooltip: React.FC = () => {
   );
 };
 
-export const MonthlySavingsCard: React.FC<Props> = ({ position, loading, error = null }) => {
+const YearToDateSummary: React.FC<{ yearToDate: YearToDateSavings }> = ({ yearToDate }) => {
+  const { formatMessage: t } = useIntl();
+  return (
+    <Stack gap="sm">
+      <MetricRow
+        label={t({ id: 'monthlySavings.ytd.label' })}
+        value={yearToDate.savingsCapacity}
+        signed
+      />
+      <Text variant="caption" tone="tertiary">
+        {yearToDate.savingsCapacity === null
+          ? t(
+              { id: 'monthlySavings.ytd.unavailable' },
+              { months: yearToDate.unavailableMonths.join(', ') },
+            )
+          : t(
+              { id: 'monthlySavings.ytd.netSavings' },
+              { amount: formatCurrency(yearToDate.netSavings, 'EUR') },
+            )}
+      </Text>
+    </Stack>
+  );
+};
+
+export const MonthlySavingsCard: React.FC<Props> = ({
+  position,
+  yearToDate = null,
+  loading,
+  error = null,
+}) => {
   const { formatMessage: t } = useIntl();
 
   if (loading) {
@@ -325,6 +357,9 @@ export const MonthlySavingsCard: React.FC<Props> = ({ position, loading, error =
           <Text variant="callout" tone="secondary">
             {t({ id: statusMessageId(position.status) })}
           </Text>
+          {yearToDate && yearToDate.fromMonth !== yearToDate.toMonth ? (
+            <YearToDateSummary yearToDate={yearToDate} />
+          ) : null}
         </Stack>
 
         <Separator />
