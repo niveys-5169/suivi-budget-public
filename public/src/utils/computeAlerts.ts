@@ -1,5 +1,10 @@
 import type { Alert, Recurrence, Transaction } from '../types/banking.types';
-import { getPeriodKey, computePeriodState, getApprovedTxIds } from './recurrenceEngine';
+import {
+  getPeriodKey,
+  computePeriodState,
+  getApprovedTxIds,
+  getAmountForPeriod,
+} from './recurrenceEngine';
 
 interface TxLike {
   id?: string;
@@ -93,7 +98,7 @@ export function computeAlerts({
       // Une hausse n'est signalée que sur un rattachement automatique (pas une
       // approbation manuelle, où l'utilisateur a déjà vu et validé le montant).
       const paidAmount = Math.abs(result.effectiveAmount);
-      const expected = Math.abs(r.expectedAmount);
+      const expected = Math.abs(getAmountForPeriod(r, periodKey));
       if (expected > 0 && paidAmount > expected * 1.1) {
         alerts.push({
           id: `recurring-price-${r.id}`,

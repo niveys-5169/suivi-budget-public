@@ -28,6 +28,12 @@ import {
 import { MonthNavigator } from '../../shared/MonthNavigator';
 import { Recurrence, Transaction } from '../../../types/banking.types';
 import { RecurrenceEditModal } from './RecurrenceEditModal';
+import { RecurrenceReadjustModal } from './RecurrenceReadjustModal';
+import { useBudget } from '../../../hooks/useBudget';
+import { updateBudget } from '../../../api/budgets';
+import { budgetDocKey } from '../../../utils/budgetKey';
+import { computeBudgetAdjustment } from '../../../utils/recurrenceBudget';
+import { toast } from '../../../lib/toast';
 import { LinkRecurrenceModal } from '../../shared/LinkRecurrenceModal';
 
 import { IconButton } from '../../../ui';
@@ -58,10 +64,13 @@ export const AurumRecurringPage: React.FC<{ onBack: () => void }> = ({ onBack })
     skip,
     unskip,
     edit,
+    readjust,
     remove,
     setActive,
   } = useRecurrences(monthKey);
+  const { baseBudgets } = useBudget();
   const [editingRecurrence, setEditingRecurrence] = useState<Recurrence | null>(null);
+  const [readjustingRecurrence, setReadjustingRecurrence] = useState<Recurrence | null>(null);
   const [linkingRecurrence, setLinkingRecurrence] = useState<Recurrence | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -106,6 +115,30 @@ export const AurumRecurringPage: React.FC<{ onBack: () => void }> = ({ onBack })
     const rec = linkingRecurrence;
     setLinkingRecurrence(null);
     await link(rec, tx).catch(() => {});
+  };
+
+  const handleReadjust = async (
+    rec: Recurrence,
+    fromPeriod: string,
+    newAmount: number,
+    adjustBudget: boolean,
+  ) => {
+    await readjust(rec, fromPeriod, newAmount);
+    if (!adjustBudget) return;
+    const adjustment = computeBudgetAdjustment(
+      baseBudgets,
+      rec.category,
+      Math.abs(rec.expectedAmount),
+      newAmount,
+    );
+    if (!adjustment) return;
+    try {
+      const { budget, montant } = adjustment;
+      await updateBudget(budget.id || budgetDocKey(budget.categorie), { montant });
+    } catch (err) {
+      console.error('Erreur lors de l’ajustement du budget', err);
+      toast.error('Récurrence réajustée, mais le budget n’a pas pu être mis à jour');
+    }
   };
 
   const handleDelete = async (id: string, label: string): Promise<boolean> => {
@@ -354,6 +387,18 @@ export const AurumRecurringPage: React.FC<{ onBack: () => void }> = ({ onBack })
           const { id, label } = editingRecurrence;
           if (await handleDelete(id, label)) setEditingRecurrence(null);
         }}
+        onReadjust={() => {
+          setReadjustingRecurrence(editingRecurrence);
+          setEditingRecurrence(null);
+        }}
+      />
+
+      <RecurrenceReadjustModal
+        recurrence={readjustingRecurrence}
+        defaultMonth={monthKey}
+        budgets={baseBudgets}
+        onClose={() => setReadjustingRecurrence(null)}
+        onConfirm={handleReadjust}
       />
 
       <LinkRecurrenceModal

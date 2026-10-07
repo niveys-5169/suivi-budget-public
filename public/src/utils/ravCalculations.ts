@@ -60,7 +60,7 @@ export function getRecurringProvisions(
     // pointée est déjà comptée dans totalExpenses, la provisionner en plus
     // reviendrait à la compter deux fois.
     if (isSettled(state.state) || state.state === 'skipped') return sum;
-    return sum + r.expectedAmount;
+    return sum + state.effectiveAmount;
   }, 0);
 }
 

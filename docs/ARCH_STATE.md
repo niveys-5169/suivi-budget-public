@@ -229,6 +229,26 @@ entrée. **Décommissionné** : l'onglet Analyse › Récurrences (desktop —
 `AnalyseRecurrencesPanel.tsx`, `drilldowns/RecurringDrillDown.tsx`) et le mode
 « Récurrences » de l'écran Analyse mobile (`MSegmentedControl`).
 
+## 📈 Récurrences : réajustement de montant (octobre 2026)
+
+Une hausse (assurance…) ne doit pas réécrire les mois passés. `Recurrence`
+gagne `amountHistory` : paliers antérieurs `{ until: 'YYYY-MM', amount }` (montant
+valable avant `until`), `expectedAmount` restant le montant **courant** — les
+consommateurs « mois courant » n'ont donc pas bougé.
+
+- **Moteur** — `recurrenceEngine.getAmountForPeriod` / `applyAmountChange` (pur).
+  `computePeriodState` matche et affiche au montant **de la période** ; RAV
+  (`getRecurringProvisions`), alertes, prévisionnel (échéances groupées par
+  montant) et totaux de `/recurring` suivent.
+- **UI** — bouton « Réajuster à partir d'un mois » dans `RecurrenceEditModal`
+  → `RecurrenceReadjustModal` (nouveau montant, mois d'effet, case « ajuster aussi
+  le budget »). `/recurring` sert desktop et PWA : parité assurée.
+- **Budget** — `utils/recurrenceBudget.computeBudgetAdjustment` : budget de
+  dépense de la même catégorie, écart appliqué (×12 pour un budget annuel).
+  Écriture faite par la page, échec isolé de celui de la récurrence.
+- Hors périmètre : revenus récurrents (`useExpenseBudget`, `WealthPage`) lisent
+  toujours `expectedAmount`.
+
 ## 🏠 Immobilier : estimation automatique (octobre 2026)
 
 Un bien est un document `placements` de `type: 'immobilier'` : l'historisation

@@ -74,6 +74,46 @@ function dateToISO(d: Date): string {
   return isoDateString(d.getFullYear(), d.getMonth() + 1, d.getDate());
 }
 
+/**
+ * Montant attendu (signé) d'une récurrence pour une période : un réajustement
+ * ne réécrit pas le passé, les mois antérieurs gardent leur ancien montant.
+ */
+export function getAmountForPeriod(rec: Recurrence, periodKey: string): number {
+  const segment = rec.amountHistory?.find((s) => periodKey < s.until);
+  return segment ? segment.amount : rec.expectedAmount;
+}
+
+/**
+ * Réajuste le montant à partir de `fromPeriod` (YYYY-MM) : renvoie le nouveau
+ * `expectedAmount` et l'historique mis à jour. Les mois avant `fromPeriod`
+ * conservent leur montant ; les paliers postérieurs sont remplacés (le nouveau
+ * montant vaut « à partir de ce mois »).
+ */
+export function applyAmountChange(
+  rec: Pick<Recurrence, 'expectedAmount' | 'amountHistory'>,
+  fromPeriod: string,
+  newAmount: number,
+): Required<Pick<Recurrence, 'expectedAmount' | 'amountHistory'>> {
+  const history: NonNullable<Recurrence['amountHistory']> = [];
+  let closed = false;
+  for (const segment of rec.amountHistory ?? []) {
+    if (segment.until <= fromPeriod) {
+      history.push(segment);
+      continue;
+    }
+    if (history[history.length - 1]?.until !== fromPeriod) {
+      history.push({ until: fromPeriod, amount: segment.amount });
+    }
+    closed = true;
+    break;
+  }
+  const lastUntil = history[history.length - 1]?.until;
+  if (!closed && lastUntil !== fromPeriod) {
+    history.push({ until: fromPeriod, amount: rec.expectedAmount });
+  }
+  return { expectedAmount: newAmount, amountHistory: history };
+}
+
 /** Clé de période mensuelle (YYYY-MM) pour une date ISO donnée. */
 export function getPeriodKey(dateISO: string): string {
   const d = dateISO.split('T')[0] ?? '';
@@ -319,6 +359,7 @@ export function computePeriodState(
 ): RecurrencePeriodState {
   const expectedDate = getExpectedDate(rec, periodKey);
   const approval = rec.approvedMonths?.[periodKey];
+  const periodAmount = getAmountForPeriod(rec, periodKey);
 
   if (approval) {
     const totalAmount = getApprovalAmount(approval);
@@ -337,16 +378,20 @@ export function computePeriodState(
   if (rec.skippedPeriods?.includes(periodKey)) {
     return {
       state: 'skipped',
-      effectiveAmount: rec.expectedAmount,
+      effectiveAmount: periodAmount,
       occurrenceDate: expectedDate,
       monthOverride: { skipped: true },
     };
   }
 
-  const match = matchTransaction(rec, periodTransactions, excludeTxIds);
+  const match = matchTransaction(
+    periodAmount === rec.expectedAmount ? rec : { ...rec, expectedAmount: periodAmount },
+    periodTransactions,
+    excludeTxIds,
+  );
   if (match) {
     const date = (match.tx.date || expectedDate).split('T')[0] ?? expectedDate;
-    const amount = match.tx.montant ?? rec.expectedAmount;
+    const amount = match.tx.montant ?? periodAmount;
     return {
       state: 'matched',
       effectiveAmount: amount,
@@ -364,7 +409,7 @@ export function computePeriodState(
 
   return {
     state: daysUntil < 0 ? 'overdue' : 'expected',
-    effectiveAmount: rec.expectedAmount,
+    effectiveAmount: periodAmount,
     occurrenceDate: expectedDate,
   };
 }

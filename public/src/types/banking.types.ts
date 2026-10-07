@@ -439,11 +439,20 @@ export interface RecurrenceApproval {
   entries?: RecurrenceApprovalEntry[];
 }
 
+/** Montant antérieur d'une récurrence : s'applique aux périodes strictement avant `until`. */
+export interface RecurrenceAmountSegment {
+  until: string; // "YYYY-MM", exclu
+  amount: number; // signé
+}
+
 export interface Recurrence {
   id: string;
   label: string;
   category: string;
+  /** Montant courant (périodes ≥ dernier `until`). Pour une période donnée, utiliser `getAmountForPeriod()`. */
   expectedAmount: number; // stocké signé, comparé en abs()
+  /** Paliers antérieurs triés par `until` croissant, créés par un réajustement. */
+  amountHistory?: RecurrenceAmountSegment[];
   /** Legacy (documents créés avant anchorDate) — utiliser `getDayOfMonth()`. */
   dayOfMonth?: number;
   createdAt: Timestamp; // serverTimestamp() au niveau racine

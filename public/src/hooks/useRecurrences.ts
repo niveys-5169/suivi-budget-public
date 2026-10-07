@@ -4,7 +4,9 @@ import { useTransactions } from './useTransactions';
 import { AppStateContext } from '../context/AppStateContext';
 import { toast } from '../lib/toast';
 import {
+  applyAmountChange,
   computePeriodState,
+  getAmountForPeriod,
   getApprovalAmount,
   getApprovalEntries,
   getApprovedTxIds,
@@ -162,12 +164,13 @@ export function useRecurrences(monthKeyOverride?: string) {
       const result = resolved.get(r.id);
       if (!result) return [];
       const approval = r.approvedMonths?.[periodKey];
+      const periodAmount = getAmountForPeriod(r, periodKey);
       const displayAmount =
         result.state === 'approved' && approval
-          ? getApprovalAmount(approval) || r.expectedAmount
+          ? getApprovalAmount(approval) || periodAmount
           : result.state === 'matched'
-            ? (result.match?.tx.montant ?? r.expectedAmount)
-            : r.expectedAmount;
+            ? (result.match?.tx.montant ?? periodAmount)
+            : periodAmount;
 
       return [
         {
@@ -211,11 +214,11 @@ export function useRecurrences(monthKeyOverride?: string) {
         (r) => r.displayAmount,
       ),
       /** Engagement mensuel total : somme des montants attendus sortants. */
-      commitment: sumAbs(expenses, (r) => r.expectedAmount),
+      commitment: sumAbs(expenses, (r) => getAmountForPeriod(r, periodKey)),
       /** Reste à payer : ni réglé, ni ignoré. */
       remaining: sumAbs(
         expenses.filter((r) => !isSettled(r.state) && r.state !== 'skipped'),
-        (r) => r.expectedAmount,
+        (r) => getAmountForPeriod(r, periodKey),
       ),
       /** Revenus récurrents déjà encaissés ce mois. */
       incomeReceived: sumAbs(
@@ -223,7 +226,7 @@ export function useRecurrences(monthKeyOverride?: string) {
         (r) => r.displayAmount,
       ),
     };
-  }, [byState, expenses, incomes]);
+  }, [byState, expenses, incomes, periodKey]);
 
   /**
    * Badges des listes de transactions : tx liée (toutes périodes, pour que le
@@ -367,6 +370,22 @@ export function useRecurrences(monthKeyOverride?: string) {
     [run],
   );
 
+  /**
+   * Réajuste le montant à partir d'un mois (ex. hausse d'assurance). Les mois
+   * antérieurs gardent leur montant. `newAmount` est en valeur absolue : le
+   * signe de la récurrence est conservé.
+   */
+  const readjust = useCallback(
+    (rec: Recurrence, fromPeriod: string, newAmount: number) => {
+      const signed = rec.expectedAmount < 0 ? -Math.abs(newAmount) : Math.abs(newAmount);
+      return run(
+        () => updateRecurrence(rec.id, applyAmountChange(rec, fromPeriod, signed)),
+        'Erreur lors du réajustement de la récurrence',
+      );
+    },
+    [run],
+  );
+
   const remove = useCallback(
     (id: string) => run(() => removeRecurrence(id), 'Erreur lors de la suppression'),
     [run],
@@ -407,6 +426,7 @@ export function useRecurrences(monthKeyOverride?: string) {
     skip,
     unskip,
     edit,
+    readjust,
     remove,
     setActive,
   };

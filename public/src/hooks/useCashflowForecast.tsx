@@ -1,7 +1,11 @@
 import { useMemo } from 'react';
 import { useBalances } from './useBalances';
 import { useGlobalData } from '../context/GlobalDataContext';
-import { getUpcomingOccurrences, getDayOfMonth } from '../utils/recurrenceEngine';
+import {
+  getAmountForPeriod,
+  getUpcomingOccurrences,
+  getDayOfMonth,
+} from '../utils/recurrenceEngine';
 import { computeCashflowForecast, type CashflowForecast } from '../utils/computeCashflowForecast';
 import type { Recurrence } from '../types/banking.types';
 
@@ -32,14 +36,23 @@ function mapActiveRecurrences(
     (r) => r.active && (sign === 'income' ? r.expectedAmount > 0 : r.expectedAmount < 0),
   );
 
-  const mapped = filtered.map((r) => ({
-    key: r.id,
-    label: r.label,
-    category: r.category,
-    amount: Math.abs(r.expectedAmount),
-    dayOfMonth: getDayOfMonth(r),
-    occurrenceDates: getUpcomingOccurrences(r, startDate, horizonDays).map((o) => o.date),
-  }));
+  // Un réajustement peut tomber au milieu de l'horizon : les échéances sont
+  // regroupées par montant de leur période (une entrée par montant distinct).
+  const mapped = filtered.flatMap((r) => {
+    const byAmount = new Map<number, string[]>();
+    for (const o of getUpcomingOccurrences(r, startDate, horizonDays)) {
+      const amount = Math.abs(getAmountForPeriod(r, o.periodKey));
+      byAmount.set(amount, [...(byAmount.get(amount) ?? []), o.date]);
+    }
+    return Array.from(byAmount, ([amount, occurrenceDates]) => ({
+      key: r.id,
+      label: r.label,
+      category: r.category,
+      amount,
+      dayOfMonth: getDayOfMonth(r),
+      occurrenceDates,
+    }));
+  });
 
   const deduped = new Map<string, MappedRecurrence>();
   for (const r of mapped) {
