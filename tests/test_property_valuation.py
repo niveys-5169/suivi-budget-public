@@ -2,6 +2,8 @@
 
 Aucune requête réseau réelle : `requests.get` et `_get_db` sont remplacés.
 """
+import csv
+import io
 import json
 from datetime import date
 from pathlib import Path
@@ -42,10 +44,11 @@ class FakeResponse:
 class Reseau:
     """Routeur d'URL pour `requests.get` : chaque source a sa réponse (ou sa panne)."""
 
-    def __init__(self, cerema=None, ign=None, insee=None):
+    def __init__(self, cerema=None, ign=None, insee=None, dvf=None):
         self.cerema = cerema or (lambda params: FakeResponse(payload=CEREMA))
         self.ign = ign or (lambda params: FakeResponse(payload=IGN))
         self.insee = insee or (lambda params: FakeResponse(text=INSEE_XML))
+        self.dvf = dvf or (lambda url: FakeResponse(status_code=503))
         self.appels = []
 
     def __call__(self, url, params=None, timeout=None):
@@ -54,6 +57,8 @@ class Reseau:
             return self.ign(params)
         if url.startswith(pv.CEREMA_URL):
             return self.cerema(params)
+        if url.startswith(pv.DVF_URL):
+            return self.dvf(url)
         if "api.insee.fr" in url:
             return self.insee(params)
         raise AssertionError(f"URL inattendue : {url}")
@@ -72,6 +77,20 @@ def reseau(monkeypatch):
 
 def _panne(params):
     return FakeResponse(status_code=503, text="Service Unavailable")
+
+
+def _csv_dvf(prix_m2, nb=20, surface=100):
+    """CSV DVF géolocalisé : `nb` ventes de maisons à `prix_m2` €/m²."""
+    champs = ["id_mutation", "nature_mutation", "valeur_fonciere", "type_local",
+              "surface_reelle_bati", "nombre_pieces_principales"]
+    sortie = io.StringIO()
+    ecrivain = csv.DictWriter(sortie, fieldnames=champs)
+    ecrivain.writeheader()
+    for i in range(nb):
+        ecrivain.writerow({"id_mutation": f"m{i}", "nature_mutation": "Vente",
+                           "valeur_fonciere": prix_m2 * surface, "type_local": "Maison",
+                           "surface_reelle_bati": surface, "nombre_pieces_principales": 5})
+    return sortie.getvalue()
 
 
 def _maison(**overrides):
@@ -102,6 +121,7 @@ def test_estimation_ok_de_bout_en_bout(reseau):
     estimation, cache = pv.estimer_bien(_maison(), AUJOURD_HUI)
 
     assert estimation["statut"] == "OK"
+    assert estimation["source"] == "cerema"
     assert estimation["date"] == "2026-10-07"
     assert estimation["prixM2"] == 3300
     assert estimation["millesime"] == "2024"
@@ -163,6 +183,61 @@ def test_cerema_503_donne_provider_unavailable(monkeypatch):
     estimation, _ = pv.estimer_bien(_maison(codeInsee="44109"), AUJOURD_HUI)
     assert estimation == {"statut": "PROVIDER_UNAVAILABLE", "date": "2026-10-07"}
     assert len(r.appels_vers(pv.CEREMA_URL)) == pv.HTTP_ATTEMPTS
+
+
+def test_cerema_503_repli_sur_dvf(monkeypatch):
+    def dvf(url):
+        if "/2025/" in url:
+            return FakeResponse(text=_csv_dvf(3000))
+        return FakeResponse(status_code=404)
+
+    r = Reseau(cerema=_panne, dvf=dvf)
+    monkeypatch.setattr(pv.requests, "get", r)
+    monkeypatch.setattr(pv.time, "sleep", lambda s: None)
+    estimation, _ = pv.estimer_bien(_maison(codeInsee="44109"), AUJOURD_HUI)
+    assert estimation["statut"] == "OK"
+    assert estimation["source"] == "dvf"
+    assert estimation["millesime"] == "2025"
+    assert estimation["prixM2"] == 3000
+    assert estimation["echantillon"] == 20
+    assert estimation["echelle"] == "communes"
+    assert [a[0] for a in r.appels_vers(pv.DVF_URL)] == [
+        f"{pv.DVF_URL}/{annee}/communes/44/44109.csv" for annee in (2025, 2024, 2023)
+    ]
+
+
+def test_cerema_et_dvf_en_panne_donnent_provider_unavailable(monkeypatch):
+    r = Reseau(cerema=_panne)
+    monkeypatch.setattr(pv.requests, "get", r)
+    monkeypatch.setattr(pv.time, "sleep", lambda s: None)
+    estimation, _ = pv.estimer_bien(_maison(codeInsee="44109"), AUJOURD_HUI)
+    assert estimation == {"statut": "PROVIDER_UNAVAILABLE", "date": "2026-10-07"}
+
+
+def test_cerema_ok_n_appelle_pas_dvf(reseau):
+    pv.estimer_bien(_maison(codeInsee="44109"), AUJOURD_HUI)
+    assert reseau.appels_vers(pv.DVF_URL) == []
+
+
+def test_dvf_commune_sans_ventes_donne_no_comparable_data(monkeypatch):
+    r = Reseau(cerema=_panne, dvf=lambda url: FakeResponse(status_code=404))
+    monkeypatch.setattr(pv.requests, "get", r)
+    monkeypatch.setattr(pv.time, "sleep", lambda s: None)
+    estimation, _ = pv.estimer_bien(_maison(codeInsee="44109"), AUJOURD_HUI)
+    assert estimation["statut"] == "NO_COMPARABLE_DATA"
+
+
+def test_dvf_arrondissement_essaie_la_commune_parente(monkeypatch):
+    def dvf(url):
+        if "/75056.csv" in url:
+            return FakeResponse(text=_csv_dvf(10000))
+        return FakeResponse(status_code=404)
+
+    r = Reseau(cerema=_panne, dvf=dvf)
+    monkeypatch.setattr(pv.requests, "get", r)
+    monkeypatch.setattr(pv.time, "sleep", lambda s: None)
+    estimation, _ = pv.estimer_bien(_maison(codeInsee="75102"), AUJOURD_HUI)
+    assert estimation["statut"] == "OK" and estimation["source"] == "dvf"
 
 
 def test_erreur_de_transport_donne_provider_unavailable(monkeypatch):

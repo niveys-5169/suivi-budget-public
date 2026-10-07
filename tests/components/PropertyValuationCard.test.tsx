@@ -129,6 +129,30 @@ describe('PropertyValuationCard', () => {
     expect(screen.getByText('Confiance faible')).toBeInTheDocument();
   });
 
+  it('signale le repli sur les ventes DVF', () => {
+    const dvf = { ...okEstimation, source: 'dvf' as const };
+    const { unmount } = render(
+      <PropertyValuationCard placement={placement({ estimation: dvf })} today={TODAY} />,
+    );
+    expect(screen.getByText(/ventes DVF brutes/)).toBeInTheDocument();
+    unmount();
+    render(<PropertyValuationCard placement={placement()} today={TODAY} />);
+    expect(screen.queryByText(/ventes DVF brutes/)).not.toBeInTheDocument();
+  });
+
+  it('indique la source Cerema, et rien pour une estimation sans source (ancienne)', () => {
+    const { unmount } = render(
+      <PropertyValuationCard
+        placement={placement({ estimation: { ...okEstimation, source: 'cerema' } })}
+        today={TODAY}
+      />,
+    );
+    expect(screen.getByText('Source : indicateurs Cerema (DV3F)')).toBeInTheDocument();
+    unmount();
+    render(<PropertyValuationCard placement={placement()} today={TODAY} />);
+    expect(screen.queryByText(/Source :/)).not.toBeInTheDocument();
+  });
+
   it('détaille la construction du chiffre : prix au m², ajustements, multiplicateur, INSEE', () => {
     render(<PropertyValuationCard placement={placement()} today={TODAY} />);
 

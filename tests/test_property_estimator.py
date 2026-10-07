@@ -13,6 +13,7 @@ from property_estimator import (
     construire_resultat,
     cout_achat,
     departement,
+    lignes_depuis_dvf,
     ratio_reindexation,
     zone_supportee,
 )
@@ -324,3 +325,94 @@ def test_cout_achat_somme_les_postes():
     bien = {"prixAchat": 200000, "fraisNotaire": 15000, "fraisAgence": 5000, "travaux": 10000}
     assert cout_achat(bien) == 230000
     assert cout_achat({}) == 0
+
+
+# --- lignes_depuis_dvf --------------------------------------------------------
+
+
+def _mutation(idm, valeur, local, surface, pieces="3", nature="Vente"):
+    """Ligne CSV DVF géolocalisé d'une mutation à un seul local."""
+    return {
+        "id_mutation": idm,
+        "nature_mutation": nature,
+        "valeur_fonciere": str(valeur),
+        "type_local": local,
+        "surface_reelle_bati": str(surface),
+        "nombre_pieces_principales": pieces,
+    }
+
+
+def test_dvf_prix_median_et_quartiles_par_serie():
+    lignes = [
+        _mutation(f"m{i}", 3000 * 100 + i * 10000, "Maison", 100, "5") for i in range(5)
+    ]  # 3000, 3100, 3200, 3300, 3400 €/m²
+    res = lignes_depuis_dvf({"2024": lignes})
+    assert len(res) == 1
+    ligne = res[0]
+    assert ligne["annee"] == "2024"
+    assert ligne["pxm2_median_cod111"] == 3200
+    assert ligne["pxm2_q25_cod111"] == 3100
+    assert ligne["pxm2_q75_cod111"] == 3300
+    assert ligne["nbtrans_cod111"] == 5
+
+
+def test_dvf_appartements_par_nombre_de_pieces_et_global():
+    lignes = [
+        _mutation("a", 200000, "Appartement", 50, "2"),  # 4000
+        _mutation("b", 300000, "Appartement", 50, "3"),  # 6000
+        _mutation("c", 400000, "Appartement", 100, "7"),  # 4000 → série 5
+    ]
+    ligne = lignes_depuis_dvf({"2024": lignes})[0]
+    assert ligne["nbtrans_cod121"] == 3
+    assert ligne["pxm2_median_cod121"] == 4000
+    assert ligne["nbtrans_cod121x2"] == 1 and ligne["pxm2_median_cod121x2"] == 4000
+    assert ligne["pxm2_median_cod121x3"] == 6000
+    assert ligne["nbtrans_cod121x5"] == 1
+    assert "nbtrans_cod121x1" not in ligne
+
+
+def test_dvf_ecarte_ventes_douteuses():
+    lignes = [
+        _mutation("ok", 300000, "Maison", 100),
+        _mutation("echange", 300000, "Maison", 100, nature="Echange"),
+        _mutation("sans_prix", 0, "Maison", 100),
+        _mutation("sans_surface", 300000, "Maison", 0),
+        _mutation("trop_cher", 100000000, "Maison", 100),
+        _mutation("trop_bas", 1000, "Maison", 100),
+        _mutation("dependance", 300000, "Dépendance", 20),
+    ]
+    ligne = lignes_depuis_dvf({"2024": lignes})[0]
+    assert ligne["nbtrans_cod111"] == 1
+
+
+def test_dvf_ecarte_les_mutations_multi_locaux():
+    lignes = [
+        _mutation("lot", 500000, "Appartement", 50),
+        _mutation("lot", 500000, "Maison", 80),
+        _mutation("seul", 300000, "Maison", 100),
+    ]
+    ligne = lignes_depuis_dvf({"2024": lignes})[0]
+    assert ligne["nbtrans_cod111"] == 1
+    assert ligne["nbtrans_cod121"] == 0
+
+
+def test_dvf_une_seule_vente_donne_quartiles_egaux_a_la_mediane():
+    ligne = lignes_depuis_dvf({"2024": [_mutation("x", 300000, "Maison", 100)]})[0]
+    assert ligne["pxm2_q25_cod111"] == ligne["pxm2_median_cod111"] == ligne["pxm2_q75_cod111"] == 3000
+
+
+def test_dvf_annees_triees_et_annee_vide_ignoree():
+    res = lignes_depuis_dvf(
+        {
+            "2024": [_mutation("x", 300000, "Maison", 100)],
+            "2022": [_mutation("y", 250000, "Maison", 100)],
+            "2023": [],
+        }
+    )
+    assert [ligne["annee"] for ligne in res] == ["2022", "2024"]
+
+
+def test_dvf_compatible_avec_construire_resultat():
+    lignes = lignes_depuis_dvf({"2024": [_mutation(f"m{i}", 300000, "Maison", 100) for i in range(20)]})
+    res = construire_resultat(lignes, {"nature": "maison", "surface": 80}, "communes")
+    assert res["prixM2"] == 3000 and res["valeur"] == 240000 and res["echantillon"] == 20

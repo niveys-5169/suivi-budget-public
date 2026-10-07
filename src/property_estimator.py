@@ -14,6 +14,8 @@ seulement des ordres de grandeur bornés (multiplicateur dans [0,75 ; 1,25],
 ajouts limités à 60 m²). Le frontend les affiche tous à l'utilisateur.
 """
 
+import statistics
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -33,6 +35,10 @@ COMMUNES_PARENTES = (
     ("6938", "69123"),  # Lyon
     ("132", "13055"),  # Marseille
 )
+
+# Repli DVF : bornes de prix au m² au-delà desquelles une vente est jugée aberrante.
+DVF_PRIX_M2_MIN = 500.0
+DVF_PRIX_M2_MAX = 30000.0
 
 MULTIPLICATEUR_MIN = 0.75
 MULTIPLICATEUR_MAX = 1.25
@@ -139,6 +145,65 @@ def construire_resultat(lignes: list[dict], bien: dict, echelle: str) -> dict | 
             "echelle": echelle,
         }
     return None
+
+
+def _ventes_dvf(lignes: list[dict]) -> list[tuple[str, float, int]]:
+    """(série de base, prix au m², pièces) des ventes mono-local exploitables d'un millésime DVF."""
+    par_mutation: dict[str, list[dict]] = defaultdict(list)
+    for ligne in lignes:
+        if ligne.get("nature_mutation") == "Vente" and ligne.get("type_local") in (
+            "Maison",
+            "Appartement",
+        ):
+            par_mutation[ligne.get("id_mutation")].append(ligne)
+
+    ventes = []
+    for locaux in par_mutation.values():
+        if len(locaux) != 1:  # plusieurs locaux : le prix ne se répartit pas
+            continue
+        local = locaux[0]
+        valeur, surface = _num(local.get("valeur_fonciere")), _num(local.get("surface_reelle_bati"))
+        if valeur <= 0 or surface <= 0:
+            continue
+        prix_m2 = valeur / surface
+        if not DVF_PRIX_M2_MIN <= prix_m2 <= DVF_PRIX_M2_MAX:
+            continue
+        serie = SERIE_MAISON if local["type_local"] == "Maison" else SERIE_APPARTEMENT
+        ventes.append((serie, prix_m2, int(_num(local.get("nombre_pieces_principales")))))
+    return ventes
+
+
+def lignes_depuis_dvf(lignes_par_annee: dict[str, list[dict]]) -> list[dict]:
+    """Indicateurs au format Cerema recalculés depuis les ventes DVF (repli quand le Cerema est HS).
+
+    `lignes_par_annee` : millésime → lignes du CSV DVF géolocalisé de la commune.
+    Les médianes et quartiles sont recalculés ici, pas les indicateurs officiels :
+    écart possible de quelques pour cent avec le Cerema.
+    """
+    resultat = []
+    for annee in sorted(lignes_par_annee):
+        prix_par_serie: dict[str, list[float]] = defaultdict(list)
+        for serie, prix_m2, pieces in _ventes_dvf(lignes_par_annee[annee]):
+            prix_par_serie[serie].append(prix_m2)
+            if serie == SERIE_APPARTEMENT and pieces >= 1:
+                prix_par_serie[f"{serie}x{min(pieces, 5)}"].append(prix_m2)
+        if not prix_par_serie:
+            continue
+        ligne: dict = {"annee": str(annee)}
+        for serie in (SERIE_MAISON, SERIE_APPARTEMENT, *prix_par_serie):
+            prix = prix_par_serie.get(serie, [])
+            ligne[f"nbtrans_{serie}"] = len(prix)
+            if prix:
+                q25, mediane, q75 = (
+                    statistics.quantiles(prix, n=4, method="inclusive")
+                    if len(prix) > 1
+                    else (prix[0],) * 3
+                )
+                ligne[f"pxm2_median_{serie}"] = mediane
+                ligne[f"pxm2_q25_{serie}"] = q25
+                ligne[f"pxm2_q75_{serie}"] = q75
+        resultat.append(ligne)
+    return resultat
 
 
 @dataclass

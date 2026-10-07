@@ -526,6 +526,8 @@ const fr = {
   'property.card.confidence.haute': 'Confiance élevée',
   'property.card.sales': '{count} ventes en {year}',
   'property.card.scale.departements': 'médiane départementale',
+  'property.card.source.cerema': 'Source : indicateurs Cerema (DV3F)',
+  'property.card.source.dvf': 'Source : ventes DVF brutes (indicateurs Cerema indisponibles)',
   'property.card.updated': 'Mis à jour le {date}',
   'property.card.equity': 'Équité nette',
   'property.card.equity.debt': 'Capital restant dû : {amount}',
