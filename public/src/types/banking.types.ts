@@ -605,6 +605,7 @@ export interface BankBalanceControl {
   firstUnresolvedAt?: FirestoreDateLike;
   enableBalance?: number | null;
   linxoBalance?: number | null;
+  linxoReceivedAt?: FirestoreDateLike;
   movements?: { id: string; libelle: string; montant: number; date: string }[];
 }
 export interface BankReconciliationReport {

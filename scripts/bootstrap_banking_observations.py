@@ -9,6 +9,8 @@ from bank_store import BankStore
 from bank_observations import normalize_enable, normalize_linxo
 from bank_reconciliation import reconcile, instant
 from bank_balances import choose_enable_balance
+from bank_balance_store import linxo_balance_observation
+from bank_observations import digest
 from enable_banking_client import EnableBankingClient
 from firebase_db import _get_db, _transaction_id, _legacy_transaction_id, charger_mapping_categories_linxo, charger_emails_exclus
 
@@ -23,6 +25,21 @@ def attach_existing(store, observations):
         existing += [id for id in ids if store.get('deleted_transactions', id) and id not in existing]
         if len(existing) == 1:
             observation['canonicalId'] = existing[0]
+
+
+def stale_linxo_balances(store, balances):
+    latest = {}
+    for value in balances:
+        if value['compte'] not in latest or instant(value['emailDate']) > instant(latest[value['compte']]['emailDate']):
+            latest[value['compte']] = value
+    stale = 0
+    for account, value in latest.items():
+        stored = store.get('bank_balance_sources', digest(account, 'gmail'))
+        if not stored or instant(stored['receivedAt']) < instant(value['emailDate']):
+            stale += 1
+        elif instant(stored['receivedAt']) == instant(value['emailDate']) and stored['solde'] != float(value['solde']):
+            stale += 1
+    return stale
 
 
 def main():
@@ -59,11 +76,15 @@ def main():
     result = reconcile(eb, lx)
     result.update({'mode': 'apply-links' if args.apply_links else 'preview', 'financialWrites': False,
                    'accounts': sorted({o['compte'] for o in eb}), 'enableCount': len(eb), 'linxoCount': len(lx),
-                   'balances': balances, 'linxoBalances': linxo_balances})
+                   'balances': balances, 'linxoBalances': linxo_balances,
+                   'staleLinxoBalancesBefore': stale_linxo_balances(store, linxo_balances)})
     if args.apply_links:
         from bank_lock import banking_write_lock
         with banking_write_lock(store):
             store.observe_unlocked(eb + lx)
+            # Source evidence only: never replay account balances or transactions.
+            for value in linxo_balances:
+                store.balance_unlocked(linxo_balance_observation(value))
             index = {o['id']: o for o in eb + lx}
             for aid, bid in result['matches']:
                 a, b = index[aid], index[bid]
@@ -78,6 +99,7 @@ def main():
                 if canonical and store.get('transactions', canonical):
                     previous = store.get('transactions', canonical)
                     store.put('transactions', canonical, {'bankObservationIds': list(set(previous.get('bankObservationIds', []) + [aid, bid])), 'linxoStatus': 'matched'})
+    result['staleLinxoBalancesAfter'] = stale_linxo_balances(store, linxo_balances)
     print(json.dumps(result, ensure_ascii=False, default=str, indent=2))
 
 

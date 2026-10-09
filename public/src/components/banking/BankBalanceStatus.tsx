@@ -34,9 +34,17 @@ export const BankBalanceStatus: React.FC<{ balance: AccountBalance }> = ({ balan
       </Text>
       <Text variant="caption" tone="secondary">
         Enable Banking :{' '}
-        {control.enableBalance == null ? '—' : formatCurrency(control.enableBalance)} · Linxo :{' '}
-        {control.linxoBalance == null ? '—' : formatCurrency(control.linxoBalance)}
+        {control.enableBalance == null ? '—' : formatCurrency(control.enableBalance)} · Dernier
+        email Linxo : {control.linxoBalance == null ? '—' : formatCurrency(control.linxoBalance)}
       </Text>
+      {control.linxoBalance != null && (
+        <Text variant="caption" tone="secondary">
+          Linxo · Email reçu le{' '}
+          {bankDateMillis(control.linxoReceivedAt)
+            ? new Date(bankDateMillis(control.linxoReceivedAt)).toLocaleString('fr-FR')
+            : 'date inconnue'}
+        </Text>
+      )}
       {control.reason && (
         <Text variant="caption" tone="secondary">
           {control.reason}

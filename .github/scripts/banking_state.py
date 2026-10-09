@@ -26,7 +26,8 @@ def prepare_links():
             bootstrap_banking_observations.main()
         result = json.loads(output.getvalue())
         print(json.dumps({key: result[key] for key in
-                          ('mode', 'financialWrites', 'enableCount', 'linxoCount')} | {
+                          ('mode', 'financialWrites', 'enableCount', 'linxoCount',
+                           'staleLinxoBalancesBefore', 'staleLinxoBalancesAfter')} | {
             'certainMatches': len(result['matches']), 'suggestions': len(result['suggestions'])}))
     except Exception:
         print('Historical source preparation failed; private diagnostic output suppressed.')

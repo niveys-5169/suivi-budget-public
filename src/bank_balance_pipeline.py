@@ -25,7 +25,8 @@ def update_balances(store, now=None):
         unresolved = review["status"] in ("waiting", "discrepancy")
         review.update({"compte": account, "checkedAt": now, 'monitoringEnabled': bool(linked),
                        "firstUnresolvedAt": (old.get("firstUnresolvedAt") or now) if unresolved else None,
-                       "enableBalance": (eb or {}).get("solde"), "linxoBalance": (lx or {}).get("solde")})
+                       "enableBalance": (eb or {}).get("solde"), "linxoBalance": (lx or {}).get("solde"),
+                       "linxoReceivedAt": (lx or {}).get("receivedAt")})
         store.put("bank_reports", "balance_" + digest(account), review)
         store.put("account_balances", account, {"compte": account, "current_balance": selected["solde"],
             "solde": selected["solde"], "source": selected["source"], "source_timestamp": selected["receivedAt"],

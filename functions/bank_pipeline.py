@@ -100,10 +100,8 @@ def historical_accounts(observations):
 
 def capture_linxo_balance(store, payload):
     """Email reception is evidence, never an inferred banking date."""
-    value = {"compte": payload["compte"], "solde": float(payload["solde"]), "currency": "EUR",
-             "source": "gmail", "balanceType": "unknown", "bankDate": None,
-             "receivedAt": payload["emailDate"], "emailDate": payload["emailDate"]}
-    store.balance(value)
+    from bank_balance_store import linxo_balance_observation
+    store.balance(linxo_balance_observation(payload))
     return payload["compte"] in enabled_accounts(store)
 
 
