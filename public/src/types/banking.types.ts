@@ -89,6 +89,9 @@ export interface BaseBalance {
   date?: string;
   lastUpdated?: Timestamp | null;
   is_savings?: boolean;
+  balanceType?: string;
+  bankDate?: string | null;
+  crossControl?: BankBalanceControl;
 }
 
 export type AccountBalance = BaseBalance;
@@ -154,6 +157,10 @@ export interface Transaction {
   emailDate?: Date;
   /** Opération notifiée « en attente » par Linxo (pas encore comptabilisée). */
   enAttente?: boolean;
+  bankStatus?: 'pending' | 'booked' | 'cancelled';
+  linxoStatus?: 'waiting' | 'matched' | 'overdue' | 'not_applicable';
+  bankObservationIds?: string[];
+  firstBookedAt?: FirestoreDateLike;
   /** Recharge Tronity : compte EDF cible du crédit créé au pointage. */
   edfCompte?: string;
   /** Crédit EDF : id de la recharge Tronity qui l'a généré (au pointage). */
@@ -486,12 +493,14 @@ export interface MonthOverride {
 }
 
 export interface RecurrenceApprovalEntry {
+  bankCancelled?: boolean;
   txId: string;
   amount: number;
   date: string; // ISO YYYY-MM-DD de la tx liée
 }
 
 export interface RecurrenceApproval {
+  bankCancelled?: boolean;
   /** Miroir de entries[0] — conservé pour les documents/clients existants. */
   txId: string;
   amount: number;
@@ -536,6 +545,91 @@ export interface Alert {
   desc: string;
   time: string;
   actionTab?: string;
+  episodeKey?: string;
+}
+
+export interface BankAccountConnection {
+  stableId: string;
+  name: string;
+  currency: string;
+  compte: string;
+  enabled: boolean;
+}
+export interface BankConnection {
+  mode?: 'observation' | 'active' | 'disabled';
+  id: string;
+  bank: string;
+  ownerUid: string;
+  accounts: BankAccountConnection[];
+  status: 'active' | 'reconnect' | 'temporary_error' | 'technical_error';
+  validUntil?: FirestoreDateLike;
+  lastAttemptAt?: FirestoreDateLike;
+  lastSuccessAt?: FirestoreDateLike;
+  createdAt?: FirestoreDateLike;
+  errorSince?: FirestoreDateLike;
+  errorCode?: string | null;
+}
+export interface BankObservationDetails {
+  enableDate?: string;
+  enableReceivedAt?: FirestoreDateLike;
+  linxoDate?: string | null;
+  linxoReceivedAt?: FirestoreDateLike;
+}
+export interface BankSuggestion extends BankObservationDetails {
+  canonicalRows?: Pick<
+    Transaction,
+    | 'id'
+    | 'date'
+    | 'compte'
+    | 'montant'
+    | 'libelle'
+    | 'categorie'
+    | 'commentaire'
+    | 'pointe'
+    | 'moisAffectation'
+  >[];
+  kind?: 'transition';
+  enableObservationId: string;
+  linxoObservationId: string;
+  compte?: string;
+  enableLabel?: string;
+  linxoLabel?: string;
+  montant?: number;
+}
+export interface BankBalanceControl {
+  status: 'concordant' | 'explained' | 'waiting' | 'discrepancy';
+  compte: string;
+  difference?: number | null;
+  reason?: string;
+  provisional?: boolean;
+  firstUnresolvedAt?: FirestoreDateLike;
+  enableBalance?: number | null;
+  linxoBalance?: number | null;
+  movements?: { id: string; libelle: string; montant: number; date: string }[];
+}
+export interface BankReconciliationReport {
+  monitoringEnabled?: boolean;
+  id: string;
+  suggestions?: BankSuggestion[];
+  matches?: BankSuggestion[];
+  waiting?: (BankObservationDetails & {
+    id: string;
+    compte: string;
+    libelle: string;
+    montant: number;
+    bankStatus: Transaction['bankStatus'];
+  })[];
+  missing?: { id: string; compte: string; libelle: string; firstBookedAt?: FirestoreDateLike }[];
+  status?: BankBalanceControl['status'];
+  compte?: string;
+  firstUnresolvedAt?: FirestoreDateLike;
+}
+export interface BankSyncResult {
+  id: string;
+  status: 'running' | 'success' | 'partial' | 'error';
+  imported?: number;
+  sources?: Record<string, string>;
+  errorCode?: string;
 }
 
 export interface DashboardData {

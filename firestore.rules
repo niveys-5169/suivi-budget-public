@@ -2,10 +2,8 @@ rules_version = '2';
 // Règles de production (console Firebase → Firestore → Règles, relevées le
 // 2026-09-23), moins l'accès en lecture du claim `preview`, retiré car aucun
 // compte ne s'en sert et il exposait toute la base (dont la clé API IA de
-// user_settings). À PUBLIER dans la console. Aucun workflow ne déploie ce
-// fichier : il sert de référence versionnée et de cible aux tests émulateur
-// (tests/rules/). Toute modification doit être publiée à la main depuis la
-// console, puis reportée ici (ou l'inverse), pour que les deux restent égaux.
+// user_settings). Référence versionnée vérifiée par les tests émulateur.
+// Le workflow deploy-functions publie aussi ces règles et indexes.
 //
 // Les Cloud Functions et scripts Python passent par l'Admin SDK, qui ignore
 // ces règles : elles ne concernent que le front (SDK client).
@@ -15,12 +13,23 @@ rules_version = '2';
 // collections utilisées par le front et la suppression de transactions.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+    function isOwner() {
+      return request.auth != null && request.auth.token.email == "niveys@gmail.com"
+             && request.auth.token.email_verified == true;
+    }
+    function isBankingCollection(name) {
+      return name in ['eb_sessions', 'eb_pending_auth', 'bank_observations',
+        'bank_balance_sources', 'bank_balance_observations', 'bank_connections',
+        'bank_reports', 'bank_sync_runs', 'bank_locks', 'bank_runtime', 'bank_canonical_aliases', 'bank_merge_history'];
+    }
+    match /bank_connections/{document} { allow read: if isOwner(); }
+    match /bank_reports/{document} { allow read: if isOwner(); }
+    match /bank_sync_runs/{document} { allow read: if isOwner(); }
+    match /bank_runtime/{document} { allow read: if isOwner(); }
+    match /{collection}/{document=**} {
 
       // Propriétaire uniquement : lecture + écriture
-      allow read, write: if request.auth != null
-                         && request.auth.token.email == "niveys@gmail.com"
-                         && request.auth.token.email_verified == true;
+      allow read, write: if !isBankingCollection(collection) && isOwner();
     }
   }
 }

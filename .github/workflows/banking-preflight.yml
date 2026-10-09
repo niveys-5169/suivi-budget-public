@@ -1,0 +1,45 @@
+name: Enable Banking — read-only preflight
+
+on:
+  push:
+    branches: ['codex/eb-preflight-20261009']
+    paths: ['.github/workflows/banking-preflight.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deployment-permissions:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests==2.34.2 google-auth==2.59.1
+      - name: Check deployment permissions without changing IAM or data
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: python .github/scripts/banking_permissions.py
+  preflight:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - name: Install API client dependencies
+        run: python -m pip install requests==2.34.2 cryptography==50.0.2
+      - name: Validate server authentication and French banks without financial writes
+        env:
+          EB_APP_ID: ${{ secrets.EB_APP_ID }}
+          EB_PRIVATE_KEY: ${{ secrets.EB_PRIVATE_KEY }}
+          EB_REDIRECT_URL: ${{ vars.EB_REDIRECT_URL }}
+          EB_APP_URL: ${{ vars.EB_APP_URL }}
+          EB_MODE: ${{ vars.EB_MODE || 'observation' }}
+        run: |
+          python scripts/banking_preflight.py | tee /tmp/eb-preflight.json
+          python -c 'import json; r=json.load(open("/tmp/eb-preflight.json")); assert r.get("applicationEnvironment") == "PRODUCTION", "Enable Banking application must be PRODUCTION"; assert r.get("banksFR"), "No French banks available"'

@@ -18,6 +18,7 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
   const [pullY, setPullY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startYRef = useRef<number | null>(null);
+  const pullYRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const snapFiredRef = useRef(false);
@@ -42,6 +43,7 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
       if (startYRef.current === null || disabled || isRefreshingRef.current) return;
       const dy = (e.touches[0]?.clientY ?? 0) - startYRef.current;
       if (dy <= 0) {
+        pullYRef.current = 0;
         setPullY(0);
         return;
       }
@@ -53,6 +55,7 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
       } else if (nextY < THRESHOLD) {
         snapFiredRef.current = false;
       }
+      pullYRef.current = nextY;
       setPullY(nextY);
     },
     [disabled, snap],
@@ -62,20 +65,23 @@ export const PullToRefreshWrapper: React.FC<PullToRefreshWrapperProps> = ({
     if (startYRef.current === null) return;
     startYRef.current = null;
 
-    setPullY((prev) => {
-      if (prev >= THRESHOLD && !isRefreshingRef.current) {
-        isRefreshingRef.current = true;
-        setIsRefreshing(true);
-        onRefresh().finally(() => {
-          isRefreshingRef.current = false;
-          setIsRefreshing(false);
-          setPullY(0);
-          success();
-        });
-        return THRESHOLD;
-      }
-      return 0;
-    });
+    const ready = pullYRef.current >= THRESHOLD && !isRefreshingRef.current;
+    pullYRef.current = 0;
+    if (!ready) {
+      setPullY(0);
+      return;
+    }
+    isRefreshingRef.current = true;
+    setIsRefreshing(true);
+    setPullY(THRESHOLD);
+    try {
+      await onRefresh();
+      success();
+    } finally {
+      isRefreshingRef.current = false;
+      setIsRefreshing(false);
+      setPullY(0);
+    }
   }, [onRefresh, success]);
 
   const progress = Math.min(pullY / THRESHOLD, 1);

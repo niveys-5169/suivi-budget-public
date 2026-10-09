@@ -86,6 +86,12 @@ const GeneralSection: React.FC = () => {
       </Section>
       <Section title="Application">
         <List>
+          <LinkRow
+            icon={<Link2 size={18} />}
+            title="Connexions bancaires"
+            subtitle="Enable Banking, rapprochement Linxo et alertes"
+            to="/connexions"
+          />
           <ListItem
             leading={
               <Tile>

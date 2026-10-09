@@ -1,4 +1,5 @@
 import React from 'react';
+import { BankBalanceStatus } from './banking/BankBalanceStatus';
 import { AccountBalance } from '../types/balances';
 import { fmt } from '../utils/format';
 import { buildBalanceMismatchFingerprint } from '../utils/balanceMapping';
@@ -149,6 +150,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
       </div>
 
       <div className="flex flex-wrap gap-2 pt-2 border-t border-separator">
+        <BankBalanceStatus balance={r} />
         <button
           className="w-full py-2 rounded-xl bg-gold text-bg text-caption font-semibold hover:bg-gold-light transition-all shadow-lg shadow-gold/10"
           onClick={handleReconciliation}

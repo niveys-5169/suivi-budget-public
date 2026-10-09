@@ -67,6 +67,7 @@ export const MTransactionRow: React.FC<MTransactionRowProps> = ({
         <p className="text-headline font-medium text-white truncate">
           {transaction.libelle || 'Sans libellé'}
         </p>
+        <BankTransactionBadge transaction={transaction} />
         <p className="text-footnote text-label/50 truncate">
           {transaction.categorie || 'Non catégorisé'} • {transaction.compte || 'Inconnu'}
           {transaction.commentaire ? ` • ${transaction.commentaire}` : ''}
@@ -116,3 +117,4 @@ export const MTransactionRow: React.FC<MTransactionRowProps> = ({
 
   return row;
 };
+import { BankTransactionBadge } from '../../components/banking/BankTransactionBadge';

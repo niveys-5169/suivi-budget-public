@@ -5,9 +5,13 @@ import {
   getAmountForPeriod,
   getUpcomingOccurrences,
   getDayOfMonth,
+  isSettled,
 } from '../utils/recurrenceEngine';
 import { computeCashflowForecast, type CashflowForecast } from '../utils/computeCashflowForecast';
 import type { Recurrence } from '../types/banking.types';
+import type { Transaction } from '../types/banking.types';
+import { useTransactionContext } from '../context/TransactionContext';
+import { resolveRecurrencePeriods } from '../utils/resolveRecurrencePeriods';
 
 export type ForecastHorizon = 30 | 60 | 90;
 
@@ -31,6 +35,7 @@ function mapActiveRecurrences(
   sign: 'income' | 'expense',
   startDate: Date,
   horizonDays: number,
+  transactions: Transaction[],
 ): MappedRecurrence[] {
   const filtered = recurrences.filter(
     (r) => r.active && (sign === 'income' ? r.expectedAmount > 0 : r.expectedAmount < 0),
@@ -38,9 +43,24 @@ function mapActiveRecurrences(
 
   // Un réajustement peut tomber au milieu de l'horizon : les échéances sont
   // regroupées par montant de leur période (une entrée par montant distinct).
+  const periods = new Map<string, ReturnType<typeof resolveRecurrencePeriods>>();
   const mapped = filtered.flatMap((r) => {
     const byAmount = new Map<number, string[]>();
     for (const o of getUpcomingOccurrences(r, startDate, horizonDays)) {
+      if (!periods.has(o.periodKey))
+        periods.set(
+          o.periodKey,
+          resolveRecurrencePeriods(
+            recurrences,
+            o.periodKey,
+            transactions.filter(
+              (tx) => (tx.moisAffectation || tx.date).slice(0, 7) === o.periodKey,
+            ),
+            startDate,
+          ),
+        );
+      const state = periods.get(o.periodKey)!.get(r.id)!;
+      if (isSettled(state.state) || state.state === 'skipped') continue;
       const amount = Math.abs(getAmountForPeriod(r, o.periodKey));
       byAmount.set(amount, [...(byAmount.get(amount) ?? []), o.date]);
     }
@@ -73,6 +93,7 @@ export const useCashflowForecast = (
 ): CashflowForecast => {
   const { checkingTotal } = useBalances();
   const { ravConfig, recurrences = [] } = useGlobalData();
+  const { transactions } = useTransactionContext();
 
   return useMemo(() => {
     const startDate = new Date();
@@ -82,6 +103,7 @@ export const useCashflowForecast = (
       'expense',
       startDate,
       horizonDays,
+      transactions,
     ).map((r) => ({
       key: r.key,
       label: r.label,
@@ -90,7 +112,13 @@ export const useCashflowForecast = (
       occurrenceDates: r.occurrenceDates,
     }));
 
-    const recurrencesIncomes = mapActiveRecurrences(recurrences, 'income', startDate, horizonDays);
+    const recurrencesIncomes = mapActiveRecurrences(
+      recurrences,
+      'income',
+      startDate,
+      horizonDays,
+      transactions,
+    );
 
     // Revenus déclarés dans le RAV non déjà couverts par une récurrence
     // (même libellé/catégorie) — évite de compter deux fois le même salaire.
@@ -136,5 +164,5 @@ export const useCashflowForecast = (
       recurringIncomes,
       safetyThreshold,
     });
-  }, [checkingTotal, ravConfig, recurrences, horizonDays, safetyThreshold]);
+  }, [checkingTotal, ravConfig, recurrences, horizonDays, safetyThreshold, transactions]);
 };

@@ -1077,6 +1077,13 @@ def calcul_coherence_solde(
             return empty
 
         latest_balance = latest_balance_doc.to_dict() or {}
+        if latest_balance.get("source") == "enable_banking":
+            from bank_store import BankStore
+            from bank_observations import digest
+            store = BankStore(db)
+            latest_balance = store.get("bank_balance_sources", digest(compte, "gmail")) or {}
+            tx_all = [{**o, "emailDate": o["receivedAt"]} for o in store.all("bank_observations")
+                      if o.get("source") == "gmail"]
         previous_solde = latest_balance.get("solde")
         if previous_solde is None or not isinstance(previous_solde, (int, float)):
             log.debug(f"Solde antérieur invalide pour {compte}.")
@@ -1202,12 +1209,15 @@ def sauvegarder_soldes_comptes(soldes: list, source: str = "gmail") -> int:
         if compte not in email_date_courante:
             email_date_courante[compte] = _email_date_solde_stocke(latest_col, compte)
         courante = email_date_courante[compte]
+        from bank_pipeline import capture_linxo_balance
+        from bank_store import BankStore
+        managed = source == "gmail" and capture_linxo_balance(BankStore(db), payload)
         if courante is not None and ensure_utc(email_date) < courante:
             log.warning(
                 f"Solde {compte} du {email_date:%Y-%m-%d %H:%M} plus ancien que le solde "
                 f"stocké ({courante:%Y-%m-%d %H:%M}) : historique seul."
             )
-        else:
+        elif not managed:
             batch.set(latest_col.document(compte), payload, merge=True)
             email_date_courante[compte] = ensure_utc(email_date)
         batch.set(history_col.document(history_id), payload, merge=True)

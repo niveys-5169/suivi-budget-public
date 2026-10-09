@@ -25,6 +25,11 @@ env/
 ENV/
 # Venv Windows créé par erreur à la racine (ex: `python -m venv .`)
 /Scripts/
+# Versioned maintenance tools share this directory name on Windows.
+!/scripts/
+/scripts/*
+!/scripts/banking_preflight.py
+!/scripts/bootstrap_banking_observations.py
 /Lib/
 /Include/
 /pyvenv.cfg

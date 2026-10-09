@@ -5,6 +5,7 @@ import { MobileShell } from './mobile/MobileShell';
 import { MobileSwipeContainer } from './mobile/MobileSwipeContainer';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { BankingDataProvider } from './hooks/useBankingData';
 
 export const MobileApp: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -31,13 +32,13 @@ export const MobileApp: React.FC = () => {
   if (!user) return null;
 
   return (
-    <>
+    <BankingDataProvider>
       <MobileShell>
         <ErrorBoundary label="Écran">
           <MobileSwipeContainer />
         </ErrorBoundary>
       </MobileShell>
       <Toast />
-    </>
+    </BankingDataProvider>
   );
 };

@@ -1,5 +1,6 @@
 /** Libellés d'affichage des sources d'import de solde/transaction. */
 export const SYNC_SOURCE_LABEL: Record<string, string> = {
+  enable_banking: 'Enable Banking',
   gmail: 'Linxo',
   linxo: 'Linxo',
   manuel: 'Manuel',

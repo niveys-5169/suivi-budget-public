@@ -1,5 +1,10 @@
 /** Messages français — source de vérité pour toutes les chaînes de l'app. */
 const fr = {
+  'sync.success.completed': 'Synchronisation terminée : {count} nouvelle(s) opération(s).',
+  'sync.partial':
+    'Synchronisation partielle. Consultez les connexions bancaires et réessayez les sources en erreur.',
+  'banking.waiting': 'En attente de Linxo',
+  'banking.missing': 'Non retrouvée dans les notifications Linxo',
   // ── Navigation ──────────────────────────────────────────────────────────
   'nav.dashboard': 'Tableau de bord',
   'nav.transactions': 'Transactions',

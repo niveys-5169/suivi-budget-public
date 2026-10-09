@@ -1,6 +1,7 @@
 import { Transaction, Recurrence } from '../types/banking.types';
 import type { RavConfigFormValues } from '../lib/schemas/forms';
-import { getPeriodKey, computePeriodState, getApprovedTxIds, isSettled } from './recurrenceEngine';
+import { getPeriodKey, isSettled } from './recurrenceEngine';
+import { resolveRecurrencePeriods } from './resolveRecurrencePeriods';
 import { PATRIMONIAL_FLOW_CATEGORY_ALIASES } from '../constants/transactionFlowCategories';
 
 export interface DerivedRav {
@@ -13,6 +14,10 @@ export interface DerivedRav {
 }
 
 export const DEFAULT_EXCLUDED_EXPENSES = new Set([...PATRIMONIAL_FLOW_CATEGORY_ALIASES, 'Prêt']);
+
+const counted = (tx: Transaction) =>
+  tx.bankStatus !== 'cancelled' &&
+  (!!tx.pointe || tx.source === 'enable_banking' || !!tx.bankStatus);
 
 export function normCategory(value: string): string {
   return (value || '').trim().toLocaleLowerCase('fr');
@@ -48,14 +53,13 @@ export function getRecurringProvisions(
   const activeOfType = recurrences.filter(
     (r) => r.active && (isExpense ? r.expectedAmount < 0 : r.expectedAmount > 0),
   );
-  const excludeTxIds = getApprovedTxIds(recurrences);
-
+  const periodKey = getPeriodKey(`${monthKey}-01`);
+  const periodTxs = txs.filter(
+    (t) => counted(t) && (t.moisAffectation || t.date || '').slice(0, 7) === monthKey,
+  );
+  const resolved = resolveRecurrencePeriods(recurrences, periodKey, periodTxs, today);
   return activeOfType.reduce((sum, r) => {
-    const periodKey = getPeriodKey(`${monthKey}-01`);
-    const periodTxs = txs.filter(
-      (t) => !!t.pointe && (t.moisAffectation || t.date || '').slice(0, 7) === monthKey,
-    );
-    const state = computePeriodState(r, periodKey, periodTxs, today, excludeTxIds);
+    const state = resolved.get(r.id)!;
     // `isSettled` couvre approved ET matched : dans les deux cas la transaction
     // pointée est déjà comptée dans totalExpenses, la provisionner en plus
     // reviendrait à la compter deux fois.
@@ -82,7 +86,7 @@ export function computeDerivedRav(cfg: RavConfigFormValues, ctx: RavContext): De
     const isAccountIncluded =
       cfg.included_accounts.length > 0 ? cfg.included_accounts.includes(tx.compte || '') : true;
 
-    if (isRightMonth && !!tx.pointe && isAccountIncluded) {
+    if (isRightMonth && counted(tx) && isAccountIncluded) {
       const amount = tx.montant ?? 0;
       const cat = (tx.categorie || '').trim();
       if (amount < 0 && expenseMatches(cat)) {

@@ -11,6 +11,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, auth, functions } from './firebase';
 import { withRetry } from '../utils/withRetry';
 import { migrateLegacyAISettings, sanitizeAISettings, type AISettings } from '../utils/aiConfig';
+export { bankCall, syncBanking, reconcileBanking } from './banking-api';
 
 export const collectionRef = (db: Firestore, name: string) => collection(db, name);
 export const docRef = (db: Firestore, col: string, id: string) => doc(db, col, id);

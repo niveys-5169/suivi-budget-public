@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   RefreshCcw,
   Trash2,
@@ -37,6 +38,7 @@ const DENSITIES = [
 ] as const;
 
 export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const { signOut } = useAuth();
   const { isRefreshing, refreshApp } = usePWAUpdate();
   const { density, setDensity } = usePreferences();
@@ -125,6 +127,14 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
           </Section>
 
           <Section title="Source des données">
+            <ListItem
+              title="Connexions bancaires"
+              subtitle="Enable Banking et contrôles Linxo"
+              onClick={() => {
+                onClose();
+                navigate('/connexions');
+              }}
+            />
             <Card>
               <GitHubSettingsForm />
             </Card>

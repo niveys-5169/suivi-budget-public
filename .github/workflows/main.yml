@@ -22,6 +22,8 @@ permissions:
 
 jobs:
   import:
+    # Keep the old schedule until the 08:00 Europe/Paris function is verified.
+    if: ${{ github.event_name != 'schedule' || vars.BANKING_SCHEDULED_READY != 'true' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
 

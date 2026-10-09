@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bell, AlertCircle, Info, CheckCircle2, ChevronRight, Zap, TrendingUp } from 'lucide-react';
 import { useAlerts } from '../../../hooks/useAlerts';
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export const AurumNotificationPage: React.FC<Props> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const { alerts, markAllRead } = useAlerts();
 
   useEffect(() => {
@@ -59,7 +61,12 @@ export const AurumNotificationPage: React.FC<Props> = ({ onNavigate }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
               className="relative group p-6 rounded-xl bg-surface border border-separator hover:bg-white/[0.04] transition-all flex items-start gap-6"
-              onClick={() => alert.actionTab && onNavigate?.(alert.actionTab)}
+              onClick={() =>
+                alert.actionTab &&
+                (alert.actionTab.startsWith('/')
+                  ? navigate(alert.actionTab)
+                  : onNavigate?.(alert.actionTab))
+              }
               style={{ cursor: alert.actionTab ? 'pointer' : 'default' }}
             >
               <div

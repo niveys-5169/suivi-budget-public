@@ -27,6 +27,11 @@ FUNCTIONS_DIR = REPO_ROOT / "functions"
 
 # Modules dont les copies src/ et functions/ doivent rester byte-identiques.
 IDENTICAL_MODULES = [
+    'bank_balance_store.py',
+    'bank_auth_persist.py', 'bank_cycle.py', 'bank_merge.py',
+    'bank_balance_pipeline.py',
+    "bank_auth.py", "bank_balances.py", "bank_config.py", "bank_linxo_identity.py", "bank_lock.py",
+    "bank_observations.py", "bank_pipeline.py", "bank_reconciliation.py", "bank_store.py", "bank_sync.py", "enable_banking_client.py",
     "ai_categorizer.py",
     "dedup.py",
     "ai_lexical.py",

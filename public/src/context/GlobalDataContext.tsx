@@ -21,7 +21,7 @@ interface GlobalDataContextType {
 const DEFAULT_OWNERS = ['Nicolas', 'Romane'];
 const DEFAULT_OWNER = 'Nicolas';
 
-const GlobalDataContext = createContext<GlobalDataContextType | undefined>(undefined);
+export const GlobalDataContext = createContext<GlobalDataContextType | undefined>(undefined);
 
 /** Charge en une fois les données globales (comptes, récurrences, ravConfig) partagées entre sections. */
 export const GlobalDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

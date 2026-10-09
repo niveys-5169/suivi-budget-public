@@ -54,6 +54,12 @@ interface EventMeta {
 }
 
 const EVENT_META: Record<string, EventMeta> = {
+  imported_enable_banking: {
+    label: { main: 'Observation bancaire', sub: 'Enable Banking' },
+    color: 'text-gold',
+    badgeBg: 'bg-gold/10',
+    Icon: Upload,
+  },
   imported_gmail: {
     label: { main: 'Import automatique', sub: 'Gmail' },
     color: 'text-blue-400',
@@ -289,6 +295,7 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
         </div>
 
         <div className="history-content space-y-6">
+          {account && <BankBalanceStatus balance={account} />}
           {error && (
             <div className="rounded-xl border border-negative/20 bg-negative/10 p-4 text-xs font-bold text-negative">
               {error}
@@ -522,3 +529,4 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
     </div>
   );
 };
+import { BankBalanceStatus } from './banking/BankBalanceStatus';
