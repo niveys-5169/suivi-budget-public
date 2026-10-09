@@ -62,8 +62,8 @@ export const BankConnectionsPage: React.FC = () => {
             : 'Mode observation : Linxo continue d’alimenter vos finances tant que l’activation de production n’a pas été vérifiée.'}
         </Text>
         <Text tone="secondary">
-          Chaque jour à 8 h, heure de Paris. Linxo vérifie les opérations reçues et continue de
-          fonctionner en secours.
+          Chaque jour à 8 h, 12 h, 16 h et 20 h, heure de Paris. Linxo vérifie les opérations reçues
+          et continue de fonctionner en secours.
         </Text>
         <Button onClick={sync} loading={isSyncing}>
           Actualiser les banques et Linxo
