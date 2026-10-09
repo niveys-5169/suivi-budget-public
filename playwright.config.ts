@@ -14,6 +14,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/banking.spec.ts', // Dedicated fixtures: playwright.banking.config.ts.
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: true,
