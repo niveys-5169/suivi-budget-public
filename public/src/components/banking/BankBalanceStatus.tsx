@@ -34,8 +34,8 @@ export const BankBalanceStatus: React.FC<{ balance: AccountBalance }> = ({ balan
       </Text>
       <Text variant="caption" tone="secondary">
         Enable Banking :{' '}
-        {control.enableBalance == null ? '—' : formatCurrency(control.enableBalance)} · Linxo :{' '}
-        {control.linxoBalance == null ? '—' : formatCurrency(control.linxoBalance)}
+        {control.enableBalance == null ? '—' : formatCurrency(control.enableBalance)} · Dernier
+        email Linxo : {control.linxoBalance == null ? '—' : formatCurrency(control.linxoBalance)}
       </Text>
       {control.linxoBalance != null && (
         <Text variant="caption" tone="secondary">
