@@ -11,12 +11,13 @@ Soldes originaux indépendants, contrôle temporel explicite, alertes par épiso
 
 Routes `/connexions` et `/notifications` communes aux arbres desktop/PWA,
 `useBankingData` partagé, badges et contrôles de soldes communs. Synchronisation
-quotidienne à 8 h Europe/Paris et manuelle avec verrou et résultat persistant.
+quatre fois par jour à 8 h, 12 h, 16 h et 20 h Europe/Paris et manuelle avec verrou et résultat persistant.
 Les règles excluent les collections privées du wildcard de permissions générales.
 
-Déploiement Firebase et authentification API de production validés ; interface
-en prévisualisation. Connexion bancaire réelle, import avec session et trois imports
-quotidiens consécutifs **non validés**. Voir
+Déploiement Firebase et interface de production validés. Connexion LCL réelle et
+imports manuels en observation réussis le 9 octobre 2026. Activation de production
+demandée par le propriétaire ; trois journées de synchronisation automatique
+consécutives restent à constater. Voir
 [procédure et limites](enable-banking.md), notamment le passage observation → actif
 et le retour à Linxo sans suppression d'historique.
 

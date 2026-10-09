@@ -628,7 +628,7 @@ def sync_banking(req: https_fn.CallableRequest) -> dict:
     return run(store(), EnableBankingClient, lambda: _run_linxo_import_core(_build_gmail_client()))
 
 
-@scheduler_fn.on_schedule(schedule="0 8 * * *", timezone="Europe/Paris", region="europe-west1", timeout_sec=540,
+@scheduler_fn.on_schedule(schedule="0 8,12,16,20 * * *", timezone="Europe/Paris", region="europe-west1", timeout_sec=540,
                           secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
 def scheduled_banking_sync(event: scheduler_fn.ScheduledEvent) -> None:
     from src.banking_endpoints import store

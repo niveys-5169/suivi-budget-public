@@ -3,12 +3,17 @@
 ## État de livraison
 
 Backend déployé le 9 octobre 2026 en mode **observation**, avec règles et index
-Firestore, secrets serveur et planification à 8 h Europe/Paris. Les secrets
+Firestore, secrets serveur et planification à 8 h, 12 h, 16 h et 20 h Europe/Paris. Les secrets
 GitHub ont été validés auprès de l'application Enable Banking de production,
 puis installés dans Secret Manager. Les refus d'appels non authentifiés sont
-vérifiés sur les fonctions déployées. L'interface est prête en prévisualisation ;
-la connexion bancaire réelle, l'import avec session et les trois imports quotidiens
-consécutifs restent à valider. Aucune ancienne session n'est supposée valide.
+vérifiés sur les fonctions déployées. L'interface est publiée en production. La connexion LCL et les imports manuels
+en observation ont réussi le 9 octobre 2026. Le propriétaire a demandé le passage
+en mode actif avec quatre interrogations quotidiennes et rafraîchissement manuel.
+Trois journées consécutives d'import automatique restent à constater.
+
+Le workflow de précontrôle fournit un audit de production limité aux compteurs,
+statuts et horaires, sans données financières individuelles. Son option
+`prepare_links` prépare les liens historiques certains sans publier de montants.
 
 ## Contrat fonctionnel
 
@@ -120,7 +125,7 @@ alerte marque sa lecture et ne résout pas son problème.
    Le moteur retrouve aussi les lignes Linxo écrites pendant l'observation,
    conserve leurs identifiants et les corrections, sans réimport financier historique.
 8. Vérifier une connexion réelle, un import manuel (y compris sans nouveauté),
-   les soldes et trois imports quotidiens consécutifs à **8 h Europe/Paris**.
+   les soldes et trois imports quotidiens consécutifs à **8 h, 12 h, 16 h et 20 h Europe/Paris**.
    Documenter les dates et résultats avant de déclarer l'intégration opérationnelle.
 9. Une fois la nouvelle planification vérifiée, définir
    `BANKING_SCHEDULED_READY=true` pour arrêter le cron historique GitHub. Jusqu'à
