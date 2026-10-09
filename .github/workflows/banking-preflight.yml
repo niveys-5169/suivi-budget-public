@@ -10,6 +10,19 @@ permissions:
   contents: read
 
 jobs:
+  deployment-permissions:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests==2.34.2 google-auth==2.59.1
+      - name: Check deployment permissions without changing IAM or data
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: python .github/scripts/banking_permissions.py
   preflight:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
