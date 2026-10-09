@@ -41,20 +41,15 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'functions/requirements.txt'
 
-      - name: Cache Python virtualenv
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: functions/venv
-          key: venv-${{ runner.os }}-${{ hashFiles('functions/requirements.txt') }}
-
       - name: Create Python virtualenv for Cloud Functions
+        # A venv contains interpreter paths tied to a runner/Python patch version.
+        # Cache downloaded packages with setup-python, then recreate the venv.
         run: |
           cd functions
-          if [ ! -d "venv" ]; then
-            python -m venv venv
-            venv/bin/pip install --upgrade pip
-            venv/bin/pip install -r requirements.txt
-          fi
+          python -m venv venv
+          venv/bin/python -m pip install --upgrade pip
+          venv/bin/python -m pip install -r requirements.txt
+          venv/bin/python -c 'import firebase_functions; print("Firebase Functions SDK import OK")'
 
       - name: Install Firebase CLI + gcloud
         # Version figée : sans elle, chaque déploiement prend la dernière
