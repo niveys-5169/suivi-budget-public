@@ -27,6 +27,21 @@ class GmailClient:
             log.error(f"Erreur recherche Gmail : {e}")
             return []
 
+    def search_emails_complete(self, query: str, max_pages: int = 200) -> list:
+        """Strict paginated reader for migration previews; never return a partial set."""
+        messages, token, seen = [], None, set()
+        for _ in range(max_pages):
+            page = self.service.users().messages().list(userId='me', q=query, maxResults=500,
+                                                        **({'pageToken': token} if token else {})).execute()
+            messages.extend(page.get('messages', []))
+            token = page.get('nextPageToken')
+            if not token:
+                return messages
+            if token in seen:
+                break
+            seen.add(token)
+        raise RuntimeError('INCOMPLETE_GMAIL_PAGINATION')
+
     def get_message_html(self, msg_id: str) -> dict:
         """Récupère l'email, son HTML et les en-têtes nécessaires à son contrôle."""
         msg = self.service.users().messages().get(userId="me", id=msg_id, format="full").execute()

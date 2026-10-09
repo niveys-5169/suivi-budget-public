@@ -310,6 +310,7 @@ export const AurumDashboard: React.FC = () => {
                                       owner: b.owner,
                                       source: b.source,
                                       syncedAt: b.source_timestamp ?? b.lastUpdated,
+                                      evidence: b,
                                     }))
                                   : []
                               }

@@ -116,7 +116,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
           try {
             const txData: Transaction[] = querySnapshot.docs
               .map((doc) => normalizeTransaction({ id: doc.id, ...doc.data() }))
-              .filter((tx): tx is Transaction => tx !== null);
+              .filter((tx): tx is Transaction => tx !== null && tx.bankStatus !== 'cancelled');
 
             setTransactions(txData);
 

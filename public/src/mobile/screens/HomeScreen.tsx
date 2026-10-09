@@ -96,7 +96,7 @@ export const HomeScreen: React.FC = () => {
                   e.currentTarget.click();
                 }
               }}
-              className="py-4 flex items-center justify-between text-body text-white active:bg-white/5 cursor-pointer rounded-xl px-2 -mx-2 transition-colors"
+              className="py-4 flex flex-wrap gap-2 items-center justify-between text-body text-white active:bg-white/5 cursor-pointer rounded-xl px-2 -mx-2 transition-colors"
             >
               <span className="flex items-center gap-2 min-w-0">
                 <span className="font-medium truncate">{account.compte}</span>
@@ -135,7 +135,7 @@ export const HomeScreen: React.FC = () => {
               <span className="font-semibold tabular-nums">
                 {showBalance ? (
                   <FormattedNumber
-                    value={account.current_balance || account.solde || 0}
+                    value={account.current_balance ?? account.solde ?? 0}
                     style="currency"
                     currency="EUR"
                   />
@@ -143,6 +143,9 @@ export const HomeScreen: React.FC = () => {
                   '•••• €'
                 )}
               </span>
+              <div className="w-full">
+                <BankBalanceStatus balance={account} />
+              </div>
             </div>
           ))}
         </div>
@@ -244,3 +247,4 @@ export const HomeScreen: React.FC = () => {
     </div>
   );
 };
+import { BankBalanceStatus } from '../../components/banking/BankBalanceStatus';

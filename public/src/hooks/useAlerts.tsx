@@ -4,13 +4,15 @@ import { useTransactionContext } from '../context/TransactionContext';
 import { useGlobalData } from '../context/GlobalDataContext';
 import { computeAlerts } from '../utils/computeAlerts';
 import type { Alert } from '../types/banking.types';
+import { useBankingData } from './useBankingData';
+import { computeBankingAlerts } from '../utils/computeBankingAlerts';
 
 const STORAGE_KEY = 'readAlertKeys';
 
 // Les alertes sont recalculées à chaque rendu : on mémorise les clés lues.
 // La clé inclut `desc` (mois, montants) pour qu'une alerte qui change de
 // contenu redevienne non lue.
-const alertKey = (a: Alert) => `${a.id}|${a.desc}`;
+const alertKey = (a: Alert) => (a.episodeKey ? `${a.id}|${a.episodeKey}` : `${a.id}|${a.desc}`);
 
 const currentMonthKey = (): string => {
   const d = new Date();
@@ -64,20 +66,22 @@ export const useAlerts = (): {
   const { budgets } = useBudget();
   const { transactions } = useTransactionContext();
   const { recurrences } = useGlobalData();
-
   // Mois réel, indépendant du mois sélectionné dans l'UI (persisté en localStorage) :
   // sinon les alertes restent figées sur un ancien mois.
   const monthKey = currentMonthKey();
+  const { connections, reports, now } = useBankingData();
 
   const alerts = useMemo(
-    () =>
-      computeAlerts({
+    () => [
+      ...computeBankingAlerts(connections, reports, now),
+      ...computeAlerts({
         budgets,
         transactions,
         currentMonthKey: monthKey,
         recurrences,
       }),
-    [budgets, transactions, monthKey, recurrences],
+    ],
+    [budgets, transactions, monthKey, recurrences, connections, reports, now],
   );
 
   const read = useSyncExternalStore(subscribe, loadReadKeys);

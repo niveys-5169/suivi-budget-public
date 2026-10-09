@@ -1,4 +1,6 @@
 import React from 'react';
+import { BankBalanceStatus } from '../../banking/BankBalanceStatus';
+import type { AccountBalance } from '../../../types/banking.types';
 import { BankLogo } from '../../shared/BankLogo';
 import { getSyncSourceLabel } from '../../../constants/syncSource';
 import { formatRelativeTime, toMillis } from '../../../utils/firestoreDate';
@@ -14,6 +16,7 @@ interface Account {
   owner?: string;
   source?: string;
   syncedAt?: FirestoreDateLike;
+  evidence?: AccountBalance;
 }
 
 /** Provenance et fraîcheur de la donnée. Rien si la source est inconnue. */
@@ -50,6 +53,7 @@ export const AurumAccountsList: React.FC<{
           trailing={
             <Stack gap="none" align="end">
               <Amount value={acc.balance} tone="neutral" />
+              {acc.evidence && <BankBalanceStatus balance={acc.evidence} />}
               {sync && (
                 <Text variant="caption" tone="tertiary">
                   {sync}

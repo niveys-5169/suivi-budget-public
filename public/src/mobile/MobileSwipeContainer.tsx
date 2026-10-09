@@ -4,6 +4,9 @@ import { motion, AnimatePresence, useReducedMotion, type Variants } from 'framer
 import { getTabIndex, NAV_ITEMS } from './navItems';
 import { useEdgeSwipeNav } from './useEdgeSwipeNav';
 import { HomeScreen } from './screens/HomeScreen';
+import { BankConnectionsPage } from '../components/banking/BankConnectionsPage';
+import { AurumNotificationPage } from '../components/dashboard/v2/AurumNotificationPage';
+import { BankingBanner } from '../components/banking/BankingBanner';
 
 // Écrans secondaires en chunks séparés (Recharts n'est plus dans le chargement
 // initial), préchargés dès que le navigateur est inactif pour que le premier
@@ -119,7 +122,24 @@ export const MobileSwipeContainer: React.FC = () => {
               </div>
             }
           >
+            <BankingBanner />
             <Routes location={location}>
+              <Route
+                path="/connexions"
+                element={
+                  <div className="h-full overflow-y-auto">
+                    <BankConnectionsPage />
+                  </div>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <div className="h-full overflow-y-auto">
+                    <AurumNotificationPage onBack={() => window.history.back()} />
+                  </div>
+                }
+              />
               <Route path="/" element={<HomeScreen />} />
               <Route path="/qa" element={<QAScreen />} />
               <Route path="/transactions" element={<TransactionsScreen />} />

@@ -207,9 +207,17 @@ def test_sauvegarder_soldes_comptes_syncs_current_balance(mocker):
     mock_history_doc = MagicMock()
 
     mock_db.batch.return_value = mock_batch
+    mocker.patch('bank_store.BankStore.atomic', side_effect=lambda collection, id, callback: callback({})[1])
+    bank_col = MagicMock()
+    bank_col.document.return_value.get.return_value.exists = False
+    bank_col.stream.return_value = []
     mock_db.collection.side_effect = lambda name: {
         "account_balances": mock_latest_col,
         "account_balance_history": mock_history_col,
+        "bank_balance_sources": bank_col,
+        "bank_balance_observations": bank_col,
+        "bank_connections": bank_col,
+        "bank_runtime": bank_col,
     }[name]
     mock_latest_col.document.return_value = mock_latest_doc
     mock_history_col.document.return_value = mock_history_doc

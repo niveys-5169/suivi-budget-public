@@ -92,6 +92,41 @@ describe('getRecurringProvisions', () => {
     expect(getRecurringProvisions('2024-03', [], recurrences, 'expense')).toBe(-75);
   });
 
+  it('one pending bank payment settles only one of two recurring bills', () => {
+    const recurrences = [
+      recurrence({ id: 'first', label: 'CAFE', expectedAmount: -50 }),
+      recurrence({ id: 'second', label: 'CAFE', expectedAmount: -50 }),
+    ];
+    const transactions = [
+      tx({
+        id: 'pending',
+        libelle: 'CAFE',
+        categorie: 'Loisirs',
+        montant: -50,
+        date: '2024-03-15',
+        pointe: false,
+        bankStatus: 'pending',
+        source: 'enable_banking',
+      }),
+    ];
+    expect(getRecurringProvisions('2024-03', transactions, recurrences, 'expense')).toBe(-50);
+  });
+
+  it('provisions again after an explicitly cancelled linked approval, keeping its trace', () => {
+    const approvedMonths = {
+      '2024-03': {
+        txId: 'cancelled',
+        amount: -500,
+        date: '2024-03-15',
+        approvedAt: 1,
+        bankCancelled: true,
+      },
+    };
+    const rec = recurrence({ expectedAmount: -500, approvedMonths });
+    expect(getRecurringProvisions('2024-03', [], [rec], 'expense')).toBe(-500);
+    expect(rec.approvedMonths?.['2024-03']?.txId).toBe('cancelled');
+  });
+
   it('handles income movement type (positive amounts)', () => {
     const recurrences = [recurrence({ id: 'salaire', category: 'Revenus', expectedAmount: 1200 })];
     expect(getRecurringProvisions('2024-03', [], recurrences, 'income')).toBe(1200);

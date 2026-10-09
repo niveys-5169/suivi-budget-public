@@ -56,6 +56,11 @@ export const TransactionDocZ = z
     source: z.unknown().optional(),
     importedAt: z.unknown().optional(),
     emailDate: z.unknown().optional(),
+    enAttente: z.boolean().optional(),
+    bankStatus: z.enum(['pending', 'booked', 'cancelled']).optional(),
+    linxoStatus: z.enum(['waiting', 'matched', 'overdue', 'not_applicable']).optional(),
+    bankObservationIds: z.array(z.string()).optional(),
+    firstBookedAt: z.unknown().optional(),
     edf_compte: z.unknown().optional(),
     rechargeId: z.unknown().optional(),
   })
@@ -82,6 +87,11 @@ export const TransactionDocZ = z
       source: d.source ? String(d.source) : undefined,
       importedAt: d.importedAt as Timestamp | null,
       emailDate: toDateOrUndefined(d.emailDate),
+      enAttente: d.enAttente,
+      bankStatus: d.bankStatus,
+      linxoStatus: d.linxoStatus,
+      bankObservationIds: d.bankObservationIds,
+      firstBookedAt: toDateOrUndefined(d.firstBookedAt),
       edfCompte: d.edf_compte ? String(d.edf_compte).trim() || undefined : undefined,
       rechargeId: d.rechargeId ? String(d.rechargeId) : undefined,
     };

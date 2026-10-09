@@ -19,6 +19,23 @@ import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 const OWNER_UID = 'owner-uid';
 const OWNER = { email: 'niveys@gmail.com', email_verified: true };
 
+const PRIVATE_BANK_PATHS = [
+  'eb_sessions/c',
+  'eb_pending_auth/state',
+  'bank_observations/o',
+  'bank_balance_sources/b',
+  'bank_balance_observations/b',
+  'bank_locks/sync',
+  'bank_canonical_aliases/a',
+  'bank_merge_history/h',
+];
+const READ_ONLY_BANK_PATHS = [
+  'bank_connections/c',
+  'bank_reports/reconciliation',
+  'bank_sync_runs/r',
+  'bank_runtime/config',
+];
+
 const FRONT_PATHS = [
   'account_balance_history/h1',
   'account_balances/BforBank',
@@ -75,6 +92,27 @@ const unverifiedOwner = () =>
     .authenticatedContext('spoof', { email: 'niveys@gmail.com', email_verified: false })
     .firestore();
 const anonymous = () => env.unauthenticatedContext().firestore();
+
+describe.each(PRIVATE_BANK_PATHS)('donnée bancaire privée %s', (path) => {
+  it('même le propriétaire ne peut ni lire ni écrire ni supprimer, y compris une sous-collection', async () => {
+    for (const target of [path, `${path}/nested/doc`]) {
+      await assertFails(getDoc(doc(owner(), target)));
+      await assertFails(setDoc(doc(owner(), target), { secret: true }));
+      await assertFails(deleteDoc(doc(owner(), target)));
+    }
+  });
+});
+
+describe.each(READ_ONLY_BANK_PATHS)('résultat bancaire %s', (path) => {
+  it('lecture propriétaire uniquement, toute écriture client refusée', async () => {
+    await assertSucceeds(getDoc(doc(owner(), path)));
+    await assertFails(setDoc(doc(owner(), path), { status: 'forged' }));
+    await assertFails(deleteDoc(doc(owner(), path)));
+    await assertFails(getDoc(doc(stranger(), path)));
+    await assertFails(getDoc(doc(anonymous(), path)));
+    await assertFails(getDoc(doc(preview(), path)));
+  });
+});
 
 describe.each(FRONT_PATHS)('%s', (path) => {
   it('propriétaire : lecture, écriture, suppression', async () => {

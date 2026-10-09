@@ -1,3 +1,4 @@
+import { resolveRecurrencePeriods } from '../utils/resolveRecurrencePeriods';
 import { useCallback, useContext, useMemo, useState } from 'react';
 import { useGlobalData } from '../context/GlobalDataContext';
 import { useTransactions } from './useTransactions';
@@ -5,7 +6,6 @@ import { AppStateContext } from '../context/AppStateContext';
 import { toast } from '../lib/toast';
 import {
   applyAmountChange,
-  computePeriodState,
   getAmountForPeriod,
   getApprovalAmount,
   getApprovalEntries,
@@ -16,7 +16,6 @@ import {
   getRecurrenceCandidates,
   isSettled,
   needsAction,
-  type RecurrencePeriodState,
   type RecurrenceState,
 } from '../utils/recurrenceEngine';
 import {
@@ -128,37 +127,13 @@ export function useRecurrences(monthKeyOverride?: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Une transaction ne peut être revendiquée que par une seule récurrence : on
-    // l'ajoute aux exclusions dès qu'elle est appariée. Le parcours suit l'ordre
-    // du jour du mois pour que le résultat ne dépende pas de l'ordre Firestore.
-    const claimed = new Set(approvedTxIds);
     const ordered = [...activeRecurrences].sort((a, b) => getDayOfMonth(a) - getDayOfMonth(b));
-
-    // Deux passes : les libellés reconnus (match fort) revendiquent leur
-    // transaction avant les simples coïncidences de montant (match faible).
-    // Sans cela, une récurrence placée tôt dans le mois pouvait rafler par un
-    // match faible la transaction qu'une autre reconnaissait par son alias,
-    // laissant cette dernière « en retard » alors que son paiement existe.
-    const resolved = new Map<string, RecurrencePeriodState>();
-    const claim = (result: RecurrencePeriodState) => {
-      if (result.state === 'matched' && result.match?.tx.id) claimed.add(result.match.tx.id);
-    };
-
-    const weakOnly: typeof ordered = [];
-    ordered.forEach((r) => {
-      const probe = computePeriodState(r, periodKey, monthTransactions, today, claimed);
-      if (probe.state === 'matched' && probe.match?.confidence !== 'strong') {
-        weakOnly.push(r);
-        return;
-      }
-      claim(probe);
-      resolved.set(r.id, probe);
-    });
-    weakOnly.forEach((r) => {
-      const result = computePeriodState(r, periodKey, monthTransactions, today, claimed);
-      claim(result);
-      resolved.set(r.id, result);
-    });
+    const resolved = resolveRecurrencePeriods(
+      activeRecurrences,
+      periodKey,
+      monthTransactions,
+      today,
+    );
 
     const views = ordered.flatMap((r): RecurrenceView[] => {
       const result = resolved.get(r.id);
@@ -186,7 +161,7 @@ export function useRecurrences(monthKeyOverride?: string) {
     });
 
     return sortRecurrenceViews(views, 'date');
-  }, [activeRecurrences, periodKey, monthTransactions, approvedTxIds]);
+  }, [activeRecurrences, periodKey, monthTransactions]);
 
   const expenses = useMemo(() => items.filter((r) => !r.isIncome), [items]);
   const incomes = useMemo(() => items.filter((r) => r.isIncome), [items]);

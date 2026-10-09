@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'functions/**'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
   workflow_dispatch:
 
 concurrency:
@@ -143,6 +145,38 @@ jobs:
           else
             echo "⚠ HANDLER_URL vide — GMAIL_PUSH_SERVICE_ACCOUNT/GMAIL_PUSH_AUDIENCE non injectés (le handler refusera les requêtes Pub/Sub jusqu'au prochain déploiement)."
           fi
+
+      - name: Configure Enable Banking secrets and observation mode
+        env:
+          EB_APP_ID: ${{ secrets.EB_APP_ID }}
+          EB_PRIVATE_KEY: ${{ secrets.EB_PRIVATE_KEY }}
+          EB_REDIRECT_URL: ${{ vars.EB_REDIRECT_URL }}
+          EB_APP_URL: ${{ vars.EB_APP_URL }}
+          EB_MODE: ${{ vars.EB_MODE || 'observation' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$EB_APP_ID" ] || [ -z "$EB_PRIVATE_KEY" ] || [ -z "$EB_REDIRECT_URL" ] || [ -z "$EB_APP_URL" ]; then
+            echo "Enable Banking configuration missing: set secrets EB_APP_ID/EB_PRIVATE_KEY and variables EB_REDIRECT_URL/EB_APP_URL before deploying."
+            exit 1
+          fi
+          printf '%s' "$EB_APP_ID" | firebase functions:secrets:set EB_APP_ID --data-file=- --project suivi-budget-ab888 --non-interactive
+          printf '%s' "$EB_PRIVATE_KEY" | firebase functions:secrets:set EB_PRIVATE_KEY --data-file=- --project suivi-budget-ab888 --non-interactive
+          printf 'EB_MODE=%s\nEB_REDIRECT_URL=%s\nEB_APP_URL=%s\n' "$EB_MODE" "$EB_REDIRECT_URL" "$EB_APP_URL" >> functions/.env.suivi-budget-ab888
+
+      - name: Exclude OAuth callback requests from project log destinations
+        # Cloud Run generates access logs including query strings independently
+        # of application logging. Configure this before exposing the callback.
+        run: |
+          set -euo pipefail
+          FILTER='(resource.type="cloud_run_revision" AND resource.labels.service_name="eb-auth-callback") OR (resource.type="cloud_function" AND resource.labels.function_name="eb_auth_callback")'
+          gcloud logging sinks list --project suivi-budget-ab888 --format=json > /tmp/eb-log-sinks.json
+          while read -r SINK; do
+            if jq -e --arg sink "$SINK" '.[] | select(.name == $sink) | .exclusions[]? | select(.name == "eb-oauth-private")' /tmp/eb-log-sinks.json > /dev/null; then
+              gcloud logging sinks update "$SINK" --project suivi-budget-ab888 --update-exclusion="name=eb-oauth-private,filter=$FILTER,disabled=" --quiet
+            else
+              gcloud logging sinks update "$SINK" --project suivi-budget-ab888 --add-exclusion="name=eb-oauth-private,filter=$FILTER" --quiet
+            fi
+          done < <(jq -r '.[] | select(.name != "_Required") | .name' /tmp/eb-log-sinks.json)
 
       - name: Provision Gmail Pub/Sub (topic + push subscription authentifiée)
         # Le topic DOIT vivre dans le projet de l'app OAuth Gmail : l'API Gmail
@@ -329,7 +363,7 @@ jobs:
 
           # Add --force to allow deletion of functions that don't exist in local source code
           # (Fixes "Aborting because deletion cannot proceed in non-interactive mode")
-          firebase deploy --only functions --project suivi-budget-ab888 --non-interactive --force
+          firebase deploy --only firestore:rules,firestore:indexes,functions --project suivi-budget-ab888 --non-interactive --force
 
       - name: Allow unauthenticated invocations (requis pour Firebase Callable)
         run: |
@@ -342,6 +376,12 @@ jobs:
             "validate-balance-mismatch"
             "get-latest-email-balances"
             "gmail-watch-handler"
+            "eb-list-banks"
+            "eb-auth-start"
+            "eb-auth-callback"
+            "eb-save-mapping"
+            "banking-reconcile-action"
+            "sync-banking"
           )
 
           for SERVICE in "${SERVICES[@]}"; do

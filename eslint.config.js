@@ -31,6 +31,7 @@ export default tseslint.config(
       '**/*.min.js',
       '.worktrees/**',
       'venv/**',
+      '.venv/**',
       '.cache/**',
       '.cline/**',
       '.claude/**',

@@ -4,6 +4,34 @@ Le solde affiché pour un compte (tableau de bord, accueil mobile, `BalanceCard`
 est le document `account_balances/{compte}`, lu tel quel par `useBalances`.
 Le front ne recalcule pas le solde.
 
+## Extension Enable Banking (9 octobre 2026)
+
+Pour un compte activé en mode `active`, le backend sélectionne le solde Enable
+Banking : comptable courant ITBD, puis clôture CLBD, puis disponible explicitement
+qualifié ITAV/CLAV. Les historiques sources sont indépendants ; les nouvelles
+observations Enable Banking alimentent aussi l'historique exposable des soldes.
+Une observation plus ancienne ne remplace pas celle de sa source.
+
+Le contrôle entre sources affiche « Soldes reçus concordants », « Décalage expliqué
+(provisoire) », « Vérification en attente » ou « Écart à vérifier ». Montants en
+EUR et tolérance 0,01 €. Une réception Linxo ne prouve jamais une date bancaire.
+Les mouvements comptabilisés peuvent expliquer provisoirement un décalage ; les
+provisoires et annulations n'en deviennent pas des preuves comptables.
+
+Le contrôle interne entre emails Linxo utilise leurs observations originales pour
+les comptes alimentés par Enable Banking, indépendamment des corrections de lignes.
+La confirmation du solde ne confirme pas une opération absente des notifications.
+Un solde bancaire reçu ne fait jamais l'objet d'une seconde soustraction des
+transactions reçues. Les provisions de récurrences tiennent compte des provisoires
+déjà constatées ; une annulation explicite neutralise l'approbation liée sans
+effacer son historique.
+
+En panne, le secours Linxo ne remplace le solde affiché que si sa fraîcheur bancaire
+est comparable ; sinon dernier solde conservé avec avertissement. La désactivation
+explicite remet Linxo au premier plan et préserve les liens/canoniques existants.
+Les sections suivantes décrivent le chemin Linxo historique, utilisé pour les
+comptes non activés. Voir [mise en service et alertes](../enable-banking.md).
+
 ## 1. Lecture du solde dans le mail Linxo
 
 `_extract_solde_from_status_bloc` (`src/` et `functions/transaction_parser.py`,

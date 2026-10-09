@@ -14,6 +14,10 @@ import { AriaLiveRegion } from './components/shared/AriaLiveRegion';
 import { OfflineBanner } from './components/shared/OfflineBanner';
 import { PageLayout } from './components/shared/PageLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { BankingDataProvider } from './hooks/useBankingData';
+import { BankingBanner } from './components/banking/BankingBanner';
+import { BankConnectionsPage } from './components/banking/BankConnectionsPage';
+import { AurumNotificationPage } from './components/dashboard/v2/AurumNotificationPage';
 
 // ─── Route code-splitting ─────────────────────────────────────────────────────
 // DashboardSection is the landing route — kept eager so the first paint has no
@@ -169,7 +173,7 @@ export const MainApp: React.FC = () => {
   }
 
   return (
-    <>
+    <BankingDataProvider>
       {/* Skip-link — keyboard users jump directly to main content (WCAG 2.4.1). */}
       <a
         href="#main-content"
@@ -181,6 +185,7 @@ export const MainApp: React.FC = () => {
         <ScrollToTop />
         <Sidebar />
         <main id="main-content" className="flex-1 min-w-0 overflow-x-clip pt-safe pb-0">
+          <BankingBanner />
           <PageLayout>
             <ErrorBoundary label="Page">
               <Suspense fallback={<RouteSpinner />}>
@@ -192,6 +197,11 @@ export const MainApp: React.FC = () => {
                   <Route path="/patrimoine" element={<PatrimoineSection />} />
                   <Route path="/qa" element={<FinanceQASection />} />
                   <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/connexions" element={<BankConnectionsPage />} />
+                  <Route
+                    path="/notifications"
+                    element={<AurumNotificationPage onBack={() => window.history.back()} />}
+                  />
                   <Route path="/advanced" element={<Navigate to="/settings" replace />} />
 
                   {/* Sous-pages des paramètres */}
@@ -224,6 +234,6 @@ export const MainApp: React.FC = () => {
         <ConfirmHost />
         <AriaLiveRegion />
       </div>
-    </>
+    </BankingDataProvider>
   );
 };

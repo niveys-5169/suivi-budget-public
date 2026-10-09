@@ -43,5 +43,8 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {"collectionGroup": "bank_observations", "fieldPath": "messageId", "indexes": []},
+    {"collectionGroup": "eb_sessions", "fieldPath": "sessionId", "indexes": []}
+  ]
 }

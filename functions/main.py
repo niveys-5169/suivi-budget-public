@@ -41,6 +41,8 @@ from ai_categorizer import categorize_batch
 # Initialisation de l'environnement Firebase
 initialize_app()
 
+from src.banking_secrets import EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET
+
 CONFIG = {
     "MONTANT_MIN": -50000,
     "MONTANT_MAX": 50000,
@@ -134,6 +136,7 @@ def _run_linxo_import_core(gmail: GmailClient) -> dict:
             compte_budget = CONFIG["COMPTES_ACTIFS"].get(tx["compteLinxo"])
             if compte_budget:
                 nouvelles_transactions.append({
+                    "messageId": msg_id,
                     "date": tx["date"],
                     "libelle": tx["libelle"],
                     "compte": compte_budget,
@@ -164,6 +167,12 @@ def _run_linxo_import_core(gmail: GmailClient) -> dict:
     # Persiste les transactions avant de calculer la cohérence du solde pour que
     # linxoDelta reflète les mouvements de ce batch.
     transactions_saved = 0
+    from bank_store import BankStore
+    from bank_pipeline import route_linxo
+    from firebase_db import _get_db
+    bank_result = {}
+    nouvelles_transactions = route_linxo(BankStore(_get_db()), nouvelles_transactions, bank_result)
+    transactions_saved += bank_result.get('imported', 0)
     if nouvelles_transactions:
         # Réconciliation « en attente » → « réalisée » : Linxo re-notifie certains
         # virements sous leur vrai libellé et leur date de valeur. Les opérations
@@ -186,7 +195,7 @@ def _run_linxo_import_core(gmail: GmailClient) -> dict:
         except Exception:
             logging.exception("Catégorisation IA ignorée — import poursuivi.")
 
-        transactions_saved = sauvegarder_transactions(nouvelles_transactions, source="gmail")
+        transactions_saved += sauvegarder_transactions(nouvelles_transactions, source="gmail")
 
         # Après sauvegarde uniquement : on ne retire l'ancienne ligne « en attente »
         # qu'une fois sa version réalisée écrite.
@@ -232,6 +241,10 @@ def _run_linxo_import_core(gmail: GmailClient) -> dict:
     soldes_count = len(soldes_payload)
     if soldes_payload:
         sauvegarder_soldes_comptes(soldes_payload, source="gmail")
+        from bank_pipeline import update_balances
+        from bank_store import BankStore
+        from firebase_db import _get_db
+        update_balances(BankStore(_get_db()))
 
     for msg_id in messages_traites_succes:
         marquer_email_traite(msg_id)
@@ -566,3 +579,59 @@ def renew_gmail_watch(event: scheduler_fn.ScheduledEvent) -> None:
         _register_gmail_watch()
     except Exception:
         logging.exception("Échec du renouvellement du Gmail Watch")
+
+
+@https_fn.on_call(region="europe-west1", secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
+def eb_list_banks(req: https_fn.CallableRequest) -> dict:
+    from src.banking_endpoints import list_banks
+    return list_banks(req)
+
+
+@https_fn.on_call(region="europe-west1", secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
+def eb_auth_start(req: https_fn.CallableRequest) -> dict:
+    from src.banking_endpoints import auth_start
+    return auth_start(req)
+
+
+@https_fn.on_request(region="europe-west1", secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
+def eb_auth_callback(req: https_fn.Request) -> https_fn.Response:
+    from bank_auth import finish_authorization, configured_urls
+    from src.banking_endpoints import store
+    from enable_banking_client import EnableBankingClient
+    try:
+        _, app = configured_urls()
+        finish_authorization(store(), EnableBankingClient(), req.args.get("state", ""), req.args.get("code", ""))
+        return https_fn.Response(status=303, headers={"Location": app + "/connexions?auth=success", "Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    except Exception:
+        return https_fn.Response("Connexion bancaire non finalisée. Retournez dans l’application et recommencez.", status=400,
+                                 headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+
+
+@https_fn.on_call(region="europe-west1")
+def eb_save_mapping(req: https_fn.CallableRequest) -> dict:
+    from src.banking_endpoints import mapping
+    return mapping(req)
+
+
+@https_fn.on_call(region="europe-west1")
+def banking_reconcile_action(req: https_fn.CallableRequest) -> dict:
+    from src.banking_endpoints import reconcile_action
+    return reconcile_action(req)
+
+
+@https_fn.on_call(region="europe-west1", timeout_sec=540, secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
+def sync_banking(req: https_fn.CallableRequest) -> dict:
+    from src.banking_endpoints import store
+    from bank_sync import sync_banking as run
+    from enable_banking_client import EnableBankingClient
+    require_owner(req)
+    return run(store(), EnableBankingClient, lambda: _run_linxo_import_core(_build_gmail_client()))
+
+
+@scheduler_fn.on_schedule(schedule="0 8 * * *", timezone="Europe/Paris", region="europe-west1", timeout_sec=540,
+                          secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
+def scheduled_banking_sync(event: scheduler_fn.ScheduledEvent) -> None:
+    from src.banking_endpoints import store
+    from bank_sync import sync_banking as run
+    from enable_banking_client import EnableBankingClient
+    run(store(), EnableBankingClient, lambda: _run_linxo_import_core(_build_gmail_client()))

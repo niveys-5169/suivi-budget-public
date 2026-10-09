@@ -2,6 +2,10 @@ import type { MessageId } from './fr';
 
 /** English translations — mirrors every key from fr.ts. */
 const en: Record<MessageId, string> = {
+  'sync.success.completed': 'Sync completed: {count} new transaction(s).',
+  'sync.partial': 'Partial sync. Check bank connections and retry failed sources.',
+  'banking.waiting': 'Waiting for Linxo',
+  'banking.missing': 'Not found in Linxo notifications',
   // ── Navigation ──────────────────────────────────────────────────────────
   'nav.dashboard': 'Dashboard',
   'nav.transactions': 'Transactions',

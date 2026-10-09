@@ -3,6 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { useFinanceQA, ChatMessage } from '../../public/src/hooks/useFinanceQA';
 
 const requestFullLoad = vi.fn();
+vi.mock('../../public/src/context/TransactionContext', () => ({
+  useTransactionContext: () => ({ transactions: [] }),
+}));
 
 vi.mock('../../public/src/hooks/useTransactions', () => ({
   useTransactions: () => ({ transactions: [], requestFullLoad }),

@@ -41,6 +41,7 @@ class _FakeDb:
 
     def __init__(self, balances):
         self.balances = balances
+        self.evidence = {}
         self.writes = []  # (collection, doc_id, payload)
 
     def collection(self, name):
@@ -52,9 +53,16 @@ class _FakeDb:
                 self.id = doc_id
 
             def get(self):
-                return _Snap(db.balances.get(self.id) if name == "account_balances" else None)
+                snap = _Snap(db.balances.get(self.id) if name == "account_balances" else db.evidence.get((name, self.id)))
+                snap.id = self.id
+                return snap
+
+            def set(self, data, merge=False):
+                db.evidence.setdefault((name, self.id), {}).update(data)
 
         class _Col:
+            def stream(self):
+                return []
             def document(self, doc_id):
                 return _Ref(doc_id)
 
@@ -81,6 +89,14 @@ class _FakeDb:
 
 @pytest.fixture(params=["src", "functions"])
 def fdb(request, monkeypatch):
+    from bank_store import BankStore
+    def atomic(store, collection, id, callback):
+        data, result = callback(store.get(collection, id) or {})
+        if data is not None:
+            store.put(collection, id, data)
+        return result
+    # Serial in-memory Firestore boundary; lease contention has separate tests.
+    monkeypatch.setattr(BankStore, 'atomic', atomic)
     module = _load(request.param)
     monkeypatch.setattr(module, "charger_account_owners_mapping", lambda: {})
     monkeypatch.setattr(module, "get_owner_for_account", lambda compte, mapping: "Nicolas")

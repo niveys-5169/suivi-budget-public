@@ -13,6 +13,9 @@ vi.mock('../../public/src/hooks/useBalances', () => ({
 vi.mock('../../public/src/context/GlobalDataContext', () => ({
   useGlobalData: vi.fn(),
 }));
+vi.mock('../../public/src/context/TransactionContext', () => ({
+  useTransactionContext: () => ({ transactions: [] }),
+}));
 
 describe('useCashflowForecast hook', () => {
   const mockUseGlobalData = vi.mocked(useGlobalData);

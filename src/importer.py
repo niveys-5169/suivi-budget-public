@@ -100,6 +100,7 @@ def _collecter_messages(gmail, message_refs, mapping_categories, emails_exclus):
                 continue
 
             nouvelles_transactions.append({
+                "messageId": msg_id,
                 "date": tx["date"],
                 "libelle": tx["libelle"],
                 "compte": compte_budget,
@@ -144,6 +145,11 @@ def _persister(nouvelles_transactions, soldes_raw, dedup_since_days=60, admettre
             ±3 j, libellé différent). Pertinent en incrémental, jamais en reparse.
     """
     count_saved = 0
+    from bank_store import BankStore
+    from bank_pipeline import route_linxo
+    bank_result = {}
+    nouvelles_transactions = route_linxo(BankStore(_get_db()), nouvelles_transactions, bank_result)
+    count_saved += bank_result.get('imported', 0)
 
     # Déduplication et sauvegarde des transactions
     if nouvelles_transactions:
@@ -189,7 +195,7 @@ def _persister(nouvelles_transactions, soldes_raw, dedup_since_days=60, admettre
 
             log.info(f"Sauvegarde de {len(a_importer_gmail)} transactions...")
             sauvegarder_transactions(a_importer_gmail, source="gmail")
-            count_saved = len(a_importer_gmail)
+            count_saved += len(a_importer_gmail)
 
             # Invalidation du cache des budgets (V2)
             try:
@@ -253,6 +259,9 @@ def _persister(nouvelles_transactions, soldes_raw, dedup_since_days=60, admettre
             soldes_payload.append(payload)
 
         sauvegarder_soldes_comptes(soldes_payload, source="gmail")
+        from bank_pipeline import update_balances
+        from bank_store import BankStore
+        update_balances(BankStore(_get_db()))
         log.info(f"Soldes mis à jour : {[s['compte'] for s in soldes_payload]}")
     else:
         log.info("Aucun solde extrait des emails.")

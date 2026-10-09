@@ -1,4 +1,23 @@
-# 🏗 Current Architectural State (mise à jour septembre 2026)
+# 🏗 Current Architectural State (mise à jour octobre 2026)
+
+## Enable Banking et contrôle Linxo (9 octobre 2026)
+
+Restauration implémentée localement, **observation par défaut**, activation par
+compte. Enable Banking devient source principale après activation ; les emails
+Linxo restent contrôles et secours. Modules Python communs `bank_*.py`, client API
+serveur, persistance privée, rapprochement canonique conservant les modifications
+utilisateur et tombstones. Statut bancaire, présence Linxo et pointage sont séparés.
+Soldes originaux indépendants, contrôle temporel explicite, alertes par épisode.
+
+Routes `/connexions` et `/notifications` communes aux arbres desktop/PWA,
+`useBankingData` partagé, badges et contrôles de soldes communs. Synchronisation
+quotidienne à 8 h Europe/Paris et manuelle avec verrou et résultat persistant.
+Les règles excluent les collections privées du wildcard de permissions générales.
+
+Déploiement et connexion réelle **non validés** : prérequis de configuration à
+fournir, puis trois imports quotidiens consécutifs à constater. Voir
+[procédure et limites](enable-banking.md), notamment le passage observation → actif
+et le retour à Linxo sans suppression d'historique.
 
 ## 🟢 Migrated (React / Premium Aurum V2)
 

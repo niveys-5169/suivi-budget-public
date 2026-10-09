@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MSettingsModal } from '../../../public/src/mobile/components/MSettingsModal';
+vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 
 const { getGitHubSettings, saveGitHubSettings, saveAISettingsMock } = vi.hoisted(() => ({
   getGitHubSettings: vi.fn(),

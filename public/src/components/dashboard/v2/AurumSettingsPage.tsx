@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Zap, Wallet, Users, Plus, Trash2, Clock, Info, Cloud, RefreshCw } from 'lucide-react';
 import { useAdvancedSettings } from '../../../hooks/useAdvancedSettings';
 import { useBalances } from '../../../hooks/useBalances';
@@ -53,6 +54,7 @@ export const AurumSettingsPage: React.FC<{
   onBack: () => void;
   initialSection?: SettingsSection;
 }> = ({ onBack, initialSection = 'api' }) => {
+  const navigate = useNavigate();
   const {
     githubSettings,
     tronityConfig,
@@ -107,6 +109,9 @@ export const AurumSettingsPage: React.FC<{
       }
     >
       <div className="no-scrollbar -mx-4 overflow-x-auto px-4 md:-mx-6 md:px-6">
+        <Button onClick={() => navigate('/connexions')}>
+          Connexions bancaires et contrôles Linxo
+        </Button>
         <Stack direction="row" gap="sm" className="w-max">
           {SECTIONS.map((s) => (
             <Chip

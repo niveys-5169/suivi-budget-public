@@ -151,7 +151,8 @@ export interface RecurrenceMatch {
  * txId/amount/date, une seule tx).
  */
 export function getApprovalEntries(approval: RecurrenceApproval): RecurrenceApprovalEntry[] {
-  if (approval.entries?.length) return approval.entries;
+  if (approval.bankCancelled) return [];
+  if (approval.entries?.length) return approval.entries.filter((entry) => !entry.bankCancelled);
   return approval.txId
     ? [{ txId: approval.txId, amount: approval.amount, date: approval.date }]
     : [];
@@ -361,7 +362,11 @@ export function computePeriodState(
   const approval = rec.approvedMonths?.[periodKey];
   const periodAmount = getAmountForPeriod(rec, periodKey);
 
-  if (approval) {
+  if (
+    approval &&
+    !approval.bankCancelled &&
+    (!approval.entries?.length || getApprovalEntries(approval).length)
+  ) {
     const totalAmount = getApprovalAmount(approval);
     return {
       state: 'approved',
