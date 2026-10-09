@@ -12,6 +12,11 @@ qualifié ITAV/CLAV. Les historiques sources sont indépendants ; les nouvelles
 observations Enable Banking alimentent aussi l'historique exposable des soldes.
 Une observation plus ancienne ne remplace pas celle de sa source.
 
+La préparation historique conserve aussi les soldes originaux des emails Linxo
+déjà traités dans `bank_balance_sources` et leur historique, sans rejouer les
+transactions ni remplacer le solde affiché. Le contrôle expose la date de réception
+de l'email Linxo indépendamment de celle d'Enable Banking.
+
 Le contrôle entre sources affiche « Soldes reçus concordants », « Décalage expliqué
 (provisoire) », « Vérification en attente » ou « Écart à vérifier ». Montants en
 EUR et tolérance 0,01 €. Une réception Linxo ne prouve jamais une date bancaire.

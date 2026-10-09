@@ -2,6 +2,14 @@
 from bank_observations import digest
 
 
+def linxo_balance_observation(payload):
+    """Preserve email reception without assuming its bank date or balance type."""
+    return {"compte": payload["compte"], "solde": float(payload["solde"]), "currency": "EUR",
+            "source": "gmail", "balanceType": "unknown", "bankDate": None,
+            "receivedAt": payload["emailDate"], "emailDate": payload["emailDate"],
+            "messageId": payload.get("msg_id")}
+
+
 def store_balance(store, value):
     key = digest(value["compte"], value["source"])
     old = store.get("bank_balance_sources", key)

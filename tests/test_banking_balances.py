@@ -48,6 +48,20 @@ def test_older_snapshot_cannot_replace_newer_and_bank_date_not_invented():
     assert len(history) == 2 and all(row['source'] == 'enable_banking' for row in history)
 
 
+def test_control_carries_latest_original_linxo_value_and_reception(monkeypatch):
+    monkeypatch.setenv('EB_MODE', 'active')
+    store = MemoryStore()
+    store.put('bank_connections', 'c', {'status': 'active', 'accounts': [{'compte': 'LCL', 'enabled': True}]})
+    store.balance(balance('enable_banking'))
+    capture_linxo_balance(store, {'compte': 'LCL', 'solde': 150, 'emailDate': NOW})
+    capture_linxo_balance(store, {'compte': 'LCL', 'solde': 80, 'emailDate': NOW - timedelta(days=1)})
+    update_balances(store, NOW)
+    displayed = store.get('account_balances', 'LCL')
+    assert displayed['solde'] == 100
+    assert displayed['crossControl']['linxoBalance'] == 150
+    assert displayed['crossControl']['linxoReceivedAt'] == NOW
+
+
 def test_outage_preserves_balance_when_fallback_freshness_cannot_be_compared():
     eb, lx = balance('enable_banking'), balance('gmail', bankDate=None, balanceType='unknown')
     assert select_balance(eb, lx, True, False) is eb
