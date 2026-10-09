@@ -2,12 +2,13 @@
 
 ## État de livraison
 
-Implémentation locale du 9 octobre 2026, en mode **observation par défaut**.
-La mise en production et une connexion bancaire réelle n'ont pas été exécutées.
-Le précontrôle local constate l'absence de `EB_APP_ID`, `EB_PRIVATE_KEY`,
-`EB_REDIRECT_URL`, `EB_APP_URL`. La liste des noms de secrets GitHub consultée
-ne contient pas `EB_APP_ID` et `EB_PRIVATE_KEY`. Cela ne permet pas de conclure
-à l'absence de secrets dans Secret Manager ni à la validité d'anciennes sessions.
+Backend déployé le 9 octobre 2026 en mode **observation**, avec règles et index
+Firestore, secrets serveur et planification à 8 h Europe/Paris. Les secrets
+GitHub ont été validés auprès de l'application Enable Banking de production,
+puis installés dans Secret Manager. Les refus d'appels non authentifiés sont
+vérifiés sur les fonctions déployées. L'interface est prête en prévisualisation ;
+la connexion bancaire réelle, l'import avec session et les trois imports quotidiens
+consécutifs restent à valider. Aucune ancienne session n'est supposée valide.
 
 ## Contrat fonctionnel
 
@@ -156,10 +157,10 @@ Résultats vérifiés le **9 octobre 2026** :
 | Typage, lint, contrôle du design et build de production | Réussis                                                             |
 | Copies Python partagées                                 | 23 modules identiques ; les deux `firebase_db.py` restent distincts |
 
-Le précontrôle local signale `EB_APP_ID`, `EB_PRIVATE_KEY`, `EB_REDIRECT_URL`
-et `EB_APP_URL` manquants. Aucun déploiement ni import bancaire réel n'a été
-réalisé pendant cette validation. L'application de production, le certificat,
-les permissions et les anciennes sessions restent à vérifier après configuration.
+Le précontrôle local initial signalait `EB_APP_ID`, `EB_PRIVATE_KEY`, `EB_REDIRECT_URL`
+et `EB_APP_URL` manquants. Leur configuration GitHub et le déploiement ont ensuite
+été vérifiés comme décrit ci-dessous. L'authentification API de production fonctionne ;
+les anciennes sessions et le parcours de consentement restent à vérifier.
 La connexion réelle et les trois imports quotidiens consécutifs restent requis
 avant de déclarer la mise en service achevée.
 
@@ -175,3 +176,18 @@ Les URL GitHub sont configurées ; l'enregistrement du callback chez Enable Bank
 les permissions du runtime Firebase et la connexion réelle restent à vérifier
 pendant la mise en service. Les variables absentes lors du précontrôle local
 précédent sont désormais présentes dans GitHub.
+
+### Test de déploiement en observation
+
+Les premières tentatives ont révélé des permissions manquantes pour Secret Manager,
+Cloud Logging, règles et index Firestore, corrigées par l'administrateur du projet.
+Le cache de venv contenait un environnement Python inutilisable : le workflow conserve
+le cache de paquets et recrée le venv, avec vérification explicite de l'import du SDK.
+
+Le [déploiement réussi](https://github.com/niveys-5169/suivi-budget-public/actions/runs/37939497207)
+a publié les fonctions, règles et index à 15 h 51 Europe/Paris le 9 octobre 2026.
+Les cinq callables bancaires testés sans jeton répondent `401 UNAUTHENTICATED` ;
+le callback sans code répond `400`. Les huit parcours desktop/PWA simulés ont
+repassé après intégration du correctif de main sur le mois réel des alertes.
+La connexion bancaire réelle reste nécessaire pour vérifier consentement, retour,
+rattachement des comptes et import de transactions avec session.

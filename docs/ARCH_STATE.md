@@ -2,7 +2,7 @@
 
 ## Enable Banking et contrôle Linxo (9 octobre 2026)
 
-Restauration implémentée localement, **observation par défaut**, activation par
+Backend déployé le 9 octobre 2026, **observation par défaut**, activation par
 compte. Enable Banking devient source principale après activation ; les emails
 Linxo restent contrôles et secours. Modules Python communs `bank_*.py`, client API
 serveur, persistance privée, rapprochement canonique conservant les modifications
@@ -14,8 +14,9 @@ Routes `/connexions` et `/notifications` communes aux arbres desktop/PWA,
 quotidienne à 8 h Europe/Paris et manuelle avec verrou et résultat persistant.
 Les règles excluent les collections privées du wildcard de permissions générales.
 
-Déploiement et connexion réelle **non validés** : prérequis de configuration à
-fournir, puis trois imports quotidiens consécutifs à constater. Voir
+Déploiement Firebase et authentification API de production validés ; interface
+en prévisualisation. Connexion bancaire réelle, import avec session et trois imports
+quotidiens consécutifs **non validés**. Voir
 [procédure et limites](enable-banking.md), notamment le passage observation → actif
 et le retour à Linxo sans suppression d'historique.
 
