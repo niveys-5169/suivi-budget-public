@@ -13,7 +13,13 @@ const LABEL = {
 };
 export const BankBalanceStatus: React.FC<{ balance: AccountBalance }> = ({ balance }) => {
   const control = balance.crossControl;
-  if (!control) return null;
+  if (
+    !control ||
+    control.difference == null ||
+    !Number.isFinite(control.difference) ||
+    Math.abs(Math.round(control.difference * 100)) <= 1
+  )
+    return null;
   return (
     <div className="space-y-2">
       <Text variant="caption" tone="secondary">
