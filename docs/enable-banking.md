@@ -147,14 +147,14 @@ des trois imports quotidiens exigés pour la mise en service.
 
 Résultats vérifiés le **9 octobre 2026** :
 
-| Vérification | Résultat |
-| --- | --- |
-| Pytest, suite complète | 570 tests réussis et 12 sous-tests réussis |
-| Vitest, suite complète | 1 136 tests réussis, 11 ignorés ; 156 fichiers réussis, un ignoré |
-| Permissions Firestore avec émulateur | 122 tests réussis |
-| Playwright desktop/PWA avec services simulés | Huit parcours réussis |
-| Typage, lint, contrôle du design et build de production | Réussis |
-| Copies Python partagées | 23 modules identiques ; les deux `firebase_db.py` restent distincts |
+| Vérification                                            | Résultat                                                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------- |
+| Pytest, suite complète                                  | 570 tests réussis et 12 sous-tests réussis                          |
+| Vitest, suite complète                                  | 1 136 tests réussis, 11 ignorés ; 156 fichiers réussis, un ignoré   |
+| Permissions Firestore avec émulateur                    | 122 tests réussis                                                   |
+| Playwright desktop/PWA avec services simulés            | Huit parcours réussis                                               |
+| Typage, lint, contrôle du design et build de production | Réussis                                                             |
+| Copies Python partagées                                 | 23 modules identiques ; les deux `firebase_db.py` restent distincts |
 
 Le précontrôle local signale `EB_APP_ID`, `EB_PRIVATE_KEY`, `EB_REDIRECT_URL`
 et `EB_APP_URL` manquants. Aucun déploiement ni import bancaire réel n'a été

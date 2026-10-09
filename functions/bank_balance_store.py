@@ -17,5 +17,3 @@ def store_balance(store, value):
             'account_id': value['compte'], 'balance_value': value['solde'], 'timestamp': value['receivedAt'],
             'event_type': 'imported_enable_banking', 'source': 'enable_banking',
             'balanceType': value.get('balanceType'), 'bankDate': value.get('bankDate'), 'currency': value['currency']})
-
-
