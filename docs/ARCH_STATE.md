@@ -304,6 +304,18 @@ courbe d'évolution n'a besoin d'aucune collection dédiée.
 
 ## 🔗 Infrastructure
 
+### Import des recharges Tronity (octobre 2026)
+
+Le workflow `.github/workflows/tronity-import.yml` est planifié chaque jour à
+**10 h Europe/Paris**, avec adaptation automatique aux changements d'heure.
+Il importe les 60 derniers jours en automatique ; le lancement manuel GitHub
+(`workflow_dispatch`) et l'événement `import-tronity` restent disponibles
+(30 jours par défaut). Le périmètre et les tarifs proviennent de `config/tronity`.
+La page Réglages → Import → Tronity gère la configuration ; elle ne propose
+pas encore de bouton de déclenchement. La planification prend effet après
+publication du workflow sur la branche par défaut et GitHub peut en retarder
+le démarrage. Les secrets requis sont décrits dans `GITHUB_ACTIONS_SECRETS_SETUP.md`.
+
 ### Import Linxo : répétitions de virements en attente (septembre 2026)
 
 `reconcile_pending` (`src/dedup.py` et sa copie identique `functions/dedup.py`)

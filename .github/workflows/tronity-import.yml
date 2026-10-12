@@ -1,16 +1,14 @@
 name: Import Tronity (recharges domicile) → Firebase
 
 on:
-  # Planification désactivée : consommait des minutes Actions quotidiennes
-  # pour un import qui peut être déclenché à la demande (bouton dashboard ou
-  # workflow_dispatch). Réactiver le schedule ci-dessous si besoin d'un
-  # import automatique régulier :
-  #   schedule:
-  #     - cron: '0 6 * * *'
+  # Tous les jours à 10 h à Paris, y compris après les changements d'heure.
+  schedule:
+    - cron: '0 10 * * *'
+      timezone: Europe/Paris
   workflow_dispatch:
     # Lancement manuel depuis l'UI GitHub
   repository_dispatch:
-    # Déclenché depuis le dashboard via un bouton "Rafraîchir Tronity"
+    # Déclenchement à la demande via l'événement import-tronity.
     types: [import-tronity]
 
 permissions:
