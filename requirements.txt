@@ -1,7 +1,7 @@
 google-auth==2.61.0
 google-auth-oauthlib==1.4.1
 google-auth-httplib2==0.4.4
-google-api-python-client==2.200.0
+google-api-python-client==2.201.0
 openpyxl==3.1.5
 firebase-admin==7.7.0
 # Épinglés : google-cloud-firestore>=2.29.0 (et google-api-core>=2.35.0) cassent
