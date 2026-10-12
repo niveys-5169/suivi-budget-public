@@ -50,7 +50,7 @@
   "devDependencies": {
     "@babel/core": "7.29.7",
     "@eslint/js": "^10.0.1",
-    "@firebase/rules-unit-testing": "^5.0.2",
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@playwright/test": "^1.63.0",
     "@sentry/vite-plugin": "^5.4.0",
     "@storybook/addon-a11y": "^10.6.1",
