@@ -17,3 +17,6 @@ requests==2.34.2
 # version. Mettre à jour en même temps que les audits de sécurité le signalent.
 urllib3==2.8.0
 beautifulsoup4==4.15.0
+# Base de fuseaux horaires pour zoneinfo sous Windows (ZoneInfo("Europe/Paris")
+# dans src/tronity_importer.py) : Windows n'embarque pas la base IANA.
+tzdata==2026.5
