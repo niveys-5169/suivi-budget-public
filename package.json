@@ -36,7 +36,7 @@
     "@hookform/resolvers": "^5.9.1",
     "@sentry/react": "^11.2.0",
     "firebase": "^13.0.0",
-    "framer-motion": "^13.5.0",
+    "framer-motion": "^14.0.0",
     "lucide-react": "^1.49.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
