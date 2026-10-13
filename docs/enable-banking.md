@@ -11,6 +11,14 @@ en observation ont réussi le 9 octobre 2026. Le propriétaire a demandé le pas
 en mode actif avec quatre interrogations quotidiennes et rafraîchissement manuel.
 Trois journées consécutives d'import automatique restent à constater.
 
+Depuis le 13 octobre 2026, les déploiements préservent les versions existantes
+de `EB_APP_ID` et `EB_PRIVATE_KEY` dans Google Secret Manager. Le nettoyage
+historique est terminé : seules les versions 12 sont activées à cette date.
+Il n’y a pas de nettoyage à refaire à chaque déploiement, seulement après une
+rotation volontaire validée. Modifier un secret GitHub ne remplace pas sa copie
+Google existante. Procédure, formats, contrôles et retour arrière :
+[secrets d’exécution](runtime-secrets.md).
+
 Le workflow de précontrôle fournit un audit de production limité aux compteurs,
 statuts et horaires, sans données financières individuelles. Son option
 `prepare_links` prépare les liens historiques certains sans publier de montants.

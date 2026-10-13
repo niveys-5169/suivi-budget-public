@@ -1,36 +1,48 @@
 # Plan de correction de l’audit de sécurité
 
-**Date de mise à jour :** 12 octobre 2026
+**Date de mise à jour :** 13 octobre 2026
 
 **Audit de référence :** `699edd45-81a3-4cce-a968-123a547cc2a4`
 
 **Commit audité :** `588a636d295a5d8cf9fff18198719eab73c62343`
 
-**Référence vérifiée :** `origin/main` à `4a64a5d83b71c52cd563b6a31b2935c7dd5ad695`
+**Référence vérifiée :** branche distante `main` à `e49a7ecc4d2683de202c2722a615dd41392bf395` ; correctif de conservation des secrets fusionné à `b6e493162aed65d8b9eb0b4753deed40ee307010`.
 
 ## Objectif
 
 Clôturer les constats de l’audit par des corrections vérifiables, sans étendre inutilement le périmètre fonctionnel. Chaque phase doit produire un livrable autonome, testable et réversible.
 
-Le présent document met à jour le plan après comparaison entre le commit audité et la branche distante actuelle. Le worktree d’audit est détaché sur l’ancien commit : **les corrections ne doivent pas être développées depuis ce worktree**. L’implémentation commencera dans un worktree propre créé depuis `origin/main`.
+Le présent document met à jour le plan après comparaison entre le commit audité, la branche distante actuelle et les vérifications de production. Les correctifs secrets ont été fusionnés via les PR 189 et 190. Pour les corrections restantes, repartir d’un worktree propre de la branche actuelle, pas du commit historique audité.
 
-## État vérifié au 12 octobre 2026
+## État vérifié au 13 octobre 2026
 
-| Constat                                                                    | Sévérité | État                   | Preuve synthétique                                                                                                                                                     |
-| -------------------------------------------------------------------------- | -------: | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Secrets Gmail et GitHub injectés comme variables d’environnement Cloud Run |  Moyenne | Implémenté, à déployer | Les consommateurs utilisent désormais `SecretParam` et le workflow réserve `.env` aux valeurs non sensibles ; la rotation et la vérification cloud restent à effectuer |
-| Injection de formules dans l’export XLSX                                   |  Moyenne | Corrigé                | `_write_cell()` force les chaînes en texte et les tests vérifient l’absence de nœuds `<f>` dans le classeur sérialisé                                                  |
-| Déconnexion sans purge des données persistées dans le navigateur           |   Faible | À corriger             | La déconnexion appelle encore directement Firebase Auth tandis que les caches Firestore et `ai_settings` persistent                                                    |
-| Catégories et montants financiers transmis à Sentry                        |   Faible | À corriger             | Les appels transmettent encore `categorie` et parfois `amount`; la liste de filtrage ne couvre pas ces champs                                                          |
-| Réécritures Vercel utilisées comme proxys ouverts vers Brave et NVIDIA     |   Faible | À corriger             | Les réécritures externes restent accessibles sans authentification ni limitation applicative                                                                           |
+| Constat                                                                    | Sévérité | État                                     | Preuve synthétique                                                                                                                                                                                |
+| -------------------------------------------------------------------------- | -------: | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Secrets Gmail et GitHub injectés comme variables d’environnement Cloud Run |  Moyenne | Corrigé et déployé ; réserves de clôture | Références Secret Manager version 2 vérifiées, anciennes versions 1 détruites ; Gmail testé en production. IAM, anciens jetons fournisseurs et anciennes révisions restent à contrôler séparément |
+| Injection de formules dans l’export XLSX                                   |  Moyenne | Corrigé                                  | `_write_cell()` force les chaînes en texte et les tests vérifient l’absence de nœuds `<f>` dans le classeur sérialisé                                                                             |
+| Déconnexion sans purge des données persistées dans le navigateur           |   Faible | À corriger                               | La déconnexion appelle encore directement Firebase Auth tandis que les caches Firestore et `ai_settings` persistent                                                                               |
+| Catégories financières potentiellement transmises à Sentry                 |   Faible | À corriger                               | Si Sentry est activé, `categorie` n’est pas filtré ; `amount`/`montant` sont masqués au premier niveau, mais le filtrage n’est ni récursif ni fondé sur une liste blanche                         |
+| Réécritures Vercel utilisées comme proxys ouverts vers Brave et NVIDIA     |   Faible | À corriger                               | Les réécritures externes restent accessibles sans authentification ni limitation applicative                                                                                                      |
 
-**Bilan : 1 constat corrigé sur 5, 4 constats restant à clôturer.**
+**Bilan : 2 corrections livrées sur 5, 3 constats encore à corriger. L’audit n’est pas clôturé : les réserves de production et contrôles externes restent distincts des correctifs livrés.**
+
+### Preuves récentes et limites
+
+- [PR 189](https://github.com/niveys-5169/suivi-budget-public/pull/189) : migration Gmail/GitHub, déclarations des sept consommateurs, bootstrap fail-closed et tests.
+- [PR 190](https://github.com/niveys-5169/suivi-budget-public/pull/190) : les secrets Enable Banking ne sont plus recréés à chaque déploiement. Versions 1 à 11 détruites, versions 12 conservées.
+- [Déploiement Gmail version 2 réussi](https://github.com/niveys-5169/suivi-budget-public/actions/runs/38368335764) : les six consommateurs Gmail sont `ACTIVE` ; références 2, nouvelles révisions prêtes et 100 % du trafic. `dispatch_github_workflow` référence le PAT version 2. Les anciennes versions 1 Gmail/GitHub sont `DESTROYED`.
+- [Import Gmail réel réussi](https://github.com/niveys-5169/suivi-budget-public/actions/runs/38369183138) : 0 nouvel email à traiter, 139 fiches d’emails actualisées, aucune erreur relevée. Ce test ne couvre donc pas l’ajout d’une nouvelle transaction.
+- Renouvellement du watch effectué le 13 octobre à 08:28 UTC, expiration annoncée au 20 octobre ; état Firestore sans erreur et notifications du handler HTTP 200.
+- Vérification ciblée du 13 octobre : `18 passed, 12 subtests passed` pour XLSX, bindings des secrets et bootstrap. Lors du correctif Enable Banking : `589 passed, 12 subtests passed` ; ce résultat global n’a pas été rejoué pour la seule mise à jour documentaire.
+- Le PAT a été validé en lecture seule auprès de GitHub. Le dispatch déployé et une synchronisation bancaire complète après rotation n’ont pas été exercés par ces tests Gmail. La révocation des anciens jetons chez leurs fournisseurs et la revue IAM ne sont pas prouvées par la destruction Secret Manager.
+
+Procédure de reprise, rotation, diagnostics et nettoyage : [Google Secret Manager](../runtime-secrets.md). Les numéros ci-dessus sont un relevé daté, pas des valeurs à recopier pour une future rotation.
 
 ### Progrès connexes déjà constatés
 
 - Le déploiement Firestore inclut désormais les règles et les index, avec des exécutions GitHub Actions réussies le 9 octobre 2026.
 - Les audits npm et Python ont réussi le 7 octobre 2026 après plusieurs mises à jour de dépendances.
-- Les secrets Enable Banking utilisent déjà `SecretParam`; ce mécanisme servira de modèle pour Gmail et GitHub.
+- Les quatre secrets Gmail/GitHub/Enable Banking utilisent `SecretParam` et le même bootstrap sans création de version lors d’un déploiement courant.
 - Les règles du projet Firestore portefeuille ne sont toujours pas versionnées dans ce dépôt. Leur état réel reste donc à vérifier séparément.
 - Les exceptions `PYSEC-2025-183` et `PYSEC-2024-271` restent présentes sans justification, responsable ni date d’expiration documentés.
 
@@ -52,9 +64,9 @@ Le présent document met à jour le plan après comparaison entre le commit audi
 
 ### Phase 1 — Migrer les secrets Gmail et GitHub vers Secret Manager
 
-**Priorité : haute — seul constat moyen encore ouvert**
+**Priorité : correctif livré — terminer les réserves de clôture**
 
-**Avancement :** implémentation locale terminée ; 588 tests Python et 12 sous-tests passent. Les sept fonctions consommatrices déclarent leurs secrets, les écritures Gmail/GitHub dans `.env` sont supprimées et le bootstrap bloque sur toute erreur de lecture. Le déploiement, la vérification IAM/Cloud Run et la rotation des jetons restent nécessaires avant clôture. Procédure : [secrets d’exécution](../runtime-secrets.md).
+**Avancement :** migration fusionnée et déployée, rotation vers les versions 2 effectuée, anciennes versions Secret Manager détruites. Les sept consommateurs déclarent leurs secrets ; les configurations actives vérifiées ne contiennent plus les valeurs Gmail/GitHub littérales. Import Gmail, renouvellement et réception Pub/Sub validés. Pour la clôture stricte, confirmer la révocation des anciens jetons fournisseurs, les droits IAM minimaux, les anciennes révisions, le dispatch réel et les synchronisations bancaires après rotation. Procédure : [secrets d’exécution](../runtime-secrets.md).
 
 1. Déclarer des `SecretParam` dédiés pour le jeton Gmail et le jeton GitHub, dans un module de secrets stable et partagé.
 2. Remplacer les lectures directes de `os.environ` dans la construction du client Gmail et dans le déclenchement GitHub.
@@ -66,7 +78,7 @@ Le présent document met à jour le plan après comparaison entre le commit audi
    - synchronisation bancaire planifiée ;
    - déclenchement GitHub.
 4. Modifier le workflow de déploiement pour utiliser `firebase functions:secrets:set` ou le mécanisme Firebase équivalent, puis supprimer l’écriture des deux jetons dans le fichier `.env` de déploiement.
-5. Déployer, vérifier que la révision Cloud Run ne contient que des références aux secrets, puis renouveler les deux jetons exposés par l’ancien mécanisme.
+5. Déployer, vérifier les références Cloud Run et renouveler les jetons exposés. Pour Gmail, organiser la révocation Google avant la nouvelle autorisation : une révocation ultérieure peut invalider aussi le nouveau jeton du même projet. Pour GitHub, révoquer l’ancien PAT après validation du nouveau.
 6. Tester explicitement le comportement en cas de secret absent ou inaccessible : l’exécution doit échouer de manière sûre et observable.
 
 **Critères d’acceptation**
@@ -186,7 +198,7 @@ Chaque PR doit être fusionnable indépendamment et inclure ses tests, ses crit�
 
 Le plan est terminé lorsque :
 
-- les quatre constats encore ouverts sont corrigés et vérifiés ;
+- les trois constats encore à corriger sont corrigés et vérifiés, et les réserves de clôture du correctif secrets sont levées ;
 - la correction XLSX reste couverte par un test de non-régression ;
 - les jetons Gmail et GitHub ont été renouvelés après migration ;
 - les contrôles cloud, IAM, Firestore, Sentry et WAF sont validés sur les environnements réellement utilisés ;
