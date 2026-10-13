@@ -63,9 +63,10 @@ def test_dispatch_missing_event_type(main_module):
 
 
 def test_dispatch_missing_token(main_module, mocker):
-    mocker.patch(
-        "main.os.environ.get",
-        side_effect=lambda k, default=None: None if k == "GITHUB_DISPATCH_TOKEN" else default,
+    mocker.patch.object(
+        main_module,
+        "GITHUB_DISPATCH_TOKEN_SECRET",
+        MagicMock(value=""),
     )
 
     req = create_mock_callable_request(auth_uid=OWNER_UID, data={"event_type": "import-linxo"})
@@ -77,9 +78,10 @@ def test_dispatch_missing_token(main_module, mocker):
 
 
 def test_dispatch_success(main_module, mocker):
-    mocker.patch(
-        "main.os.environ.get",
-        side_effect=lambda k, default=None: "fake-token" if k == "GITHUB_DISPATCH_TOKEN" else default,
+    mocker.patch.object(
+        main_module,
+        "GITHUB_DISPATCH_TOKEN_SECRET",
+        MagicMock(value="fake-token"),
     )
     mock_post = mocker.patch("main.requests.post")
     mock_post.return_value = MagicMock(status_code=204)
@@ -101,9 +103,10 @@ def test_dispatch_success(main_module, mocker):
 
 
 def test_dispatch_with_client_payload(main_module, mocker):
-    mocker.patch(
-        "main.os.environ.get",
-        side_effect=lambda k, default=None: "fake-token" if k == "GITHUB_DISPATCH_TOKEN" else default,
+    mocker.patch.object(
+        main_module,
+        "GITHUB_DISPATCH_TOKEN_SECRET",
+        MagicMock(value="fake-token"),
     )
     mock_post = mocker.patch("main.requests.post")
     mock_post.return_value = MagicMock(status_code=204)
@@ -121,9 +124,10 @@ def test_dispatch_with_client_payload(main_module, mocker):
 
 
 def test_dispatch_github_http_error(main_module, mocker):
-    mocker.patch(
-        "main.os.environ.get",
-        side_effect=lambda k, default=None: "fake-token" if k == "GITHUB_DISPATCH_TOKEN" else default,
+    mocker.patch.object(
+        main_module,
+        "GITHUB_DISPATCH_TOKEN_SECRET",
+        MagicMock(value="fake-token"),
     )
     mock_post = mocker.patch("main.requests.post")
     mock_post.return_value = MagicMock(status_code=401, text="Bad credentials")

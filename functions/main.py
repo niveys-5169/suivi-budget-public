@@ -41,7 +41,12 @@ from ai_categorizer import categorize_batch
 # Initialisation de l'environnement Firebase
 initialize_app()
 
-from src.banking_secrets import EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET
+from src.banking_secrets import (
+    EB_APP_ID_SECRET,
+    EB_PRIVATE_KEY_SECRET,
+    GITHUB_DISPATCH_TOKEN_SECRET,
+    GMAIL_TOKEN_SECRET,
+)
 
 CONFIG = {
     "MONTANT_MIN": -50000,
@@ -86,10 +91,10 @@ GITHUB_DISPATCH_TIMEOUT_S = 20
 
 
 def _build_gmail_client() -> GmailClient:
-    """Construit un GmailClient depuis la variable d'env GMAIL_TOKEN."""
-    token_b64 = os.environ.get("GMAIL_TOKEN")
+    """Construit un GmailClient depuis le secret GMAIL_TOKEN lié à la fonction."""
+    token_b64 = GMAIL_TOKEN_SECRET.value
     if not token_b64:
-        raise ValueError("Variable GMAIL_TOKEN introuvable dans l'environnement.")
+        raise ValueError("Secret GMAIL_TOKEN indisponible.")
     creds = Credentials.from_authorized_user_info(
         json.loads(base64.b64decode(token_b64).decode("utf-8"))
     )
@@ -335,7 +340,7 @@ def trigger_portfolio_daily_sync(req: https_fn.CallableRequest) -> dict:
             message=str(e)
         )
 
-@https_fn.on_call(region="europe-west1")
+@https_fn.on_call(region="europe-west1", secrets=[GMAIL_TOKEN_SECRET])
 def import_linxo_transactions(req: https_fn.CallableRequest) -> dict:
     try:
         require_owner(req)
@@ -363,11 +368,11 @@ def _dispatch_github_workflow_logic(req: https_fn.CallableRequest) -> dict:
             )
         client_payload = req.data.get("client_payload")
 
-        token = os.environ.get("GITHUB_DISPATCH_TOKEN")
+        token = GITHUB_DISPATCH_TOKEN_SECRET.value
         if not token:
             raise https_fn.HttpsError(
                 code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
-                message="Variable GITHUB_DISPATCH_TOKEN introuvable dans l'environnement."
+                message="Secret GITHUB_DISPATCH_TOKEN indisponible."
             )
 
         body = {"event_type": event_type}
@@ -397,7 +402,7 @@ def _dispatch_github_workflow_logic(req: https_fn.CallableRequest) -> dict:
             message=str(e)
         )
 
-@https_fn.on_call(region="europe-west1")
+@https_fn.on_call(region="europe-west1", secrets=[GITHUB_DISPATCH_TOKEN_SECRET])
 def dispatch_github_workflow(req: https_fn.CallableRequest) -> dict:
     """Déclenche un repository_dispatch GitHub Action.
 
@@ -455,7 +460,7 @@ def _verify_pubsub_push(req: https_fn.Request) -> bool:
     )
 
 
-@https_fn.on_request(region="europe-west1")
+@https_fn.on_request(region="europe-west1", secrets=[GMAIL_TOKEN_SECRET])
 def gmail_watch_handler(req: https_fn.Request) -> https_fn.Response:
     """Reçoit les notifications Gmail Watch via Pub/Sub push subscription HTTP.
 
@@ -544,7 +549,7 @@ def _register_gmail_watch() -> dict:
     return {"historyId": history_id, "expiration": expiration}
 
 
-@https_fn.on_call(region="europe-west1")
+@https_fn.on_call(region="europe-west1", secrets=[GMAIL_TOKEN_SECRET])
 def setup_gmail_watch(req: https_fn.CallableRequest) -> dict:
     """Enregistre ou renouvelle le Gmail Watch Pub/Sub (expire après 7 jours max).
 
@@ -566,7 +571,9 @@ def setup_gmail_watch(req: https_fn.CallableRequest) -> dict:
         raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INTERNAL, str(e))
 
 
-@scheduler_fn.on_schedule(schedule="0 6 * * *", region="europe-west1")
+@scheduler_fn.on_schedule(
+    schedule="0 6 * * *", region="europe-west1", secrets=[GMAIL_TOKEN_SECRET]
+)
 def renew_gmail_watch(event: scheduler_fn.ScheduledEvent) -> None:
     """Renouvelle le Gmail Watch chaque jour à 06:00 UTC.
 
@@ -619,7 +626,11 @@ def banking_reconcile_action(req: https_fn.CallableRequest) -> dict:
     return reconcile_action(req)
 
 
-@https_fn.on_call(region="europe-west1", timeout_sec=540, secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
+@https_fn.on_call(
+    region="europe-west1",
+    timeout_sec=540,
+    secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET, GMAIL_TOKEN_SECRET],
+)
 def sync_banking(req: https_fn.CallableRequest) -> dict:
     from src.banking_endpoints import store
     from bank_sync import sync_banking as run
@@ -628,8 +639,13 @@ def sync_banking(req: https_fn.CallableRequest) -> dict:
     return run(store(), EnableBankingClient, lambda: _run_linxo_import_core(_build_gmail_client()))
 
 
-@scheduler_fn.on_schedule(schedule="0 8,12,16,20 * * *", timezone="Europe/Paris", region="europe-west1", timeout_sec=540,
-                          secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET])
+@scheduler_fn.on_schedule(
+    schedule="0 8,12,16,20 * * *",
+    timezone="Europe/Paris",
+    region="europe-west1",
+    timeout_sec=540,
+    secrets=[EB_APP_ID_SECRET, EB_PRIVATE_KEY_SECRET, GMAIL_TOKEN_SECRET],
+)
 def scheduled_banking_sync(event: scheduler_fn.ScheduledEvent) -> None:
     from src.banking_endpoints import store
     from bank_sync import sync_banking as run
