@@ -17,24 +17,33 @@ exactly one of "workload_identity_provider" or "credentials_json"!
 Ce guide liste, workflow par workflow, les secrets à recréer et comment
 obtenir chaque valeur.
 
+**Mise à jour : 13 octobre 2026.** Pour une rotation ou un incident, suivre
+[Google Secret Manager — exploitation et dépannage](runtime-secrets.md), qui
+fait référence pour les formats, le redéploiement et le nettoyage. GitHub et
+Secret Manager sont deux stockages distincts : modifier GitHub ne remplace
+pas un secret Google existant.
+
 ## 1. Vue d'ensemble
 
 | Secret                                                                                                                                                 | Utilisé par                                                                                                  |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `FIREBASE_CREDENTIALS`                                                                                                                                 | `deploy-functions.yml`, `main.yml`, `linxo-poll.yml`, `tronity-import.yml`, `cleanup-tronity-duplicates.yml` |
 | `GOOGLE_TOKEN`                                                                                                                                         | `deploy-functions.yml`, `main.yml`, `linxo-poll.yml`                                                         |
-| `PAT_GITHUB_SECRET`                                                                                                                                    | `deploy-functions.yml` (injecté aux Cloud Functions, pas utilisé côté CI lui-même)                           |
+| `PAT_GITHUB_SECRET`                                                                                                                                    | `deploy-functions.yml` (bootstrap de `GITHUB_DISPATCH_TOKEN` dans Secret Manager)                            |
+| `EB_APP_ID`, `EB_PRIVATE_KEY`                                                                                                                          | `deploy-functions.yml` (bootstrap Secret Manager), `banking-preflight.yml` (contrôle direct)                 |
 | `TRONITY_CLIENT_ID`, `TRONITY_CLIENT_SECRET`, `TRONITY_VEHICLE_ID`, `TRONITY_COMPTE`, `TRONITY_HOME_LAT`, `TRONITY_HOME_LON`, `TRONITY_HOME_RADIUS_KM` | `tronity-import.yml`                                                                                         |
 
-`EB_APP_ID` / `EB_PRIVATE_KEY` / `EB_SESSIONS` / `EB_ACCOUNT_MAPPING` (Enable
-Banking, mentionnés dans le README) ne sont consommés par **aucun** workflow
-GitHub Actions actuel — hors périmètre de ce guide.
+`EB_APP_ID` et `EB_PRIVATE_KEY` sont les identifiants serveur Enable Banking.
+Configurer aussi les variables GitHub `EB_REDIRECT_URL`, `EB_APP_URL` et
+`EB_MODE` selon [la mise en service bancaire](enable-banking.md). Les sessions
+et affectations courantes sont gérées par le backend ; ce ne sont pas des
+secrets à recréer lors d’une rotation Gmail ou GitHub.
 
 Prérequis pour la suite :
 
 - Droit **Admin** sur ce dépôt GitHub (pour écrire des secrets).
 - Accès **Owner ou Editor** sur le projet Firebase `suivi-budget-ab888`.
-- Accès **Owner** sur le projet OAuth `moonlit-app-455605-k7` (pour Gmail Push, cf. `docs/GMAIL_PUBSUB_SETUP.md`).
+- Droits nécessaires sur le client OAuth, le topic Pub/Sub et Secret Manager du même projet **`suivi-budget-ab888`**. L’ancien projet `moonlit-app-455605-k7` n’est plus la cible Gmail Push.
 - [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) installé et authentifié (`gcloud auth login`) pour les commandes IAM ci-dessous.
 
 Où ajouter les secrets, à chaque étape ci-dessous : **Settings → Secrets and
@@ -71,30 +80,28 @@ Firestore `trigger_balance_reconciliation`, l'Eventarc Service Agent a besoin
 de droits supplémentaires : voir `docs/history/GCP_CREDENTIALS_SETUP_FIX.md`
 (déjà rencontré et corrigé une fois sur ce projet).
 
-Pour que Gmail Push fonctionne (étape « Provision Gmail Pub/Sub » du même
-workflow), ce même compte de service a aussi besoin de droits **cross-projet**
-sur `moonlit-app-455605-k7` : suivre l'« Option A » de
-`docs/GMAIL_PUBSUB_SETUP.md` (deux commandes `gcloud`, à faire une seule fois
-par un Owner de ce projet OAuth).
+Pour Gmail Push, le client OAuth et le topic sont désormais dans
+`suivi-budget-ab888` : aucune configuration vers l’ancien projet `moonlit-app`
+ne doit être appliquée pour rétablir le fonctionnement courant. Suivre
+[Gmail Pub/Sub](GMAIL_PUBSUB_SETUP.md) pour les droits du publisher et de
+l’identité OIDC, et [Secret Manager](runtime-secrets.md) pour les droits de
+déploiement et Secret Accessor. Les droits administrateur listés ci-dessus
+ne sont pas des droits à donner au navigateur ou au runtime par défaut ;
+leur périmètre doit être revu selon le moindre privilège.
 
 ## 3. `GOOGLE_TOKEN` — jeton OAuth Gmail
 
-1. Dans [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
-   projet `moonlit-app-455605-k7` → **APIs & Services → Identifiants** →
-   récupérer (ou créer) un **ID client OAuth** de type _Application de bureau_,
-   et télécharger son fichier JSON sous le nom `credentials.json`.
-2. En local, à la racine du dépôt :
-   ```bash
-   pip install google-auth-oauthlib
-   python scripts/generate_token.py
-   ```
-3. Le script ouvre un serveur local sur le port 8080 et affiche un lien :
-   l'ouvrir dans un navigateur, se connecter avec le compte Gmail à surveiller,
-   accepter l'accès demandé (`gmail.modify`).
-4. Un fichier `token.json` est généré. Copier tout son contenu dans le secret
-   GitHub `GOOGLE_TOKEN`.
-5. Supprimer `credentials.json` et `token.json` en local (ne jamais les
-   committer — déjà exclus par `.gitignore`, à vérifier si doute).
+Suivre le [pas-à-pas Windows du guide Secret Manager](runtime-secrets.md#remplacer-le-jeton-gmail--windowspowershell).
+Il couvre le JSON client **`credentials.json`**, le script `generate_token.py`,
+la révocation préalable en cas de remplacement, les deux copies et les tests.
+
+- Projet du client OAuth : **`suivi-budget-ab888`** ; type _Application de bureau_.
+- `GOOGLE_TOKEN` dans GitHub : contenu **JSON brut complet** de `token.json`.
+- `GMAIL_TOKEN` dans Google : ce même contenu encodé **une fois en base64**.
+- Premier bootstrap : le workflow crée le secret Google seulement s’il est absent.
+- Rotation : ajouter explicitement une version Google, puis redéployer ; ne pas
+  s’arrêter à la mise à jour GitHub.
+- Supprimer les fichiers temporaires et vider le presse-papiers après validation.
 
 ## 4. `PAT_GITHUB_SECRET` — jeton d'accès personnel GitHub
 
@@ -104,10 +111,14 @@ Utilisé côté serveur par les Cloud Functions pour déclencher des événement
 
 1. GitHub → menu profil → **Settings → Developer settings → Personal access
    tokens → Fine-grained tokens → Generate new token**.
-2. Le limiter à ce dépôt (`niveys-5169/suivi-budget-public`), avec les
-   permissions **Contents: Read and write** et **Actions: Read and write**
-   (nécessaire pour déclencher `repository_dispatch`).
-3. Générer, copier le jeton, l'ajouter comme secret GitHub `PAT_GITHUB_SECRET`.
+2. Le limiter à ce dépôt (`niveys-5169/suivi-budget-public`), avec une expiration
+   et **Contents: Read and write**, permission requise pour `repository_dispatch`.
+   Ne pas ajouter Actions write sans autre besoin identifié.
+   [Permission officielle GitHub](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event).
+3. Générer et enregistrer le PAT **brut** dans `PAT_GITHUB_SECRET`.
+4. Pour une rotation, ajouter aussi une version du PAT brut dans
+   `GITHUB_DISPATCH_TOKEN` (Secret Manager), redéployer et tester, puis révoquer
+   l’ancien PAT et nettoyer son ancienne version. Voir [la procédure](runtime-secrets.md#github).
 
 ## 5. Secrets `TRONITY_*`
 
@@ -127,23 +138,29 @@ Une fois tous les secrets ajoutés :
 1. **Actions → Deploy → Firebase Cloud Functions → Run workflow** (bouton
    `workflow_dispatch`, branche `main`) plutôt que d'attendre un vrai push.
 2. Vérifier que l'étape **Authenticate gcloud** passe au vert.
-3. Si l'étape **Provision Gmail Pub/Sub** échoue, c'est le binding IAM
-   cross-projet (§2, dernier paragraphe) qui manque encore — le job affiche
-   le correctif exact dans ses logs.
+3. Si **Configure runtime secrets** ou **Provision Gmail Pub/Sub** échoue,
+   distinguer problème IAM, version Google désactivée/détruite et configuration
+   OAuth/topic. Ne pas supposer un problème cross-projet historique ; utiliser
+   [le tableau de dépannage](runtime-secrets.md#en-cas-de-souci).
 4. Si le déploiement Cloud Functions lui-même échoue sur un rôle IAM manquant,
    l'erreur `gcloud`/`firebase` nomme le rôle exact à ajouter (`add-iam-policy-binding`
    comme au §2).
-5. Une fois `deploy-functions.yml` vert, tester `linxo-poll.yml` et
-   `tronity-import.yml` en `workflow_dispatch` manuel pour confirmer que
-   `GOOGLE_TOKEN` / `FIREBASE_CREDENTIALS` / `TRONITY_*` sont correctement lus.
+5. Une fois `deploy-functions.yml` vert, vérifier les références Secret Manager
+   et le trafic Cloud Run. Tester `linxo-poll.yml`, renouveler le watch puis
+   vérifier son état Firestore et les notifications. Ces tests ont des effets
+   réels ; consulter [la procédure](runtime-secrets.md).
+6. Tester séparément `tronity-import.yml` si les identifiants Tronity ont changé ;
+   ce n’est pas nécessaire pour une rotation Gmail seule.
 
 ## 7. Checklist
 
 - [ ] `FIREBASE_CREDENTIALS`
 - [ ] Rôles IAM du compte de service sur `suivi-budget-ab888` (§2)
-- [ ] Droits cross-projet Gmail Push sur `moonlit-app-455605-k7` (`docs/GMAIL_PUBSUB_SETUP.md`)
+- [ ] Client OAuth Gmail et topic Pub/Sub dans `suivi-budget-ab888`, identités correctement autorisées
 - [ ] `GOOGLE_TOKEN`
 - [ ] `PAT_GITHUB_SECRET`
+- [ ] `EB_APP_ID`, `EB_PRIVATE_KEY`, variables `EB_REDIRECT_URL`, `EB_APP_URL`, `EB_MODE`
+- [ ] Quatre secrets d’exécution Google initialisés ; bonne version `ENABLED` et droits Secret Accessor
 - [ ] `TRONITY_CLIENT_ID`
 - [ ] `TRONITY_CLIENT_SECRET`
 - [ ] `TRONITY_VEHICLE_ID`
@@ -152,3 +169,4 @@ Une fois tous les secrets ajoutés :
 - [ ] `TRONITY_HOME_LON`
 - [ ] `TRONITY_HOME_RADIUS_KM`
 - [ ] `deploy-functions.yml` vert sur `workflow_dispatch`
+- [ ] Versions réellement utilisées et trafic vérifiés ; tests applicatifs réussis avant tout nettoyage

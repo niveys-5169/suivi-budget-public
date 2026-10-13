@@ -304,6 +304,23 @@ courbe d'évolution n'a besoin d'aucune collection dédiée.
 
 ## 🔗 Infrastructure
 
+### Secrets d’exécution Google Secret Manager (13 octobre 2026)
+
+Gmail, GitHub et Enable Banking utilisent `SecretParam` dans les Cloud Functions,
+avec liaison explicite par consommateur. Le workflow conserve les versions
+existantes et ne crée un secret qu’après un `NOT_FOUND` explicite ; les erreurs
+de lecture bloquent le déploiement. Les copies GitHub ne remplacent pas
+automatiquement un secret Google existant, et une rotation requiert un
+redéploiement de toutes les fonctions concernées.
+
+Gmail/GitHub version 2 et Enable Banking version 12 vérifiés en production le
+13 octobre ; versions précédentes détruites dans Secret Manager. Import Gmail
+et renouvellement/notifications du watch testés. La révocation des anciens
+jetons fournisseurs, les anciens déploiements et les droits IAM restent à
+contrôler séparément. Pour une panne ou une prochaine rotation, consulter
+[le guide d’exploitation et dépannage](runtime-secrets.md), plutôt que réutiliser
+ces numéros historiques. Ce guide distingue JSON brut GitHub et base64 Gmail.
+
 ### Import des recharges Tronity (octobre 2026)
 
 Le workflow `.github/workflows/tronity-import.yml` est planifié chaque jour à

@@ -301,14 +301,25 @@ Les fonctions Python dans `functions/src/` gèrent :
 
 ### Secrets requis
 
-- `GOOGLE_TOKEN` — OAuth2 Google (Gmail + Sheets)
+- `GOOGLE_TOKEN` — JSON OAuth Gmail brut dans GitHub Actions ; copie encodée en base64 dans Secret Manager sous `GMAIL_TOKEN`
 - `FIREBASE_CREDENTIALS` — Service account Firebase
-- `PAT_GITHUB_SECRET` — PAT GitHub (repo), utilisé côté Cloud Functions pour déclencher les imports depuis le dashboard
-- `EB_APP_ID`, `EB_PRIVATE_KEY`, `EB_SESSIONS`, `EB_ACCOUNT_MAPPING` — Enable Banking
+- `PAT_GITHUB_SECRET` — PAT brut dans GitHub ; copie `GITHUB_DISPATCH_TOKEN` dans Secret Manager, utilisée uniquement côté serveur
+- `EB_APP_ID`, `EB_PRIVATE_KEY` — Enable Banking, copies GitHub et Secret Manager ; sessions et affectations gérées par le backend, pas à remplacer lors d’une rotation Gmail
 - `TRONITY_*` — API Tronity
 
-Pas-à-pas complet pour recréer ces secrets sur un dépôt fraîchement publié :
-`docs/GITHUB_ACTIONS_SECRETS_SETUP.md`.
+Les quatre secrets d’exécution sont dans **Google Secret Manager**, projet
+`suivi-budget-ab888`, et liés explicitement aux fonctions. Aucun jeton Gmail,
+PAT GitHub ou clé bancaire ne doit être écrit dans les variables ordinaires
+de déploiement, le bundle navigateur ou le dépôt.
+
+**Une modification dans GitHub ne remplace pas un secret Google existant.**
+Après rotation : mettre à jour les deux copies, redéployer tous les consommateurs,
+tester, puis nettoyer les versions obsolètes. Un déploiement courant ne crée
+pas de nouvelle version et ne nécessite pas de nettoyage systématique.
+
+- [Procédure de rotation Windows, vérifications et dépannage Secret Manager](docs/runtime-secrets.md).
+- [Configuration initiale des secrets GitHub Actions](docs/GITHUB_ACTIONS_SECRETS_SETUP.md).
+- [Notifications Gmail et contrôle du watch](docs/GMAIL_PUBSUB_SETUP.md).
 
 ---
 

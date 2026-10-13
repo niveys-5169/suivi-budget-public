@@ -29,6 +29,15 @@ Le client OAuth vit dans `suivi-budget-ab888`, qui est aussi le projet Firebase 
 topic, subscription, compte de signature et handler tiennent donc tous dans ce
 seul projet (`GMAIL_OAUTH_PROJECT_ID`, `functions/main.py`).
 
+Le jeton Gmail est stocké dans Google Secret Manager sous **`GMAIL_TOKEN`**
+(JSON OAuth encodé en base64), et lié aux fonctions via `SecretParam`. Sa copie
+GitHub **`GOOGLE_TOKEN`** est le JSON brut ; modifier cette copie ne remplace
+pas la version Google existante. Après ajout d’une version, redéployer tous les
+consommateurs, puis renouveler et contrôler le watch. Suivre
+[le guide Secret Manager](runtime-secrets.md) pour la rotation, le dépannage
+et le nettoyage : la révocation OAuth Google doit être organisée **avant** la
+nouvelle autorisation, pas après, sous peine d’invalider le nouveau jeton.
+
 La livraison passe par une _push subscription_ HTTP et non par un trigger Pub/Sub
 natif (`@pubsub_fn.on_message_published`) : l'endpoint du handler est une URL
 Cloud Run, et le jeton OIDC qu'elle vérifie est ce qui authentifie l'appel.
@@ -202,15 +211,15 @@ gcloud functions logs read gmail_watch_handler \
 
 ## Dépannage
 
-| Symptôme                                                                                       | Cause                                                                                                            | Correctif                                                                                                                                                   |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI : `Failed to create topic […]: User not authorized`                                         | Le SA de déploiement n'a pas de droits sur le projet OAuth                                                       | Option A ou B ci-dessus                                                                                                                                     |
-| `Invalid topicName does not match projects/<projet>/topics/*`                                  | Le topic ne vit pas dans le projet de l'app OAuth du jeton courant                                               | Aligner `GMAIL_OAUTH_PROJECT_ID` (`functions/main.py`) sur le projet que nomme l'erreur, ou régénérer `GOOGLE_TOKEN` depuis un client OAuth du bon projet   |
-| `setup_gmail_watch` → `User not authorized to perform this action`                             | `gmail-api-push@system.gserviceaccount.com` n'est pas publisher sur le topic                                     | Rejouer le binding IAM                                                                                                                                      |
-| Aucune trace dans les logs du handler                                                          | Watch expiré/jamais enregistré, subscription absente, branchée sur un ancien topic, ou endpoint obsolète         | Lire `metadata/gmail_watch_state`, cliquer « Activer Gmail Watch », puis relire le bloc « Chaîne effectivement en place » du dernier run `deploy-functions` |
-| Le handler journalise mais rien n'arrive en base                                               | `historyId` expiré (> 7 jours)                                                                                   | Le handler retombe alors sur un import complet ; sinon recliquer « Activer Gmail Watch »                                                                    |
-| CI : `PERMISSION_DENIED […] iam.serviceAccounts.actAs […] push authentication service account` | Le compte passé au `--push-auth-service-account` vit dans un autre projet que la subscription, ou a été supprimé | Le recréer dans le projet de la subscription (voir « Historique ») : aucun rôle IAM ne lève ce refus sur un compte d'un autre projet                        |
-| Le handler renvoie 403 sur chaque notification                                                 | `GMAIL_PUSH_SERVICE_ACCOUNT` ne correspond plus à l'identité de signature de la subscription                     | Comparer les deux (section « Vérifier que la chaîne fonctionne ») et redéployer les fonctions                                                               |
+| Symptôme                                                                                       | Cause                                                                                                            | Correctif                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI : `Failed to create topic […]: User not authorized`                                         | Le SA de déploiement n'a pas de droits sur le projet OAuth                                                       | Option A ou B ci-dessus                                                                                                                                                       |
+| `Invalid topicName does not match projects/<projet>/topics/*`                                  | Le topic ne vit pas dans le projet de l'app OAuth du jeton courant                                               | Utiliser un client OAuth de `suivi-budget-ab888`, remplacer `GOOGLE_TOKEN` et `GMAIL_TOKEN`, puis redéployer selon `runtime-secrets.md` ; ne pas réintroduire l’ancien projet |
+| `setup_gmail_watch` → `User not authorized to perform this action`                             | `gmail-api-push@system.gserviceaccount.com` n'est pas publisher sur le topic                                     | Rejouer le binding IAM                                                                                                                                                        |
+| Aucune trace dans les logs du handler                                                          | Watch expiré/jamais enregistré, subscription absente, branchée sur un ancien topic, ou endpoint obsolète         | Lire `metadata/gmail_watch_state`, cliquer « Activer Gmail Watch », puis relire le bloc « Chaîne effectivement en place » du dernier run `deploy-functions`                   |
+| Le handler journalise mais rien n'arrive en base                                               | `historyId` expiré (> 7 jours)                                                                                   | Le handler retombe alors sur un import complet ; sinon recliquer « Activer Gmail Watch »                                                                                      |
+| CI : `PERMISSION_DENIED […] iam.serviceAccounts.actAs […] push authentication service account` | Le compte passé au `--push-auth-service-account` vit dans un autre projet que la subscription, ou a été supprimé | Le recréer dans le projet de la subscription (voir « Historique ») : aucun rôle IAM ne lève ce refus sur un compte d'un autre projet                                          |
+| Le handler renvoie 403 sur chaque notification                                                 | `GMAIL_PUSH_SERVICE_ACCOUNT` ne correspond plus à l'identité de signature de la subscription                     | Comparer les deux (section « Vérifier que la chaîne fonctionne ») et redéployer les fonctions                                                                                 |
 
 ## Filet de sécurité
 
