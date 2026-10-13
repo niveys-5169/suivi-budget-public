@@ -1,19 +1,22 @@
-google-auth==2.59.1
+google-auth==2.61.0
 google-auth-oauthlib==1.4.1
-google-auth-httplib2==0.4.2
-google-api-python-client==2.200.0
+google-auth-httplib2==0.4.4
+google-api-python-client==2.201.0
 openpyxl==3.1.5
 firebase-admin==7.7.0
 # Épinglés : google-cloud-firestore>=2.29.0 (et google-api-core>=2.35.0) cassent
 # la connexion à la base Firestore "(default)" (InvalidArgument "Invalid database
 # id %28default%29" — double encodage de l'ID de base). À déplafonner seulement
 # après vérification qu'un correctif amont existe.
-google-api-core==2.39.0
+google-api-core==2.42.0
 google-cloud-core==2.8.0
-google-cloud-firestore==2.32.0
+google-cloud-firestore==2.34.1
 cryptography==50.0.2
 requests==2.34.2
 # urllib3 est une dépendance transitive — épinglé pour contrôler les montées de
 # version. Mettre à jour en même temps que les audits de sécurité le signalent.
 urllib3==2.8.0
 beautifulsoup4==4.15.0
+# Base de fuseaux horaires pour zoneinfo sous Windows (ZoneInfo("Europe/Paris")
+# dans src/tronity_importer.py) : Windows n'embarque pas la base IANA.
+tzdata==2026.5
