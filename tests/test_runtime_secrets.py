@@ -93,3 +93,15 @@ def test_deploy_stores_sensitive_tokens_in_secret_manager_not_dotenv():
     ]
     assert all("GMAIL_TOKEN" not in line for line in dotenv_writes)
     assert all("GITHUB_DISPATCH_TOKEN" not in line for line in dotenv_writes)
+
+
+def test_enable_banking_deploy_preserves_existing_secret_versions():
+    workflow_path = (
+        Path(__file__).parents[1] / ".github" / "workflows" / "deploy-functions.yml"
+    )
+    workflow = workflow_path.read_text(encoding="utf-8")
+
+    for name in ("EB_APP_ID", "EB_PRIVATE_KEY"):
+        assert f"bootstrap_runtime_secret.py {name} --project" in workflow
+        assert f"--source-env {name}" in workflow
+        assert f"firebase functions:secrets:set {name}" not in workflow

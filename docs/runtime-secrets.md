@@ -52,3 +52,7 @@ Ne jamais détruire une ancienne version avant la réussite du déploiement et d
 ## Contrôle du niveau gratuit
 
 Conserver une seule version active par secret. Après chaque rotation, vérifier que les anciennes versions sont dans l’état `DESTROYED`. Les quotas gratuits sont partagés entre les projets rattachés au même compte de facturation.
+
+Enable Banking suit désormais la même règle d’initialisation : `EB_APP_ID` et `EB_PRIVATE_KEY` ne reçoivent pas de nouvelle version à chaque déploiement. Le nettoyage initial élimine les versions accumulées. Ensuite, un nettoyage est nécessaire uniquement après une rotation volontaire des identifiants, une fois les nouvelles versions déployées et validées.
+
+Ne détruire aucune version encore utilisée par une fonction, un service actif, une révision recevant du trafic ou un job. Les anciennes révisions qui dépendaient d’une version détruite ne pourront plus servir de retour arrière ; conserver les versions nécessaires à un retour arrière prévu.
