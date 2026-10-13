@@ -8,41 +8,9 @@ Branche de développement : `claude/desktop-pwa-feature-gaps-rItRZ`
 
 ---
 
-## Tâche 1 — Config GitHub PAT dans les Réglages
+## Tâche 1 — Synchronisation sans PAT navigateur (obsolète)
 
-**Priorité : HAUTE** (débloque la fonctionnalité de sync déjà présente)
-
-### Problème
-
-Le bouton "Synchroniser" dans `MSettingsModal` appelle `useSyncTransactions` qui lit `localStorage.getItem('github_pat')`. Si le PAT n'est pas configuré, il retourne silencieusement `'no-pat'`. Il n'y a aucun moyen de configurer le PAT depuis la PWA.
-
-### Fichiers à modifier
-
-- `public/src/mobile/components/MSettingsModal.tsx`
-
-### Ce qu'il faut faire
-
-Ajouter une section "Synchronisation" dans le modal de réglages, au-dessus du bouton "Synchroniser" existant, avec :
-
-```
-Section "Source des données" :
-  - Champ texte "Token GitHub (PAT)" — type="password", placeholder="ghp_..."
-  - Champ texte "Owner" — placeholder="niveys-5169", valeur par défaut depuis localStorage
-  - Champ texte "Dépôt" — placeholder="Suivi-Budget", valeur par défaut depuis localStorage
-  - Bouton "Enregistrer" → écrit dans localStorage (github_pat, github_owner, github_repo)
-```
-
-**Clés localStorage à utiliser :**
-
-```
-github_pat    → localStorage.getItem('github_pat') || ''
-github_owner  → localStorage.getItem('github_owner') || 'niveys-5169'
-github_repo   → localStorage.getItem('github_repo') || 'Suivi-Budget'
-```
-
-**Pattern de référence :** `public/src/components/AdvancedSettings.tsx` lignes 50–95 (même logique read/write localStorage, pas de hook spécial à importer).
-
-**Optionnel :** Utiliser `useAdvancedSettings` hook si existant, sinon localStorage direct suffit.
+**Statut : plus à implémenter.** Le bouton « Synchroniser » appelle la Cloud Function `sync_banking` via `syncBanking()` (`public/src/services/banking-api.ts`). `useSyncTransactions` ne lit plus `localStorage.getItem('github_pat')` : le PAT GitHub n'est plus stocké dans le navigateur. Il ne sert qu'à la Cloud Function `dispatch_github_workflow`, côté serveur (secret `GITHUB_DISPATCH_TOKEN`, cf. `docs/runtime-secrets.md`). Ne pas ajouter de champ « Token GitHub » dans les réglages de la PWA.
 
 ---
 
@@ -322,7 +290,7 @@ Ces fonctionnalités restent sur desktop uniquement, pas besoin de les porter :
 ## Ordre d'implémentation recommandé
 
 ```
-1. Tâche 1 — PAT config (30 min)         → débloque sync qui est déjà là
+1. ~~Tâche 1 — PAT config~~ (obsolète, sync sans PAT navigateur)
 2. Tâche 5 — AI config (45 min)          → débloque l'assistant IA
 3. Tâche 2 — QAScreen (3-4h)            → fonctionnalité phare
 4. Tâche 3 — Récurrences (2h)           → amélioration incrémentale
@@ -379,7 +347,7 @@ return createPortal(
 Après implémentation, vérifier :
 
 1. **Build propre** : `npm run build` → 0 erreurs TypeScript, 0 warnings ESLint
-2. **PAT sync** : Entrer un PAT dans les réglages → bouton "Synchroniser" → toast "Import en cours" (si PAT valide)
+2. **Sync** : bouton "Synchroniser" → appel `sync_banking` → toast de résultat (succès, partiel ou erreur)
 3. **Assistant IA** : Bouton depuis HomeScreen → naviguer vers QAScreen → poser une question → réponse en bulles
 4. **Récurrences** : AnalyseScreen → mode "Récurrences" → voir total mensuel + regroupement pending/accepted
 5. **Balance history** : HomeScreen → tap icône horloge sur un compte → sheet avec historique
