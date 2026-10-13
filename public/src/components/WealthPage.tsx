@@ -8,7 +8,12 @@ import { usePortfolio } from '../hooks/usePortfolio';
 import { useCredits } from '../hooks/useCredits';
 import { useRecurrences } from '../hooks/useRecurrences';
 import type { Credit } from '../types/banking.types';
-import { mensualitesEnCours, tauxEndettement } from '../utils/creditSchedule';
+import {
+  capitalRestantDuTotal,
+  creditsForOwners,
+  mensualitesEnCours,
+  tauxEndettement,
+} from '../utils/creditSchedule';
 import {
   getLastPlacementSnapshot,
   type Placement,
@@ -47,7 +52,11 @@ import {
 import { fmt } from '../utils/format';
 import { buildSnapshotOptions } from '../utils/wealthSnapshot';
 import { useWealthEvolution } from '../hooks/useWealthEvolution';
-import { evolutionForTypeScope, segmentsToLiveByCat } from '../utils/wealthEvolution';
+import {
+  evolutionForTypeScope,
+  segmentsNetOfDebt,
+  segmentsToLiveByCat,
+} from '../utils/wealthEvolution';
 
 import { PageHeader } from './shared/PageHeader';
 import { Card } from './shared/Card';
@@ -106,15 +115,25 @@ export const WealthPage: React.FC = () => {
   // Tant que le portefeuille live charge encore, segmentsAllTypes sous-estime les
   // investissements (holdings vides) : ancrer dessus ferait chuter artificiellement
   // le dernier jour. On garde le dernier snapshot connu jusqu'à la fin du chargement.
+  const { credits } = useCredits();
+  // Même règle de filtrage par propriétaire que pour les actifs (useWealthAggregates),
+  // sauf les crédits « Commun ».
+  const filteredCredits = useMemo(
+    () => creditsForOwners(credits, ownerScope),
+    [credits, ownerScope],
+  );
+  const crdOwner = useMemo(
+    () => capitalRestantDuTotal(filteredCredits, new Date()),
+    [filteredCredits],
+  );
   const liveByCat = useMemo(
-    () => (portfolioLoading ? undefined : segmentsToLiveByCat(segmentsAllTypes)),
-    [segmentsAllTypes, portfolioLoading],
+    () => (portfolioLoading ? undefined : segmentsToLiveByCat(segmentsAllTypes, crdOwner)),
+    [segmentsAllTypes, portfolioLoading, crdOwner],
   );
 
   const { loading, ownerMapping, placementHistory, placements, savingsBalances, accountBalances } =
     usePatrimoine();
 
-  const { credits } = useCredits();
   const { incomes: incomeRecurrences } = useRecurrences();
   // Taux d'endettement du foyer : tous les crédits / tous les revenus récurrents,
   // quel que soit le filtre propriétaire.
@@ -126,19 +145,12 @@ export const WealthPage: React.FC = () => {
       ),
     [credits, incomeRecurrences],
   );
-  // Même règle de filtrage par propriétaire que pour les actifs (useWealthAggregates),
-  // sauf les crédits « Commun » : le filtre n'a pas d'entrée « Commun » et ils
-  // disparaîtraient dès qu'un propriétaire est sélectionné.
-  const filteredCredits = useMemo(
-    () =>
-      ownerScope === 'all'
-        ? credits
-        : credits.filter((c) => {
-            const owner = (c.owner || 'Commun').toLowerCase();
-            return owner === 'commun' || ownerScope.some((s) => s.toLowerCase() === owner);
-          }),
-    [credits, ownerScope],
-  );
+  // Valeur nette = actifs − capital restant dû. Le CRD n'est déduit que si le
+  // filtre de type inclut l'immobilier (sinon on soustrairait une dette sans son actif).
+  const crdApplied =
+    internalSelectedTypes && !internalSelectedTypes.includes('immobilier') ? 0 : crdOwner;
+  const totalNet = total - crdApplied;
+  const netSegments = segmentsNetOfDebt(segments, crdApplied);
   const [selectedCredit, setSelectedCredit] = useState<Credit | undefined>(undefined);
   const [isAddingCredit, setIsAddingCredit] = useState(false);
 
@@ -293,7 +305,7 @@ export const WealthPage: React.FC = () => {
       <div className="space-y-12 md:space-y-20 py-8 md:py-12">
         <div className="space-y-8">
           <WealthTotalCard
-            total={total}
+            total={totalNet}
             per={per}
             delta={evolution1M.endPoint ? delta1M : null}
             updatedAt={new Date().toLocaleDateString()}
@@ -454,7 +466,7 @@ export const WealthPage: React.FC = () => {
             </h2>
           </div>
           <div className="px-2 md:px-4">
-            <WealthAllocationBars segments={segments} />
+            <WealthAllocationBars segments={netSegments} />
           </div>
         </section>
 

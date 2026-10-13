@@ -65,6 +65,24 @@ export function capitalRestantDu(credit: Credit, date: Date): number {
   return Math.max(0, C * facteur - (M * (facteur - 1)) / r);
 }
 
+/** Capital restant dû cumulé de tous les crédits à `date`. */
+export function capitalRestantDuTotal(credits: Credit[], date: Date): number {
+  return credits.reduce((sum, c) => sum + capitalRestantDu(c, date), 0);
+}
+
+/**
+ * Crédits concernés par le filtre propriétaire. Les crédits « Commun » restent
+ * toujours inclus : le filtre n'a pas d'entrée « Commun » et ils disparaîtraient
+ * dès qu'un propriétaire est sélectionné.
+ */
+export function creditsForOwners(credits: Credit[], ownerScope: 'all' | string[]): Credit[] {
+  if (ownerScope === 'all') return credits;
+  return credits.filter((c) => {
+    const owner = (c.owner || 'Commun').toLowerCase();
+    return owner === 'commun' || ownerScope.some((s) => s.toLowerCase() === owner);
+  });
+}
+
 /** Date de la dernière échéance (celle qui ramène le capital restant dû à 0). */
 export function dateFin(credit: Credit): Date {
   return dateEcheance(parseISODate(credit.dateDebut), Math.max(0, credit.dureeMois - 1));

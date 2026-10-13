@@ -29,11 +29,13 @@ import { usePortfolio } from '../../hooks/usePortfolio';
 import { usePatrimoine } from '../../hooks/usePatrimoine';
 import { usePlacements } from '../../hooks/usePlacements';
 import { useCredits } from '../../hooks/useCredits';
+import { capitalRestantDuTotal, creditsForOwners } from '../../utils/creditSchedule';
 import { useWealthScope } from '../../hooks/useWealthScope';
 import { useGlobalData } from '../../context/GlobalDataContext';
 import { useWealthEvolution } from '../../hooks/useWealthEvolution';
 import {
   evolutionForTypeScope,
+  segmentsNetOfDebt,
   segmentsToLiveByCat,
   type EvolutionPeriod,
 } from '../../utils/wealthEvolution';
@@ -105,14 +107,28 @@ export const PatrimoineScreen: React.FC = () => {
     internalSelectedTypes,
   );
 
+  // Valeur nette = actifs − capital restant dû, déduit seulement si le filtre de
+  // type inclut l'immobilier (sinon on soustrairait une dette sans son actif).
+  const crdOwner = useMemo(
+    () => capitalRestantDuTotal(creditsForOwners(credits, ownerScope), new Date()),
+    [credits, ownerScope],
+  );
+  const crdApplied =
+    internalSelectedTypes && !internalSelectedTypes.includes('immobilier') ? 0 : crdOwner;
+  const totalNet = total - crdApplied;
+  const netSegments = useMemo(
+    () => segmentsNetOfDebt(segments, crdApplied),
+    [segments, crdApplied],
+  );
+
   // Ancre live de l'évolution : mêmes valeurs que les Allocations (owner-filtré,
   // jamais type-filtré) pour que la valeur « Fin » colle à l'état courant.
   // Tant que le portefeuille live charge encore, segmentsAllTypes sous-estime les
   // investissements (holdings vides) : ancrer dessus ferait chuter artificiellement
   // le dernier jour. On garde le dernier snapshot connu jusqu'à la fin du chargement.
   const liveByCat = useMemo(
-    () => (portfolioLoading ? undefined : segmentsToLiveByCat(segmentsAllTypes)),
-    [segmentsAllTypes, portfolioLoading],
+    () => (portfolioLoading ? undefined : segmentsToLiveByCat(segmentsAllTypes, crdOwner)),
+    [segmentsAllTypes, portfolioLoading, crdOwner],
   );
 
   const owners = useMemo(() => {
@@ -180,7 +196,7 @@ export const PatrimoineScreen: React.FC = () => {
             Valeur nette totale
           </span>
           <h2 className="text-display font-bold tracking-tight text-white flex items-center">
-            <FormattedNumber value={total} style="currency" currency="EUR" />
+            <FormattedNumber value={totalNet} style="currency" currency="EUR" />
           </h2>
           {evolution1M.endPoint && (
             <div
@@ -216,7 +232,7 @@ export const PatrimoineScreen: React.FC = () => {
               <Plus size={16} />
             </button>
           </div>
-          {segments
+          {netSegments
             .filter((s) => s.amount > 0)
             .map((segment) => {
               const Icon = SEGMENT_ICONS[segment.type] || BarChart3;

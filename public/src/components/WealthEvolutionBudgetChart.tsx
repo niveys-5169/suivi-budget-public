@@ -12,6 +12,8 @@ import {
 } from 'recharts';
 import { SlidersHorizontal } from 'lucide-react';
 import { fmt } from '../utils/format';
+import { useCredits } from '../hooks/useCredits';
+import { creditsForOwners } from '../utils/creditSchedule';
 import {
   buildWealthTimeline,
   type RawHistoryEntry,
@@ -81,6 +83,7 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
   selectedOwners,
   selectedTypes,
 }) => {
+  const { credits } = useCredits();
   const [showFilters, setShowFilters] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframePreset>('defaut');
 
@@ -125,6 +128,7 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
   const { data, activeCategories } = useMemo(() => {
     const points = buildWealthTimeline(history as RawHistoryEntry[], {
       ownerFilter: selectedOwners,
+      credits: creditsForOwners(credits, selectedOwners.length ? selectedOwners : 'all'),
     });
 
     const categoriesUsed = new Set<CategoryKey>();
@@ -163,7 +167,7 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
           categoriesUsed.has(cat) && (selectedTypes.length === 0 || selectedTypes.includes(cat)),
       ),
     };
-  }, [history, selectedOwners, selectedTypes, startDate, endDate]);
+  }, [history, selectedOwners, selectedTypes, startDate, endDate, credits]);
 
   return (
     <section className="rounded-xl border border-separator bg-surface p-4 md:p-6 space-y-4">
