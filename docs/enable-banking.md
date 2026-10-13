@@ -83,8 +83,13 @@ Les affectations et mutations des liens partagent le même verrou d'écriture.
 
 ## Soldes, alertes et secours
 
-Solde Enable Banking prioritaire : ITBD, CLBD, puis solde disponible explicitement
-qualifié ITAV/CLAV. Historiques sources séparés, timestamps de réception conservés.
+Solde Enable Banking : retenir le plus récent des soldes comptables ITBD/CLBD et
+du solde provisoire XPCD, selon la date de référence bancaire. À date égale, préférer
+ITBD puis CLBD à XPCD. À défaut, utiliser un solde disponible ITAV/CLAV. La date de
+dernière variation du montant sert seulement si la date de référence manque.
+XPCD reste identifié comme provisoire dans les vues desktop et PWA ; il ne peut
+pas confirmer une concordance comptable ni expliquer définitivement un écart.
+Historiques sources séparés, timestamps de réception conservés.
 Une date de réception Linxo n'est jamais transformée en date bancaire.
 Les contrôles distinguent concordance à 0,01 €, décalage expliqué, attente et écart.
 Un décalage fondé sur les réceptions reste provisoire. Une concordance de soldes

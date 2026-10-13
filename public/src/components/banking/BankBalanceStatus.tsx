@@ -13,13 +13,12 @@ const LABEL = {
 };
 export const BankBalanceStatus: React.FC<{ balance: AccountBalance }> = ({ balance }) => {
   const control = balance.crossControl;
-  if (
-    !control ||
-    control.difference == null ||
-    !Number.isFinite(control.difference) ||
-    Math.abs(Math.round(control.difference * 100)) <= 1
-  )
-    return null;
+  const provisional = balance.balanceType === 'XPCD';
+  const hasDifference =
+    control?.difference != null &&
+    Number.isFinite(control.difference) &&
+    Math.abs(Math.round(control.difference * 100)) > 1;
+  if (!provisional && !hasDifference) return null;
   return (
     <div className="space-y-2">
       <Text variant="caption" tone="secondary">
@@ -28,42 +27,49 @@ export const BankBalanceStatus: React.FC<{ balance: AccountBalance }> = ({ balan
           ? new Date(bankDateMillis(balance.source_timestamp)).toLocaleString('fr-FR')
           : 'date inconnue'}
       </Text>
-      <Text variant="caption">{LABEL[control.status]}</Text>
       <Text variant="caption" tone="secondary">
         Solde{' '}
-        {['ITBD', 'CLBD', 'booked'].includes(balance.balanceType ?? '')
-          ? 'comptable'
-          : ['ITAV', 'CLAV'].includes(balance.balanceType ?? '')
-            ? 'disponible'
-            : 'de nature inconnue'}{' '}
+        {provisional
+          ? 'comptable provisoire'
+          : ['ITBD', 'CLBD', 'booked'].includes(balance.balanceType ?? '')
+            ? 'comptable'
+            : ['ITAV', 'CLAV'].includes(balance.balanceType ?? '')
+              ? 'disponible'
+              : 'de nature inconnue'}{' '}
         · {balance.bankDate ? `Date bancaire : ${balance.bankDate}` : 'Date bancaire inconnue'}
       </Text>
-      <Text variant="caption" tone="secondary">
-        Enable Banking :{' '}
-        {control.enableBalance == null ? '—' : formatCurrency(control.enableBalance)} · Dernier
-        email Linxo : {control.linxoBalance == null ? '—' : formatCurrency(control.linxoBalance)}
-      </Text>
-      {control.linxoBalance != null && (
-        <Text variant="caption" tone="secondary">
-          Linxo · Email reçu le{' '}
-          {bankDateMillis(control.linxoReceivedAt)
-            ? new Date(bankDateMillis(control.linxoReceivedAt)).toLocaleString('fr-FR')
-            : 'date inconnue'}
-        </Text>
+      {hasDifference && control && (
+        <>
+          <Text variant="caption">{LABEL[control.status]}</Text>
+          <Text variant="caption" tone="secondary">
+            Enable Banking :{' '}
+            {control.enableBalance == null ? '—' : formatCurrency(control.enableBalance)} · Dernier
+            email Linxo :{' '}
+            {control.linxoBalance == null ? '—' : formatCurrency(control.linxoBalance)}
+          </Text>
+          {control.linxoBalance != null && (
+            <Text variant="caption" tone="secondary">
+              Linxo · Email reçu le{' '}
+              {bankDateMillis(control.linxoReceivedAt)
+                ? new Date(bankDateMillis(control.linxoReceivedAt)).toLocaleString('fr-FR')
+                : 'date inconnue'}
+            </Text>
+          )}
+          {control.reason && (
+            <Text variant="caption" tone="secondary">
+              {control.reason}
+            </Text>
+          )}
+          {control.difference != null && (
+            <Text variant="caption">Différence : {formatCurrency(control.difference)}</Text>
+          )}
+          {(control.movements ?? []).map((movement) => (
+            <Text key={movement.id} variant="caption">
+              {movement.date} · {movement.libelle} · {formatCurrency(movement.montant)}
+            </Text>
+          ))}
+        </>
       )}
-      {control.reason && (
-        <Text variant="caption" tone="secondary">
-          {control.reason}
-        </Text>
-      )}
-      {control.difference != null && (
-        <Text variant="caption">Différence : {formatCurrency(control.difference)}</Text>
-      )}
-      {(control.movements ?? []).map((movement) => (
-        <Text key={movement.id} variant="caption">
-          {movement.date} · {movement.libelle} · {formatCurrency(movement.montant)}
-        </Text>
-      ))}
     </div>
   );
 };

@@ -18,6 +18,35 @@ def test_booked_balance_priority_over_available():
     assert choose_enable_balance(values[:2])['balance_type'] == 'CLBD'
 
 
+def test_latest_accounting_balance_wins_with_booked_preference_on_equal_dates():
+    closing = {'balance_type': 'CLBD', 'reference_date': '2026-10-09'}
+    provisional = {'balance_type': 'XPCD', 'reference_date': '2026-10-13'}
+    assert choose_enable_balance([closing, provisional]) is provisional
+    assert choose_enable_balance([provisional, closing]) is provisional
+    current_booked = {'balance_type': 'ITBD', 'reference_date': '2026-10-13'}
+    assert choose_enable_balance([provisional, current_booked]) is current_booked
+    closing['reference_date'] = '2026-10-14'
+    assert choose_enable_balance([provisional, closing]) is closing
+
+
+def test_reference_date_precedes_last_amount_change_and_unknown_types_are_ignored():
+    closing = {'balance_type': 'CLBD', 'reference_date': '2026-10-13',
+               'last_change_date_time': '2026-10-08T10:00:00Z'}
+    older = {'balance_type': 'XPCD', 'reference_date': '2026-10-12'}
+    assert choose_enable_balance([older, closing]) is closing
+    assert choose_enable_balance([{'balance_type': 'OTHR'}]) is None
+
+
+def test_provisional_balance_cannot_confirm_or_explain_a_booked_balance():
+    eb = balance('enable_banking', balanceType='XPCD')
+    control = compare_balances(eb, balance('gmail'), [])
+    assert control['status'] == 'waiting' and control['provisional'] is True
+    movement = {'id': 'o', 'source': 'enable_banking', 'compte': 'LCL', 'bankStatus': 'booked',
+                'montant': -42, 'date': '2026-10-09', 'libelle': 'Café'}
+    control = compare_balances({**eb, 'solde': 58}, balance('gmail', bankDate='2026-10-08'), [movement])
+    assert control['status'] == 'waiting' and control['provisional'] is True
+
+
 def test_compatible_balances_and_one_cent_tolerance():
     assert compare_balances(balance('enable_banking'), balance('gmail', solde=100.01), [])['status'] == 'concordant'
     assert compare_balances(balance('enable_banking'), balance('gmail', solde=100.02), [])['status'] == 'discrepancy'

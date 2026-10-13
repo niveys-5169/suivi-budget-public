@@ -149,6 +149,26 @@ def test_existing_run_is_followed_without_starting_another_import(setup):
     factory.assert_not_called(); linxo.assert_not_called()
 
 
+def test_lcl_sync_publishes_recent_provisional_balance_instead_of_old_closing_balance(setup):
+    s, client = setup
+    cid, state = authorized(setup)
+    finish_authorization(s, client, state, 'code')
+    s.put('bank_connections', cid, {'accounts': [{'stableId': 'stable', 'compte': 'LCL', 'enabled': True}]})
+    client.balances.return_value = [
+        {'name': 'Solde comptable provisoire', 'balance_type': 'XPCD', 'reference_date': '2026-10-13',
+         'last_change_date_time': '2026-10-12T10:00:00Z',
+         'balance_amount': {'currency': 'EUR', 'amount': '145.50'}},
+        {'name': 'Solde comptable espece', 'balance_type': 'CLBD', 'reference_date': '2026-10-09',
+         'balance_amount': {'currency': 'EUR', 'amount': '200.00'}},
+    ]
+    result = sync_banking(s, lambda: client)
+    displayed = s.get('account_balances', 'LCL')
+    assert result['status'] == 'success'
+    assert displayed['solde'] == 145.50
+    assert displayed['balanceType'] == 'XPCD'
+    assert displayed['bankDate'] == '2026-10-13'
+
+
 def test_global_disable_stops_bank_calls_but_imports_linxo_and_exposes_mode(setup, monkeypatch):
     s, client = setup
     cid, state = authorized(setup); finish_authorization(s, client, state, 'code')
