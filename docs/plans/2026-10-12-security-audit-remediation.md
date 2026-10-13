@@ -16,13 +16,13 @@ Le présent document met à jour le plan après comparaison entre le commit audi
 
 ## État vérifié au 12 octobre 2026
 
-| Constat | Sévérité | État | Preuve synthétique |
-|---|---:|---|---|
-| Secrets Gmail et GitHub injectés comme variables d’environnement Cloud Run | Moyenne | À corriger | Le workflow écrit encore `GMAIL_TOKEN` et `GITHUB_DISPATCH_TOKEN` dans `functions/.env.suivi-budget-ab888` |
-| Injection de formules dans l’export XLSX | Moyenne | Corrigé | `_write_cell()` force les chaînes en texte et les tests vérifient l’absence de nœuds `<f>` dans le classeur sérialisé |
-| Déconnexion sans purge des données persistées dans le navigateur | Faible | À corriger | La déconnexion appelle encore directement Firebase Auth tandis que les caches Firestore et `ai_settings` persistent |
-| Catégories et montants financiers transmis à Sentry | Faible | À corriger | Les appels transmettent encore `categorie` et parfois `amount`; la liste de filtrage ne couvre pas ces champs |
-| Réécritures Vercel utilisées comme proxys ouverts vers Brave et NVIDIA | Faible | À corriger | Les réécritures externes restent accessibles sans authentification ni limitation applicative |
+| Constat                                                                    | Sévérité | État                   | Preuve synthétique                                                                                                                                                     |
+| -------------------------------------------------------------------------- | -------: | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Secrets Gmail et GitHub injectés comme variables d’environnement Cloud Run |  Moyenne | Implémenté, à déployer | Les consommateurs utilisent désormais `SecretParam` et le workflow réserve `.env` aux valeurs non sensibles ; la rotation et la vérification cloud restent à effectuer |
+| Injection de formules dans l’export XLSX                                   |  Moyenne | Corrigé                | `_write_cell()` force les chaînes en texte et les tests vérifient l’absence de nœuds `<f>` dans le classeur sérialisé                                                  |
+| Déconnexion sans purge des données persistées dans le navigateur           |   Faible | À corriger             | La déconnexion appelle encore directement Firebase Auth tandis que les caches Firestore et `ai_settings` persistent                                                    |
+| Catégories et montants financiers transmis à Sentry                        |   Faible | À corriger             | Les appels transmettent encore `categorie` et parfois `amount`; la liste de filtrage ne couvre pas ces champs                                                          |
+| Réécritures Vercel utilisées comme proxys ouverts vers Brave et NVIDIA     |   Faible | À corriger             | Les réécritures externes restent accessibles sans authentification ni limitation applicative                                                                           |
 
 **Bilan : 1 constat corrigé sur 5, 4 constats restant à clôturer.**
 
@@ -53,6 +53,8 @@ Le présent document met à jour le plan après comparaison entre le commit audi
 ### Phase 1 — Migrer les secrets Gmail et GitHub vers Secret Manager
 
 **Priorité : haute — seul constat moyen encore ouvert**
+
+**Avancement :** implémentation locale terminée ; 588 tests Python et 12 sous-tests passent. Les sept fonctions consommatrices déclarent leurs secrets, les écritures Gmail/GitHub dans `.env` sont supprimées et le bootstrap bloque sur toute erreur de lecture. Le déploiement, la vérification IAM/Cloud Run et la rotation des jetons restent nécessaires avant clôture. Procédure : [secrets d’exécution](../runtime-secrets.md).
 
 1. Déclarer des `SecretParam` dédiés pour le jeton Gmail et le jeton GitHub, dans un module de secrets stable et partagé.
 2. Remplacer les lectures directes de `os.environ` dans la construction du client Gmail et dans le déclenchement GitHub.

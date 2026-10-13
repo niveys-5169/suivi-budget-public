@@ -8,6 +8,8 @@ on:
       - 'functions/**'
       - 'firestore.rules'
       - 'firestore.indexes.json'
+      - '.github/workflows/deploy-functions.yml'
+      - '.github/scripts/bootstrap_runtime_secret.py'
   workflow_dispatch:
 
 concurrency:
@@ -101,29 +103,6 @@ jobs:
           fi
           echo "HANDLER_URL=$HANDLER_URL" >> "$GITHUB_ENV"
 
-      - name: Inject GMAIL_TOKEN as Cloud Functions env var
-        env:
-          GOOGLE_TOKEN: ${{ secrets.GOOGLE_TOKEN }}
-        run: |
-          # Write the Gmail OAuth token into the project-specific .env file so
-          # Firebase Functions picks it up as a plain environment variable.
-          # (Cloud Run encrypts env vars at rest; Secret Manager is not used because
-          # the firebase-adminsdk SA lacks secretmanager.secrets.create permission.)
-          # Base64-encode the JSON token so it is a single, dotenv-safe line
-          # (raw JSON contains newlines and special chars that break dotenv parsers).
-          GMAIL_TOKEN_B64=$(printf '%s' "$GOOGLE_TOKEN" | base64 -w 0)
-          printf 'GMAIL_TOKEN=%s\n' "$GMAIL_TOKEN_B64" > functions/.env.suivi-budget-ab888
-
-      - name: Inject GITHUB_DISPATCH_TOKEN as Cloud Functions env var
-        env:
-          GITHUB_DISPATCH_TOKEN: ${{ secrets.PAT_GITHUB_SECRET }}
-        run: |
-          # PAT (repo scope) used server-side by dispatch_github_workflow to
-          # trigger repository_dispatch events (cf. 448393f, security fix that
-          # moved this token out of the browser). Missing here means every
-          # sync/import call fails with FAILED_PRECONDITION.
-          printf 'GITHUB_DISPATCH_TOKEN=%s\n' "$GITHUB_DISPATCH_TOKEN" >> functions/.env.suivi-budget-ab888
-
       - name: Inject Gmail Pub/Sub push authentication as Cloud Functions env vars
         run: |
           # gmail_watch_handler est un endpoint Cloud Run public (allUsers/
@@ -141,8 +120,10 @@ jobs:
             echo "⚠ HANDLER_URL vide — GMAIL_PUSH_SERVICE_ACCOUNT/GMAIL_PUSH_AUDIENCE non injectés (le handler refusera les requêtes Pub/Sub jusqu'au prochain déploiement)."
           fi
 
-      - name: Configure Enable Banking secrets and observation mode
+      - name: Configure runtime secrets and Enable Banking observation mode
         env:
+          GOOGLE_TOKEN: ${{ secrets.GOOGLE_TOKEN }}
+          GITHUB_DISPATCH_TOKEN: ${{ secrets.PAT_GITHUB_SECRET }}
           EB_APP_ID: ${{ secrets.EB_APP_ID }}
           EB_PRIVATE_KEY: ${{ secrets.EB_PRIVATE_KEY }}
           EB_REDIRECT_URL: ${{ vars.EB_REDIRECT_URL }}
@@ -151,9 +132,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$EB_APP_ID" ] || [ -z "$EB_PRIVATE_KEY" ] || [ -z "$EB_REDIRECT_URL" ] || [ -z "$EB_APP_URL" ]; then
-            echo "Enable Banking configuration missing: set secrets EB_APP_ID/EB_PRIVATE_KEY and variables EB_REDIRECT_URL/EB_APP_URL before deploying."
+            echo "Enable Banking configuration missing: set EB_APP_ID, EB_PRIVATE_KEY, EB_REDIRECT_URL and EB_APP_URL before deploying."
             exit 1
           fi
+          # Bootstrap only: routine deploys must not create a new active secret
+          # version each time. Rotate explicitly with functions:secrets:set,
+          # redeploy the consumers, then destroy the superseded version.
+          python .github/scripts/bootstrap_runtime_secret.py GMAIL_TOKEN --project suivi-budget-ab888 --source-env GOOGLE_TOKEN --base64
+          python .github/scripts/bootstrap_runtime_secret.py GITHUB_DISPATCH_TOKEN --project suivi-budget-ab888 --source-env GITHUB_DISPATCH_TOKEN
           printf '%s' "$EB_APP_ID" | firebase functions:secrets:set EB_APP_ID --data-file=- --project suivi-budget-ab888 --non-interactive
           printf '%s' "$EB_PRIVATE_KEY" | firebase functions:secrets:set EB_PRIVATE_KEY --data-file=- --project suivi-budget-ab888 --non-interactive
           printf 'EB_MODE=%s\nEB_REDIRECT_URL=%s\nEB_APP_URL=%s\n' "$EB_MODE" "$EB_REDIRECT_URL" "$EB_APP_URL" >> functions/.env.suivi-budget-ab888
