@@ -1,5 +1,17 @@
 import { test, expect } from '@playwright/test';
 
+test('le solde LCL provisoire conserve sa nature et sa date bancaire', async ({
+  page,
+}, testInfo) => {
+  await page.goto('/balance');
+  await expect(page.getByText(/Solde comptable provisoire/)).toBeVisible();
+  await expect(page.getByText(/Date bancaire : 2026-10-13/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: `.venv/lcl-balance-${testInfo.project.name}.png`, fullPage: true });
+});
+
 test('un import sans nouvelle opération se termine et une suggestion retire le badge', async ({
   page,
 }, testInfo) => {

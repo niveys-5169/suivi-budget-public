@@ -22,7 +22,7 @@ def import_account(store, client, account, uid, now):
     if selected:
         store.balance({"compte": account["compte"], "source": "enable_banking",
             "solde": float(selected["balance_amount"]["amount"]), "currency": selected["balance_amount"]["currency"],
-            "balanceType": selected["balance_type"], "bankDate": selected.get("last_change_date_time") or selected.get("reference_date"),
+            "balanceType": selected["balance_type"], "bankDate": selected.get("reference_date") or selected.get("last_change_date_time"),
             "receivedAt": now})
 
 

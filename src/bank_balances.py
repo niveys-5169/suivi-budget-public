@@ -5,9 +5,15 @@ BOOKED = {"ITBD", "CLBD", "booked"}
 
 
 def choose_enable_balance(balances):
-    order = {"ITBD": 0, "CLBD": 1, "ITAV": 2, "CLAV": 3}
+    order = {"ITBD": 0, "CLBD": 1, "XPCD": 2, "ITAV": 3, "CLAV": 4}
     supported = [b for b in balances if b.get("balance_type") in order]
-    return min(supported, key=lambda b: order[b["balance_type"]]) if supported else None
+    def priority(balance):
+        date = instant(balance.get('reference_date')) or instant(balance.get('last_change_date_time'))
+        # Current/expected accounting balances precede available balances. Within
+        # that group, freshness wins; equal dates prefer a booked balance.
+        return (balance['balance_type'] not in BOOKED | {'XPCD'},
+                -date.timestamp() if date else float('inf'), order[balance['balance_type']])
+    return min(supported, key=priority) if supported else None
 
 
 def compare_balances(eb, linxo, observations):
@@ -16,6 +22,9 @@ def compare_balances(eb, linxo, observations):
     diff = (cents(eb["solde"]) - cents(linxo["solde"])) / 100
     if eb.get('currency') != linxo.get('currency'):
         return {'status': 'waiting', 'reason': 'Devises incompatibles', 'difference': None}
+    if eb.get('balanceType') == 'XPCD':
+        return {'status': 'waiting', 'difference': diff, 'provisional': True,
+                'reason': 'Solde bancaire provisoire : comparaison comptable non définitive'}
     comparable = (eb.get("currency") == linxo.get("currency") and eb.get("balanceType") in BOOKED
                   and linxo.get("balanceType") in BOOKED and eb.get("bankDate") and linxo.get("bankDate")
                   and eb["bankDate"] == linxo["bankDate"])
