@@ -38,6 +38,11 @@ updates:
       # release). Revisit once functions-framework lifts that cap.
       - dependency-name: 'cloudevents'
         update-types: ['version-update:semver-major']
+      # google-api-core est épinglé à 2.39.0 : les versions >=2.35.0 cassent la
+      # connexion à la base Firestore "(default)" (InvalidArgument "Invalid
+      # database id %28default%29"). À déplafonner seulement après vérification
+      # qu'un correctif amont existe.
+      - dependency-name: 'google-api-core'
 
   - package-ecosystem: 'pip'
     directory: '/functions'
@@ -54,6 +59,11 @@ updates:
       # once functions-framework lifts that cap.
       - dependency-name: 'cloudevents'
         update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      # google-api-core est épinglé à 2.39.0 : les versions >=2.35.0 cassent la
+      # connexion à la base Firestore "(default)" (InvalidArgument "Invalid
+      # database id %28default%29"). À déplafonner seulement après vérification
+      # qu'un correctif amont existe.
+      - dependency-name: 'google-api-core'
 
   - package-ecosystem: 'github-actions'
     directory: '/'
