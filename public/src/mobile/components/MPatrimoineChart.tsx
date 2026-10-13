@@ -3,6 +3,8 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { buildWealthTimeline, type WealthCategory } from '../../utils/wealthTimeline';
 import { periodRangeISO, type EvolutionPeriod } from '../../utils/wealthEvolution';
 import type { OwnerScope } from '../../hooks/useWealthScope';
+import { useCredits } from '../../hooks/useCredits';
+import { creditsForOwners } from '../../utils/creditSchedule';
 import { FormattedNumber } from 'react-intl';
 import { formatCurrency } from '../../lib/formatters';
 import { CHART_COLORS } from '../../lib/colors';
@@ -41,6 +43,7 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
   ownerScope,
   wealthTypeScope,
 }) => {
+  const { credits } = useCredits();
   const visibleCats = useMemo<WealthCategory[] | null>(() => {
     if (wealthTypeScope === 'all' || wealthTypeScope.length === 0) return null;
     return wealthTypeScope
@@ -55,6 +58,7 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
     if (history?.length > 0) {
       const timeline = buildWealthTimeline(history, {
         ownerFilter: ownerScope === 'all' ? undefined : ownerScope,
+        credits: creditsForOwners(credits, ownerScope),
       });
       points = timeline
         .filter((d) => d.timestamp >= threshold)
@@ -80,7 +84,7 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
     }
 
     return points;
-  }, [history, patrimoineSnapshots, period, ownerScope, visibleCats]);
+  }, [history, patrimoineSnapshots, period, ownerScope, visibleCats, credits]);
 
   if (data.length < 2) {
     return (

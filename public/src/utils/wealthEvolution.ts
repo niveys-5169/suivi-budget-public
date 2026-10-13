@@ -81,8 +81,14 @@ const SEGMENT_TYPE_TO_CAT: Record<string, WealthCategory> = {
   immobilier: 'immobilier',
 };
 
-/** Convertit les segments live de useWealthAggregates en montants par catégorie. */
-export function segmentsToLiveByCat(segments?: { type: string; amount: number }[]): LiveByCat {
+/**
+ * Convertit les segments live de useWealthAggregates en montants par catégorie.
+ * `dette` (capital restant dû) est retranché de l'immobilier pour obtenir du net.
+ */
+export function segmentsToLiveByCat(
+  segments?: { type: string; amount: number }[],
+  dette = 0,
+): LiveByCat {
   const byCat: LiveByCat = {
     courants: 0,
     epargne: 0,
@@ -94,7 +100,23 @@ export function segmentsToLiveByCat(segments?: { type: string; amount: number }[
     const cat = SEGMENT_TYPE_TO_CAT[s.type];
     if (cat) byCat[cat] += s.amount || 0;
   });
+  byCat.immobilier -= dette;
   return byCat;
+}
+
+/**
+ * Segments d'allocation nets de dette : `dette` (capital restant dû) est retranché
+ * de l'immobilier et les pourcentages sont recalculés sur le total net.
+ */
+export function segmentsNetOfDebt<T extends { type: string; amount: number; pct: number }>(
+  segments: T[],
+  dette: number,
+): T[] {
+  const net = segments.map((s) =>
+    s.type === 'immobilier' ? { ...s, amount: s.amount - dette } : s,
+  );
+  const total = net.reduce((sum, s) => sum + s.amount, 0);
+  return net.map((s) => ({ ...s, pct: total > 0 ? (s.amount / total) * 100 : 0 }));
 }
 
 /**

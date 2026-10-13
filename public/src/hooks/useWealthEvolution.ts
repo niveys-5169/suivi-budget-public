@@ -8,6 +8,8 @@ import {
   type LiveByCat,
   type WealthEvolution,
 } from '../utils/wealthEvolution';
+import { creditsForOwners } from '../utils/creditSchedule';
+import { useCredits } from './useCredits';
 import type { OwnerScope } from './useWealthScope';
 
 /**
@@ -26,12 +28,14 @@ export function useWealthEvolution(
   custom?: { from: string; to?: string },
   liveByCat?: LiveByCat,
 ): WealthEvolution {
+  const { credits } = useCredits();
   const timeline = useMemo(
     () =>
       buildWealthTimeline(history, {
         ownerFilter: ownerScope === 'all' ? undefined : ownerScope,
+        credits: creditsForOwners(credits, ownerScope),
       }),
-    [history, ownerScope],
+    [history, ownerScope, credits],
   );
 
   const customFrom = custom?.from;

@@ -1,3 +1,6 @@
+import type { Credit } from '../types/banking.types';
+import { capitalRestantDu } from './creditSchedule';
+
 export type WealthCategory = 'courants' | 'epargne' | 'investissements' | 'retraite' | 'immobilier';
 
 export { savingsAssetId, courantAssetId } from './assetId';
@@ -127,6 +130,8 @@ export function makeSavingsDedup(presentIds: Iterable<string>): (id: string) => 
 export interface WealthTimelineOptions {
   /** Filtre sur l'owner STOCKÉ (insensible à la casse). Vide/undefined => tous. */
   ownerFilter?: string[];
+  /** Crédits à déduire (déjà filtrés par propriétaire) : la timeline devient nette de dettes. */
+  credits?: Credit[];
 }
 
 /**
@@ -210,6 +215,17 @@ export function buildWealthTimeline(
 
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) continue;
+
+    // Valeur nette : le capital restant dû à cette date est retranché de l'immobilier.
+    // Avant la date de début d'un crédit, il n'y a pas encore de dette.
+    if (options?.credits?.length) {
+      const dette = options.credits.reduce(
+        (sum, c) => (date.slice(0, 10) < c.dateDebut ? sum : sum + capitalRestantDu(c, dateObj)),
+        0,
+      );
+      byCat.immobilier -= dette;
+      total -= dette;
+    }
 
     points.push({
       date: dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
