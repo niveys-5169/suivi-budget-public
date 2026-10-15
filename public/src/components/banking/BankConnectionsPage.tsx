@@ -5,7 +5,6 @@ import { useBankingData, bankDateMillis } from '../../hooks/useBankingData';
 import { useSyncTransactions } from '../../hooks/useSyncTransactions';
 import { bankCall } from '../../services/banking-api';
 import { toast } from '../../lib/toast';
-import { BankReconciliationPanel } from './BankReconciliationPanel';
 
 import { BankAccountMapping } from './BankAccountMapping';
 
@@ -125,7 +124,6 @@ export const BankConnectionsPage: React.FC = () => {
           />
         </Section>
       ))}
-      <BankReconciliationPanel />
       <Text variant="caption" tone="secondary">
         Pour revenir à Linxo, désactivez Enable Banking pour les comptes concernés puis enregistrez.
         Les observations sont conservées.

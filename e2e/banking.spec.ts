@@ -12,9 +12,7 @@ test('le solde LCL provisoire conserve sa nature et sa date bancaire', async ({
   await page.screenshot({ path: `.venv/lcl-balance-${testInfo.project.name}.png`, fullPage: true });
 });
 
-test('un import sans nouvelle opération se termine et une suggestion se confirme', async ({
-  page,
-}, testInfo) => {
+test('un import sans nouvelle opération se termine', async ({ page }, testInfo) => {
   await page.goto('/connexions');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
@@ -22,8 +20,6 @@ test('un import sans nouvelle opération se termine et une suggestion se confirm
   await page.screenshot({ path: `.venv/${testInfo.project.name}.png`, fullPage: true });
   await page.getByRole('button', { name: 'Actualiser les banques et Linxo' }).click();
   await expect(page.getByRole('status', { name: 'Nombre de synchronisations' })).toHaveText('1');
-  await page.getByRole('button', { name: 'Confirmer', exact: true }).click();
-  await expect(page.getByText('CAFE PARIS : retrouvé dans Linxo', { exact: false })).toBeVisible();
 });
 
 test('lire une alerte ne résout pas l’expiration bancaire', async ({ page }) => {

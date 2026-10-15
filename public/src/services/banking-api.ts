@@ -1,7 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db, functions } from './firebase';
-import type { BankSyncResult, BankSuggestion } from '../types/banking.types';
+import type { BankSyncResult } from '../types/banking.types';
 
 export async function bankCall<T>(name: string, data: Record<string, unknown> = {}): Promise<T> {
   const call = httpsCallable<Record<string, unknown>, T>(functions, name, { timeout: 540_000 });
@@ -34,13 +34,3 @@ export async function syncBanking(): Promise<BankSyncResult> {
     );
   });
 }
-export const reconcileBanking = (
-  suggestion: BankSuggestion,
-  action: 'confirm' | 'distinct' | 'unlink',
-  keepCanonicalId?: string,
-) =>
-  bankCall<{ status: string }>('banking_reconcile_action', {
-    ...suggestion,
-    action,
-    keepCanonicalId,
-  });

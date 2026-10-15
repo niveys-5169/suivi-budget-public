@@ -2,7 +2,6 @@ import type {
   BankConnection,
   BankReconciliationReport,
   BankSyncResult,
-  BankSuggestion,
 } from '../../public/src/types/banking.types';
 
 export const fixture = {
@@ -55,12 +54,4 @@ export async function syncBanking(): Promise<BankSyncResult> {
   fixture.runs += 1;
   change();
   return { id: `run-${fixture.runs}`, status: 'success', imported: 0 };
-}
-export async function reconcileBanking(suggestion: BankSuggestion, action: string) {
-  const report = fixture.reports[0]!;
-  report.suggestions = [];
-  report.matches = action === 'confirm' ? [suggestion] : [];
-  fixture.status = action === 'confirm' ? 'matched' : 'waiting';
-  change();
-  return { status: 'success' };
 }
