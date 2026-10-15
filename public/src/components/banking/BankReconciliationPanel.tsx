@@ -4,7 +4,7 @@ import { useBankingData } from '../../hooks/useBankingData';
 import { reconcileBanking } from '../../services/banking-api';
 import type { BankSuggestion } from '../../types/banking.types';
 import { toast } from '../../lib/toast';
-import { isDirectlyConfirmable, useBankConfirm } from '../../hooks/useBankConfirm';
+import { directlyConfirmable, useBankConfirm } from '../../hooks/useBankConfirm';
 import { BankObservationDates } from './BankObservationDates';
 
 export const BankReconciliationPanel: React.FC = () => {
@@ -26,7 +26,7 @@ export const BankReconciliationPanel: React.FC = () => {
   };
   const reconciliation = reports.find((report) => report.id === 'reconciliation');
   const { busy: confirmingAll, confirmAll } = useBankConfirm();
-  const confirmable = (reconciliation?.suggestions ?? []).filter(isDirectlyConfirmable);
+  const confirmable = directlyConfirmable(reconciliation?.suggestions ?? []);
   return (
     <Section title="Vérification Linxo">
       <Text tone="secondary">

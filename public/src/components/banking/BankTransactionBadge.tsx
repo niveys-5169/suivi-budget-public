@@ -2,7 +2,7 @@ import React from 'react';
 import { useIntl } from 'react-intl';
 import { Badge, Button } from '../../ui';
 import { useBankingData } from '../../hooks/useBankingData';
-import { isDirectlyConfirmable, useBankConfirm } from '../../hooks/useBankConfirm';
+import { directlyConfirmable, useBankConfirm } from '../../hooks/useBankConfirm';
 import type { Transaction } from '../../types/banking.types';
 
 export const BankTransactionBadge: React.FC<{
@@ -12,9 +12,9 @@ export const BankTransactionBadge: React.FC<{
   const { reports } = useBankingData();
   const { busy, confirmAll } = useBankConfirm();
   if (transaction.linxoStatus !== 'waiting' && transaction.linxoStatus !== 'overdue') return null;
-  const suggestion = (reports.find((report) => report.id === 'reconciliation')?.suggestions ?? [])
-    .filter(isDirectlyConfirmable)
-    .find((item) => transaction.bankObservationIds?.includes(item.enableObservationId));
+  const suggestion = directlyConfirmable(
+    reports.find((report) => report.id === 'reconciliation')?.suggestions ?? [],
+  ).find((item) => transaction.bankObservationIds?.includes(item.enableObservationId));
   return (
     <>
       <Badge tone="warning">
