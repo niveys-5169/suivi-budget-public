@@ -99,7 +99,6 @@ const TransactionCard = React.memo<TransactionCardProps & { isFirst: boolean; is
             >
               {cleanLibelle || tx.libelle}
             </h3>
-            <BankTransactionBadge transaction={tx} />
             <p
               className="text-caption font-bold text-label-tertiary mt-1 opacity-80 truncate"
               title={tx.commentaire || undefined}
@@ -384,4 +383,3 @@ export const TransactionGroupedList: React.FC<TransactionGroupedListProps> = ({
     </div>
   );
 };
-import { BankTransactionBadge } from '../banking/BankTransactionBadge';

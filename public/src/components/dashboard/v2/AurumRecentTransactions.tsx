@@ -1,6 +1,4 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import type { Transaction as BankingTransaction } from '../../../types/banking.types';
-import { BankTransactionBadge } from '../../banking/BankTransactionBadge';
 import { CHART_COLORS } from '../../../lib/colors';
 import { motion } from 'framer-motion';
 import { MoreHorizontal, CheckCircle2, Check } from 'lucide-react';
@@ -11,7 +9,7 @@ import { formatCurrency } from '../../../lib/formatters';
 import { CategoryIcon } from '../../CategoryIcon';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 
-interface Transaction extends Pick<BankingTransaction, 'linxoStatus'> {
+interface Transaction {
   id: string;
   libelle: string;
   montant: number;
@@ -126,7 +124,6 @@ export const AurumRecentTransactions: React.FC<{
                         </p>
                         {tx.pointe && <CheckCircle2 size={12} className="text-gold opacity-50" />}
                       </div>
-                      <BankTransactionBadge transaction={tx} />
                       <p className="text-caption font-bold text-label-tertiary mt-1">
                         {tx.categorie || 'Autre'}
                       </p>

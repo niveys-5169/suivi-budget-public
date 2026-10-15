@@ -4,7 +4,6 @@ import { useBankingData } from '../../hooks/useBankingData';
 import { reconcileBanking } from '../../services/banking-api';
 import type { BankSuggestion } from '../../types/banking.types';
 import { toast } from '../../lib/toast';
-import { directlyConfirmable, useBankConfirm } from '../../hooks/useBankConfirm';
 import { BankObservationDates } from './BankObservationDates';
 
 export const BankReconciliationPanel: React.FC = () => {
@@ -25,19 +24,12 @@ export const BankReconciliationPanel: React.FC = () => {
     }
   };
   const reconciliation = reports.find((report) => report.id === 'reconciliation');
-  const { busy: confirmingAll, confirmAll } = useBankConfirm();
-  const confirmable = directlyConfirmable(reconciliation?.suggestions ?? []);
   return (
     <Section title="Vérification Linxo">
       <Text tone="secondary">
         Les correspondances incertaines ne sont pas fusionnées automatiquement. Le contrôle porte
         sur les notifications Linxo reçues.
       </Text>
-      {confirmable.length > 1 && (
-        <Button disabled={busy || confirmingAll} onClick={() => confirmAll(confirmable)}>
-          Tout confirmer ({confirmable.length})
-        </Button>
-      )}
       {(reconciliation?.suggestions ?? []).map((suggestion) => (
         <div
           className="space-y-2"

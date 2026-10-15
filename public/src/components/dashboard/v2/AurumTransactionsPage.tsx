@@ -194,7 +194,6 @@ export const AurumTransactionsPage: React.FC = () => {
                           <p className="text-subhead font-semibold text-white tracking-tight">
                             {tx.libelle || 'Transaction sans libellé'}
                           </p>
-                          <BankTransactionBadge transaction={tx} />
                         </div>
                         <p className="text-caption font-medium text-label-tertiary mt-1">
                           {tx.categorie || 'Autre'} • {tx.compte || 'Compte inconnu'}
@@ -319,4 +318,3 @@ export const AurumTransactionsPage: React.FC = () => {
     </div>
   );
 };
-import { BankTransactionBadge } from '../../banking/BankTransactionBadge';

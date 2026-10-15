@@ -6,7 +6,6 @@ import { BankingDataContext } from '../../public/src/hooks/useBankingData';
 import { GlobalDataContext } from '../../public/src/context/GlobalDataContext';
 import { TransactionContext } from '../../public/src/context/TransactionContext';
 import { BankConnectionsPage } from '../../public/src/components/banking/BankConnectionsPage';
-import { BankTransactionBadge } from '../../public/src/components/banking/BankTransactionBadge';
 import { BankBalanceStatus } from '../../public/src/components/banking/BankBalanceStatus';
 import { BankingBanner } from '../../public/src/components/banking/BankingBanner';
 import { AurumNotificationPage } from '../../public/src/components/dashboard/v2/AurumNotificationPage';
@@ -89,9 +88,6 @@ function App() {
           <div data-testid="pull-surface">
             <PullToRefreshWrapper onRefresh={sync} disabled={isSyncing}>
               <BankingBanner />
-              <div data-testid="operation">
-                <BankTransactionBadge transaction={{ linxoStatus: fixture.status }} />
-              </div>
               <output aria-label="Nombre de synchronisations">{fixture.runs}</output>
               <Routes>
                 <Route
