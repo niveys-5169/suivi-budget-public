@@ -7,7 +7,11 @@ import { Button, Text } from '../../ui';
 export const BankingBanner: React.FC = () => {
   const { connections, reports, now } = useBankingData();
   const navigate = useNavigate();
-  const alerts = computeBankingAlerts(connections, reports, now);
+  // Le bandeau ne montre que les alertes de connexion ; les alertes par opération
+  // ou par solde restent dans le Centre d’alertes.
+  const alerts = computeBankingAlerts(connections, reports, now).filter(
+    (a) => !a.id.startsWith('bank-missing-') && !a.id.startsWith('bank-balance-'),
+  );
   const first = alerts[0];
   if (!first) return null;
   return (
