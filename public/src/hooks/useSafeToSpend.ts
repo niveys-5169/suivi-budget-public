@@ -23,10 +23,43 @@ export interface SafeToSpendResult {
 }
 
 /**
+ * Vérifie si une catégorie correspond aux Salaires ou à la CAF.
+ */
+export function isSalaryOrCafCategory(catName: string | null | undefined): boolean {
+  if (!catName) return false;
+  const k = categoryKey(catName);
+  return k.includes('salaire') || k.includes('caf') || k.includes('allocations familiales');
+}
+
+/**
+ * Compare deux catégories de revenu pour éviter de mélanger deux salaires distincts
+ * (ex: Salaire Nico vs Salaire Gwen) tout en autorisant les variantes de casse/accents.
+ */
+export function matchesIncomeCategory(itemCat: string, txCatOrLabel: string): boolean {
+  const k1 = categoryKey(itemCat);
+  const k2 = categoryKey(txCatOrLabel);
+  if (!k1 || !k2) return false;
+  if (k1 === k2) return true;
+
+  if (k1.includes('caf') && k2.includes('caf')) return true;
+
+  if (k1.includes('salaire') && k2.includes('salaire')) {
+    const words1 = k1.split(/\s+/).filter((w) => w !== 'salaire');
+    const words2 = k2.split(/\s+/).filter((w) => w !== 'salaire');
+    if (words1.length > 0 && words2.length > 0) {
+      return words1.some((w) => words2.includes(w));
+    }
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Calcul pur du Reste-à-Vivre Réel (Safe-to-Spend).
  *
  * Liquidités disponibles d'ici la fin du mois =
- *   Solde bancaire actuel + Revenus & salaires attendus avant le 31
+ *   Solde bancaire actuel + Salaires et CAF attendus avant le 31
  *
  * Dépenses engagées d'ici la fin du mois =
  *   Charges fixes récurrentes restantes + Reste à dépenser sur les budgets variables
@@ -54,47 +87,111 @@ export function calculateSafeToSpend(
     (tx) => (tx.moisAffectation || tx.date || '').slice(0, 7) === periodKey,
   );
 
-  // 1. REVENUS ATTENDUS (Entrées d'argent à venir d'ici la fin du mois)
-  let upcomingIncome = 0;
-  const positiveRecurrences = recurrences.filter((r) => r.active && r.expectedAmount > 0);
-  const positiveRecLabels = new Set<string>();
-
-  if (positiveRecurrences.length > 0) {
-    const incomeStates = resolveRecurrencePeriods(positiveRecurrences, periodKey, periodTxs, now);
-
-    for (const r of positiveRecurrences) {
-      positiveRecLabels.add((r.label || '').toLowerCase());
-      const state = incomeStates.get(r.id);
-      // Si le revenu n'est pas encore crédité sur le compte bancaire
-      if (!state || (!isSettled(state.state) && state.state !== 'skipped')) {
-        const amount = Math.abs(getAmountForPeriod(r, periodKey));
-        upcomingIncome += amount;
-      }
-    }
+  // 1. REVENUS ATTENDUS : Uniquement les budgets Salaires et la CAF (non encore reçus ce mois-ci)
+  // Neutralise toutes les autres récurrences (virements internes, épargne, remboursements, etc.)
+  interface IncomeTarget {
+    category: string;
+    expectedAmount: number;
+    recurrenceId?: string;
   }
+  const incomeTargets = new Map<string, IncomeTarget>();
 
-  // Ajout des provisions salaires (du RAV) non déjà couvertes par une récurrence
+  // A. Budgets actifs pour Salaires et CAF
+  budgets
+    .filter((b) => b.actif !== false && isSalaryOrCafCategory(b.categorie || b.nom))
+    .forEach((b) => {
+      const amount = Math.max(0, b.montant ?? 0);
+      if (amount > 0) {
+        const cat = b.categorie || b.nom;
+        incomeTargets.set(categoryKey(cat), {
+          category: cat,
+          expectedAmount: amount,
+        });
+      }
+    });
+
+  // B. Provisions de salaires configurées dans le RAV (si non déjà renseignées dans les budgets)
   const salaryProvisions = Object.values(ravConfig?.provision_salaires ?? {});
   for (const prov of salaryProvisions) {
     const provAmount = Number(prov?.montant) || 0;
     if (provAmount <= 0) continue;
-
-    const provCategory = (prov?.categorie || 'Salaire').toLowerCase();
-    // Évite de compter deux fois si déjà dans les récurrences
-    const alreadyInRecurrences = Array.from(positiveRecLabels).some(
-      (lbl) => lbl.includes(provCategory) || provCategory.includes(lbl),
-    );
-    if (alreadyInRecurrences) continue;
-
-    // Vérifie si le salaire est déjà crédité ce mois-ci sur le compte
-    const alreadyReceived = periodTxs.some(
-      (tx) =>
-        (tx.montant ?? 0) > 0 && Math.abs((tx.montant ?? 0) - provAmount) / provAmount <= 0.25,
-    );
-
-    if (!alreadyReceived) {
-      upcomingIncome += provAmount;
+    const provCategory = prov?.categorie || 'Salaire';
+    const key = categoryKey(provCategory);
+    if (!incomeTargets.has(key)) {
+      incomeTargets.set(key, {
+        category: provCategory,
+        expectedAmount: provAmount,
+      });
     }
+  }
+
+  // C. Récurrences actives de type Salaire ou CAF uniquement (si non déjà couvertes)
+  const salaryOrCafRecurrences = recurrences.filter(
+    (r) =>
+      r.active &&
+      r.expectedAmount > 0 &&
+      (isSalaryOrCafCategory(r.category) || isSalaryOrCafCategory(r.label)),
+  );
+  if (salaryOrCafRecurrences.length > 0) {
+    const recurrenceStates = resolveRecurrencePeriods(
+      salaryOrCafRecurrences,
+      periodKey,
+      periodTxs,
+      now,
+    );
+
+    for (const r of salaryOrCafRecurrences) {
+      const cat = isSalaryOrCafCategory(r.category)
+        ? r.category || 'Salaire'
+        : r.label || 'Salaire';
+      const key = categoryKey(cat);
+      const state = recurrenceStates.get(r.id);
+      const isAlreadySettled = state && isSettled(state.state);
+
+      if (!incomeTargets.has(key)) {
+        const amount = Math.abs(getAmountForPeriod(r, periodKey));
+        if (amount > 0 && !isAlreadySettled) {
+          incomeTargets.set(key, {
+            category: cat,
+            expectedAmount: amount,
+            recurrenceId: r.id,
+          });
+        }
+      } else if (isAlreadySettled) {
+        const existing = incomeTargets.get(key)!;
+        existing.recurrenceId = r.id;
+      }
+    }
+  }
+
+  // Calcul du montant restant à percevoir pour chaque cible de Salaire et CAF
+  let upcomingIncome = 0;
+  for (const target of incomeTargets.values()) {
+    if (target.recurrenceId) {
+      const state = resolveRecurrencePeriods(
+        recurrences.filter((r) => r.id === target.recurrenceId),
+        periodKey,
+        periodTxs,
+        now,
+      ).get(target.recurrenceId);
+      if (state && (isSettled(state.state) || state.state === 'skipped')) {
+        continue;
+      }
+    }
+
+    const alreadyReceived = periodTxs
+      .filter((tx) => {
+        const amount = tx.montant ?? 0;
+        if (amount <= 0) return false;
+        return (
+          matchesIncomeCategory(target.category, tx.categorie || '') ||
+          matchesIncomeCategory(target.category, tx.libelle || '')
+        );
+      })
+      .reduce((sum, tx) => sum + (tx.montant ?? 0), 0);
+
+    const remaining = Math.max(0, target.expectedAmount - alreadyReceived);
+    upcomingIncome += remaining;
   }
 
   // 2. CHARGES FIXES RESTANTES (Dépenses récurrentes à prélever)
@@ -167,8 +264,8 @@ export function calculateSafeToSpend(
     safeToSpend,
     dailyPace,
     daysRemainingInMonth,
-    hasRecurrences: activeExpenseRecurrences.length > 0 || positiveRecurrences.length > 0,
-    hasBudgets: activeExpenseBudgets.length > 0,
+    hasRecurrences: activeExpenseRecurrences.length > 0 || salaryOrCafRecurrences.length > 0,
+    hasBudgets: activeExpenseBudgets.length > 0 || incomeTargets.size > 0,
   };
 }
 

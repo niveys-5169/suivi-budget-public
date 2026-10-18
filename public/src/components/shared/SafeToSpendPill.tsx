@@ -94,7 +94,7 @@ export const SafeToSpendPill: React.FC<SafeToSpendPillProps> = ({
               {upcomingIncome > 0 && (
                 <div className="flex items-center justify-between px-1">
                   <Text variant="footnote" tone="secondary">
-                    Revenus attendus
+                    Salaires & CAF attendus
                   </Text>
                   <Text variant="footnote" tone="positive" numeric className="font-semibold">
                     +{formatCurrency(upcomingIncome)}
