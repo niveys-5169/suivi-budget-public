@@ -11,7 +11,12 @@ vi.mock('../../../services/firebase-api', () => ({
   saveAISettings: vi.fn(),
 }));
 vi.mock('../../../hooks/usePreferences', () => ({
-  usePreferences: () => ({ density: 'comfortable', setDensity: vi.fn() }),
+  usePreferences: () => ({
+    density: 'comfortable',
+    setDensity: vi.fn(),
+    theme: 'dark',
+    setTheme: vi.fn(),
+  }),
 }));
 vi.mock('../../../hooks/usePWAUpdate', () => ({
   usePWAUpdate: () => ({ isRefreshing: false, refreshApp: vi.fn() }),

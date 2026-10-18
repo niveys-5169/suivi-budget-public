@@ -32,6 +32,12 @@ interface MSettingsModalProps {
   onClose: () => void;
 }
 
+const THEMES = [
+  { value: 'dark', label: 'Sombre' },
+  { value: 'gold', label: 'Gold' },
+  { value: 'auto', label: 'Automatique' },
+] as const;
+
 const DENSITIES = [
   { value: 'comfortable', label: 'Confort' },
   { value: 'compact', label: 'Compact' },
@@ -41,7 +47,7 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { isRefreshing, refreshApp } = usePWAUpdate();
-  const { density, setDensity } = usePreferences();
+  const { density, setDensity, theme, setTheme } = usePreferences();
   const { sync, isSyncing } = useSyncTransactions();
   const [isClearing, setIsClearing] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
@@ -95,13 +101,22 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
       <Sheet.Body>
         <Stack gap="lg" className="pb-safe-md">
           <Section title="Affichage">
-            <SegmentedControl
-              label="Densité d'affichage"
-              segments={DENSITIES}
-              value={density}
-              onChange={setDensity}
-              block
-            />
+            <Stack gap="md">
+              <SegmentedControl
+                label="Thème"
+                segments={THEMES}
+                value={theme}
+                onChange={setTheme}
+                block
+              />
+              <SegmentedControl
+                label="Densité d'affichage"
+                segments={DENSITIES}
+                value={density}
+                onChange={setDensity}
+                block
+              />
+            </Stack>
           </Section>
 
           <Section title="Assistant IA">

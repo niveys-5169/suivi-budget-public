@@ -45,6 +45,12 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'import', label: 'Import des données' },
 ];
 
+const THEMES = [
+  { value: 'dark', label: 'Sombre' },
+  { value: 'gold', label: 'Gold' },
+  { value: 'auto', label: 'Automatique' },
+] as const;
+
 const DENSITIES = [
   { value: 'comfortable', label: 'Confort' },
   { value: 'compact', label: 'Compact' },
@@ -70,19 +76,28 @@ const LinkRow: React.FC<{
 };
 
 const GeneralSection: React.FC = () => {
-  const { density, setDensity } = usePreferences();
+  const { density, setDensity, theme, setTheme } = usePreferences();
   const { isRefreshing, refreshApp } = usePWAUpdate();
 
   return (
     <>
       <Section title="Affichage">
-        <SegmentedControl
-          label="Densité d'affichage"
-          segments={DENSITIES}
-          value={density}
-          onChange={setDensity}
-          block
-        />
+        <Stack gap="md">
+          <SegmentedControl
+            label="Thème"
+            segments={THEMES}
+            value={theme}
+            onChange={setTheme}
+            block
+          />
+          <SegmentedControl
+            label="Densité d'affichage"
+            segments={DENSITIES}
+            value={density}
+            onChange={setDensity}
+            block
+          />
+        </Stack>
       </Section>
       <Section title="Application">
         <List>

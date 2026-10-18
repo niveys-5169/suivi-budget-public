@@ -23,6 +23,7 @@ export function useKeyboardReconciliation({
 
   useEffect(() => {
     if (selectedIndex >= transactions.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedIndex(transactions.length > 0 ? transactions.length - 1 : -1);
     }
   }, [transactions.length, selectedIndex]);

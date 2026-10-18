@@ -13,8 +13,13 @@
 @layer base {
   /* Prevent white flash on iOS PWA safe-area zones and overscroll areas */
   html {
-    background-color: #0b0b14;
+    background-color: var(--color-bg, #0b0b14);
     color-scheme: dark;
+  }
+
+  html[data-theme='gold'] {
+    background-color: var(--color-bg, #f9f6f0);
+    color-scheme: light;
   }
 
   body {

@@ -179,3 +179,48 @@
   --spacing-row-compact: 44px;
   --spacing-control: 44px;
 }
+
+@layer base {
+  html[data-theme='gold'] {
+    color-scheme: light;
+
+    /* Couleurs — fond et surfaces */
+    --color-bg: #f9f6f0;
+    --color-surface: #ffffff;
+    --color-raised: #f4eedd;
+    --color-separator: rgba(179, 139, 34, 0.18);
+
+    /* Texte — hiérarchie par opacité sur base espresso */
+    --color-label: #1c1917;
+    --color-label-secondary: rgba(28, 25, 23, 0.65);
+    --color-label-tertiary: rgba(28, 25, 23, 0.42);
+
+    /* Or impérial pour contraste sur fond clair */
+    --color-gold: #b38b22;
+    --color-gold-light: #d4af37;
+    --color-gold-subtle: rgba(179, 139, 34, 0.12);
+
+    /* Sémantique financière ajustée pour fond clair */
+    --color-positive: #16a34a;
+    --color-negative: #dc2626;
+    --color-warning: #d97706;
+    --color-positive-subtle: rgba(22, 163, 74, 0.12);
+    --color-negative-subtle: rgba(220, 38, 38, 0.12);
+    --color-warning-subtle: rgba(217, 119, 6, 0.12);
+
+    /* Gris Tailwind remappés pour fond clair */
+    --color-zinc-200: #1c1917;
+    --color-zinc-300: rgba(28, 25, 23, 0.82);
+    --color-zinc-400: rgba(28, 25, 23, 0.65);
+    --color-zinc-500: rgba(28, 25, 23, 0.45);
+    --color-zinc-600: rgba(28, 25, 23, 0.3);
+    --color-zinc-700: rgba(28, 25, 23, 0.18);
+    --color-zinc-800: rgba(179, 139, 34, 0.18);
+    --color-zinc-900: #f4eedd;
+
+    /* Ombres douces dorées */
+    --shadow-raised: 0 1px 3px rgba(138, 109, 28, 0.08);
+    --shadow-floating: 0 8px 24px rgba(138, 109, 28, 0.15);
+    --shadow-gold-dot: 0 0 8px rgba(179, 139, 34, 0.5);
+  }
+}

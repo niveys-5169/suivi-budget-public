@@ -25,7 +25,12 @@ vi.mock('../../../public/src/hooks/usePWAUpdate', () => ({
 }));
 
 vi.mock('../../../public/src/hooks/usePreferences', () => ({
-  usePreferences: () => ({ density: 'normal', setDensity: vi.fn() }),
+  usePreferences: () => ({
+    density: 'comfortable',
+    setDensity: vi.fn(),
+    theme: 'dark',
+    setTheme: vi.fn(),
+  }),
 }));
 
 vi.mock('../../../public/src/hooks/useSyncTransactions', () => ({

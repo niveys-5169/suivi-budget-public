@@ -3,7 +3,9 @@ import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './useAuth';
 import { withRetry } from '../utils/withRetry';
+import { THEME_KEY, type ThemePreference, setThemePreference } from '../theme';
 
+export type { ThemePreference };
 export type TransactionsViewMode = 'hightech' | 'fintech';
 export type Density = 'comfortable' | 'compact';
 export type BudgetSortMode = 'manual' | 'montant' | 'alpha';
@@ -17,6 +19,8 @@ export interface UsePreferencesResult {
   setPrivacyMode: (fn: (v: boolean) => boolean) => void;
   density: Density;
   setDensity: (density: Density) => void;
+  theme: ThemePreference;
+  setTheme: (theme: ThemePreference) => void;
   budgetSortMode: BudgetSortMode;
   setBudgetSortMode: (mode: BudgetSortMode) => void;
   budgetManualOrder: string[];
@@ -64,6 +68,14 @@ export const usePreferences = (): UsePreferencesResult => {
       return raw === 'compact' ? 'compact' : 'comfortable';
     } catch {
       return 'comfortable';
+    }
+  });
+  const [theme, setThemeState] = useState<ThemePreference>(() => {
+    try {
+      const raw = localStorage.getItem(THEME_KEY);
+      return raw === 'dark' || raw === 'gold' || raw === 'light' ? raw : 'auto';
+    } catch {
+      return 'auto';
     }
   });
   const [budgetSortMode, setBudgetSortModeState] = useState<BudgetSortMode>(() => {
@@ -118,6 +130,16 @@ export const usePreferences = (): UsePreferencesResult => {
           setDashboardCategories(categories);
           setTransactionsViewMode(viewMode);
           setDensityState(remoteDensity);
+          if (
+            data.theme &&
+            (data.theme === 'dark' ||
+              data.theme === 'gold' ||
+              data.theme === 'light' ||
+              data.theme === 'auto')
+          ) {
+            setThemeState(data.theme);
+            setThemePreference(data.theme);
+          }
           setBudgetSortModeState(remoteSortMode);
           setBudgetManualOrderState(remoteManualOrder);
 
@@ -152,6 +174,16 @@ export const usePreferences = (): UsePreferencesResult => {
             setDashboardCategories(categories);
             setTransactionsViewMode(viewMode);
             setDensityState(remoteDensity);
+            if (
+              data.theme &&
+              (data.theme === 'dark' ||
+                data.theme === 'gold' ||
+                data.theme === 'light' ||
+                data.theme === 'auto')
+            ) {
+              setThemeState(data.theme);
+              setThemePreference(data.theme);
+            }
             setBudgetSortModeState(remoteSortMode);
             setBudgetManualOrderState(remoteManualOrder);
 
@@ -262,12 +294,36 @@ export const usePreferences = (): UsePreferencesResult => {
   useEffect(() => () => clearTimeout(debounceTimerRef.current), []);
 
   useEffect(() => {
+    const handleThemeChange = (event: Event) => {
+      const next = (event as CustomEvent<{ theme: ThemePreference }>).detail?.theme;
+      if (next) setThemeState(next);
+    };
+    window.addEventListener('theme-change', handleThemeChange);
+    return () => window.removeEventListener('theme-change', handleThemeChange);
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('dashboard_privacy_mode', JSON.stringify(privacyMode));
   }, [privacyMode]);
 
   const handleSetPrivacyMode = useCallback((fn: (v: boolean) => boolean) => {
     setPrivacyModeState((v) => fn(v));
   }, []);
+
+  const handleSetTheme = useCallback(
+    (next: ThemePreference) => {
+      setThemeState(next);
+      setThemePreference(next);
+
+      if (user) {
+        const preferenceRef = doc(db, 'users', user.uid, 'preferences', 'ui');
+        setDoc(preferenceRef, { theme: next }, { merge: true }).catch((err) => {
+          console.error('>>> usePreferences: Failed to save theme:', err);
+        });
+      }
+    },
+    [user],
+  );
 
   const handleSetDensity = useCallback(
     (next: Density) => {
@@ -328,6 +384,8 @@ export const usePreferences = (): UsePreferencesResult => {
     setPrivacyMode: handleSetPrivacyMode,
     density,
     setDensity: handleSetDensity,
+    theme,
+    setTheme: handleSetTheme,
     budgetSortMode,
     setBudgetSortMode: handleSetBudgetSortMode,
     budgetManualOrder,

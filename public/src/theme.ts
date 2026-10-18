@@ -1,7 +1,7 @@
 export const THEME_KEY = 'themePreference';
 
-export type ThemePreference = 'auto' | 'dark' | 'light';
-export type ResolvedTheme = 'dark' | 'light';
+export type ThemePreference = 'auto' | 'dark' | 'gold' | 'light';
+export type ResolvedTheme = 'dark' | 'gold' | 'light';
 
 export function getSystemPrefersDark(): boolean {
   return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
@@ -14,26 +14,53 @@ export function isNightTime(): boolean {
 
 export function resolveTheme(pref: string): ResolvedTheme {
   if (pref === 'dark') return 'dark';
+  if (pref === 'gold') return 'gold';
   if (pref === 'light') return 'light';
   if (getSystemPrefersDark() || isNightTime()) return 'dark';
-  return 'light';
+  return 'gold';
 }
 
 export function applyTheme(theme: ResolvedTheme): void {
   document.documentElement.setAttribute('data-theme', theme);
+
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  if (metaThemeColor) {
+    metaThemeColor.setAttribute(
+      'content',
+      theme === 'gold'
+        ? 'rgb(249, 246, 240)'
+        : theme === 'light'
+          ? 'rgb(255, 255, 255)'
+          : 'rgb(11, 11, 20)',
+    );
+  }
+
   const icon = document.getElementById('theme-icon');
   if (!icon) return;
   const pref = localStorage.getItem(THEME_KEY) || 'auto';
   if (pref === 'auto') icon.textContent = '◑';
   else if (pref === 'dark') icon.textContent = '🌙';
+  else if (pref === 'gold') icon.textContent = '✨';
   else icon.textContent = '☀️';
 }
 
+export function setThemePreference(pref: ThemePreference): void {
+  localStorage.setItem(THEME_KEY, pref);
+  applyTheme(resolveTheme(pref));
+  window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: pref } }));
+}
+
 export function cycleTheme(): void {
-  const current = localStorage.getItem(THEME_KEY) || 'auto';
-  const next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
-  localStorage.setItem(THEME_KEY, next);
-  applyTheme(resolveTheme(next));
+  const current = (localStorage.getItem(THEME_KEY) || 'auto') as ThemePreference;
+  const next: ThemePreference =
+    current === 'auto'
+      ? 'dark'
+      : current === 'dark'
+        ? 'gold'
+        : current === 'gold'
+          ? 'light'
+          : 'auto';
+  setThemePreference(next);
 }
 
 // Initialisation du thème au chargement
