@@ -1,8 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { useCashflowForecast, type ForecastHorizon } from '../../../hooks/useCashflowForecast';
 import { formatCurrency } from '../../../lib/formatters';
-import { motion } from 'framer-motion';
-import { AlertTriangle, ArrowUpCircle, ArrowDownCircle, TrendingDown } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  ChevronDown,
+  TrendingDown,
+} from 'lucide-react';
+import { Button } from '../../../ui';
 
 export const AurumCashflowCard: React.FC = () => {
   const threshold = useMemo(() => {
@@ -12,6 +19,7 @@ export const AurumCashflowCard: React.FC = () => {
   }, []);
 
   const [horizon, setHorizon] = useState<ForecastHorizon>(30);
+  const [isExpanded, setIsExpanded] = useState(false);
   const forecast = useCashflowForecast(horizon, threshold);
   const breach = forecast.belowZeroDate ?? forecast.breachDate;
   const hasData = forecast.days.length > 1;
@@ -164,48 +172,89 @@ export const AurumCashflowCard: React.FC = () => {
       )}
 
       {/* Prévisions avant le point bas et entrées */}
-      <div className="space-y-4 pt-4 border-t border-separator">
-        <p className="text-caption font-semibold text-gold/60 mb-4">Détail & entrées</p>
-        {displayedEvents.length > 0 ? (
-          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-            {displayedEvents.map((ev, index) => (
-              <div
-                key={`${ev.sourceKey}-${ev.date}-${index}`}
-                className="flex items-center justify-between px-4 py-4 rounded-lg bg-white/[0.01] border border-separator"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  {ev.type === 'income' ? (
-                    <ArrowUpCircle size={16} className="text-positive flex-shrink-0" />
-                  ) : (
-                    <ArrowDownCircle size={16} className="text-negative flex-shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-footnote font-bold text-white truncate" title={ev.label}>
-                      {ev.label}
-                    </p>
-                    <p className="text-caption text-label-tertiary">
-                      {new Date(ev.date).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`text-footnote font-serif font-bold tabular-nums ml-4 flex-shrink-0 ${
-                    ev.amount < 0 ? 'text-negative' : 'text-positive'
-                  }`}
-                >
-                  {formatCurrency(ev.amount)}
-                </span>
-              </div>
-            ))}
+      <div className="pt-4 border-t border-separator">
+        <Button
+          variant="plain"
+          size="sm"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className="w-full !justify-between !px-0 !min-h-0 py-2 text-left group hover:no-underline"
+          aria-expanded={isExpanded}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-caption font-semibold text-gold/80 group-hover:text-gold transition-colors">
+              Détail & entrées
+            </span>
+            <span className="text-caption px-2 py-1 rounded-full bg-white/[0.05] border border-separator text-label-secondary font-medium">
+              {displayedEvents.length} {displayedEvents.length > 1 ? 'opérations' : 'opération'}
+            </span>
           </div>
-        ) : (
-          <p className="text-xs text-white/30 py-2 text-center">
-            Aucun mouvement planifié avant le point bas.
-          </p>
-        )}
+          <div className="flex items-center gap-1 text-caption text-label-tertiary group-hover:text-label-secondary transition-colors">
+            <span>{isExpanded ? 'Masquer' : 'Afficher'}</span>
+            <ChevronDown
+              size={14}
+              className={`transition-transform duration-200 text-label-tertiary group-hover:text-gold ${
+                isExpanded ? 'rotate-180' : ''
+              }`}
+              aria-hidden="true"
+            />
+          </div>
+        </Button>
+
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden pt-4"
+            >
+              {displayedEvents.length > 0 ? (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                  {displayedEvents.map((ev, index) => (
+                    <div
+                      key={`${ev.sourceKey}-${ev.date}-${index}`}
+                      className="flex items-center justify-between px-4 py-4 rounded-lg bg-white/[0.01] border border-separator"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        {ev.type === 'income' ? (
+                          <ArrowUpCircle size={16} className="text-positive flex-shrink-0" />
+                        ) : (
+                          <ArrowDownCircle size={16} className="text-negative flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <p
+                            className="text-footnote font-bold text-white truncate"
+                            title={ev.label}
+                          >
+                            {ev.label}
+                          </p>
+                          <p className="text-caption text-label-tertiary">
+                            {new Date(ev.date).toLocaleDateString('fr-FR', {
+                              day: 'numeric',
+                              month: 'short',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`text-footnote font-serif font-bold tabular-nums ml-4 flex-shrink-0 ${
+                          ev.amount < 0 ? 'text-negative' : 'text-positive'
+                        }`}
+                      >
+                        {formatCurrency(ev.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-white/30 py-2 text-center">
+                  Aucun mouvement planifié avant le point bas.
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </section>
   );

@@ -44,6 +44,8 @@ import { useTransactionContext, Transaction } from '../../../context/Transaction
 import { useSyncTransactions } from '../../../hooks/useSyncTransactions';
 import { PullToRefreshWrapper } from '../../PullToRefreshWrapper';
 import { AnimatedBalance } from '../../shared/AnimatedBalance';
+import { SafeToSpendPill } from '../../shared/SafeToSpendPill';
+import { FLAGS } from '../../../lib/featureFlags';
 import { Button, IconButton, Section, Skeleton, Stack, Text } from '../../../ui';
 import { Bell, Search, Sparkles, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -243,6 +245,9 @@ export const AurumDashboard: React.FC = () => {
                             >
                               <AnimatedBalance value={checkingTotal} />
                             </Text>
+                            {FLAGS.SAFE_TO_SPEND && (
+                              <SafeToSpendPill className="items-start mt-2" />
+                            )}
                           </div>
                           <div className="flex shrink-0 gap-2">
                             <IconButton

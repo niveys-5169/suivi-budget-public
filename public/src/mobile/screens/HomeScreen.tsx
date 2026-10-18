@@ -16,6 +16,8 @@ import { TransactionFormModal } from '../../components/TransactionFormModal';
 import { AurumUnpointedCard } from '../../components/dashboard/v2/AurumUnpointedCard';
 import { AurumPointageModal } from '../../components/dashboard/v2/AurumPointageModal';
 import { AurumCashflowCard } from '../../components/dashboard/v2/AurumCashflowCard';
+import { SafeToSpendPill } from '../../components/shared/SafeToSpendPill';
+import { FLAGS } from '../../lib/featureFlags';
 
 export const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -71,6 +73,7 @@ export const HomeScreen: React.FC = () => {
             )}
           </h2>
         </div>
+        {FLAGS.SAFE_TO_SPEND && showBalance && <SafeToSpendPill className="mt-2" compact />}
       </section>
 
       {/* Accounts Section */}

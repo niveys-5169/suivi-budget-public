@@ -91,15 +91,23 @@ describe('AurumCashflowCard Component', () => {
     expect(select).toBeInTheDocument();
     expect(select.value).toBe('30');
 
-    // 2. Check if the events leading to the lowest point are rendered
+    // 2. Check that details are collapsed by default
+    const toggleBtn = screen.getByRole('button', { name: /détail & entrées/i });
+    expect(toggleBtn).toBeInTheDocument();
+    expect(screen.getByText('Afficher')).toBeInTheDocument();
+    expect(screen.queryByText('Dépense Importante')).not.toBeInTheDocument();
+
+    // 3. Expand details and check if events leading to the lowest point are rendered
+    fireEvent.click(toggleBtn);
+    expect(screen.getByText('Masquer')).toBeInTheDocument();
     expect(screen.getByText('Dépense Importante')).toBeInTheDocument();
     expect(screen.getByText('-600 €')).toBeInTheDocument();
 
-    // 3. Check that incomes after lowest point are rendered, but expenses after lowest point are NOT
+    // 4. Check that incomes after lowest point are rendered, but expenses after lowest point are NOT
     expect(screen.getByText('Revenu Après Point Bas')).toBeInTheDocument();
     expect(screen.queryByText('Dépense Après Point Bas')).not.toBeInTheDocument();
 
-    // 4. Change select to 60 and verify hook call
+    // 5. Change select to 60 and verify hook call
     fireEvent.change(select, { target: { value: '60' } });
     expect(mockUseCashflowForecast).toHaveBeenLastCalledWith(60, 0);
   });

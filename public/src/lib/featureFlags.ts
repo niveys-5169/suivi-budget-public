@@ -28,6 +28,9 @@ export const FLAGS = {
 
   /** Enable Financial health score card on the Insights page */
   HEALTH_SCORE: import.meta.env.VITE_HEALTH_SCORE === 'true',
+
+  /** Enable Safe-to-Spend real-time available budget pill */
+  SAFE_TO_SPEND: import.meta.env.VITE_SAFE_TO_SPEND !== 'false',
 } as const;
 
 /**

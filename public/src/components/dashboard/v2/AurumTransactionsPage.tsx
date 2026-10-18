@@ -12,6 +12,7 @@ import { useRecurrences } from '../../../hooks/useRecurrences';
 import { useAppState } from '../../../context/AppStateContext';
 import { MonthNavigator } from '../../shared/MonthNavigator';
 import { getDayOfMonth } from '../../../utils/recurrenceEngine';
+import { useKeyboardReconciliation } from '../../../hooks/useKeyboardReconciliation';
 
 export const AurumTransactionsPage: React.FC = () => {
   const {
@@ -36,13 +37,18 @@ export const AurumTransactionsPage: React.FC = () => {
     }
   }, [transactions]);
   const { setMonthKey } = useAppState();
-  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const {
     mappings: { linkedTxToRecurrence, candidateTxToRecurrence },
     ignoredTxIds,
     ignoreTxMatch,
     link,
   } = useRecurrences();
+
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const { selectedTxId } = useKeyboardReconciliation({
+    transactions: filteredTransactions,
+    onTogglePointe: togglePointe,
+  });
 
   // Derive the current month as a Date from the transaction filters (source of truth for what's displayed)
   const currentMonth = useMemo(() => {
@@ -123,7 +129,24 @@ export const AurumTransactionsPage: React.FC = () => {
       {/* Header (Sticky) */}
       <div className="px-6 md:px-24 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-8 sticky top-0 bg-[#0B0B14]/80 backdrop-blur-2xl z-40 border-b border-separator">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tighter text-white">Flux Bancaires</h1>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tighter text-white">Flux Bancaires</h1>
+            <p className="text-caption text-label-tertiary mt-1 hidden md:block">
+              Raccourcis :{' '}
+              <kbd className="px-1 py-1 rounded-sm bg-surface border border-separator text-gold font-mono text-footnote">
+                j
+              </kbd>
+              /
+              <kbd className="px-1 py-1 rounded-sm bg-surface border border-separator text-gold font-mono text-footnote">
+                k
+              </kbd>{' '}
+              naviguer •{' '}
+              <kbd className="px-1 py-1 rounded-sm bg-surface border border-separator text-gold font-mono text-footnote">
+                Espace
+              </kbd>{' '}
+              pointer
+            </p>
+          </div>
           <div className="flex items-center gap-4">
             <MonthNavigator month={currentMonth} onChange={handleMonthChange} />
             <button
@@ -179,7 +202,11 @@ export const AurumTransactionsPage: React.FC = () => {
                       boxShadow: '0 30px 60px -12px rgba(0,0,0,0.5)',
                     }}
                     onClick={() => setSelectedTx(tx)}
-                    className="group flex items-center justify-between px-6 py-10 rounded-xl bg-surface border border-separator transition-all cursor-pointer overflow-visible"
+                    className={`group flex items-center justify-between px-6 py-10 rounded-xl bg-surface border transition-all cursor-pointer overflow-visible ${
+                      selectedTxId === tx.id
+                        ? 'border-gold ring-1 ring-gold/40 bg-raised'
+                        : 'border-separator'
+                    }`}
                   >
                     <div className="flex items-center gap-6 max-w-[65%]">
                       <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center shrink-0">

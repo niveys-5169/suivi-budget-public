@@ -14,6 +14,7 @@
   /* Prevent white flash on iOS PWA safe-area zones and overscroll areas */
   html {
     background-color: #0b0b14;
+    color-scheme: dark;
   }
 
   body {
@@ -26,6 +27,30 @@
   /* Number stabilization */
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Barre de défilement discrète et élégante par défaut */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(212, 175, 55, 0.45);
   }
 }
 
@@ -142,6 +167,29 @@
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@utility custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 9999px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(212, 175, 55, 0.5);
   }
 }
 

@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: 'public',
+    envDir: process.cwd(),
     plugins: [
       react(),
       // PWA: installable app, app-shell precache, offline data via Firestore's own IndexedDB cache
