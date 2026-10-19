@@ -34,8 +34,9 @@ interface MSettingsModalProps {
 
 const THEMES = [
   { value: 'gold', label: 'Gold Sombre' },
+  { value: 'gold-light', label: 'Gold Clair' },
   { value: 'dark', label: 'Sombre' },
-  { value: 'auto', label: 'Automatique' },
+  { value: 'auto', label: 'Auto' },
 ] as const;
 
 const DENSITIES = [

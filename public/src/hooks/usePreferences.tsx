@@ -134,6 +134,8 @@ export const usePreferences = (): UsePreferencesResult => {
             data.theme &&
             (data.theme === 'dark' ||
               data.theme === 'gold' ||
+              data.theme === 'gold-dark' ||
+              data.theme === 'gold-light' ||
               data.theme === 'light' ||
               data.theme === 'auto')
           ) {

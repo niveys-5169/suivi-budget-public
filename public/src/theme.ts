@@ -1,7 +1,7 @@
 export const THEME_KEY = 'themePreference';
 
-export type ThemePreference = 'auto' | 'dark' | 'gold' | 'light';
-export type ResolvedTheme = 'dark' | 'gold' | 'light';
+export type ThemePreference = 'auto' | 'dark' | 'gold' | 'gold-dark' | 'gold-light' | 'light';
+export type ResolvedTheme = 'dark' | 'gold' | 'gold-light' | 'light';
 
 export function getSystemPrefersDark(): boolean {
   return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
@@ -14,8 +14,9 @@ export function isNightTime(): boolean {
 
 export function resolveTheme(pref: string): ResolvedTheme {
   if (pref === 'dark') return 'dark';
-  if (pref === 'gold') return 'gold';
-  if (pref === 'light') return 'light';
+  if (pref === 'gold' || pref === 'gold-dark') return 'gold';
+  if (pref === 'gold-light') return 'gold-light';
+  if (pref === 'light') return 'gold-light';
   return 'gold';
 }
 
@@ -28,9 +29,11 @@ export function applyTheme(theme: ResolvedTheme): void {
       'content',
       theme === 'gold'
         ? 'rgb(9, 8, 6)'
-        : theme === 'light'
-          ? 'rgb(255, 255, 255)'
-          : 'rgb(11, 11, 20)',
+        : theme === 'gold-light'
+          ? 'rgb(249, 246, 240)'
+          : theme === 'light'
+            ? 'rgb(255, 255, 255)'
+            : 'rgb(11, 11, 20)',
     );
   }
 
@@ -39,7 +42,8 @@ export function applyTheme(theme: ResolvedTheme): void {
   const pref = localStorage.getItem(THEME_KEY) || 'auto';
   if (pref === 'auto') icon.textContent = '◑';
   else if (pref === 'dark') icon.textContent = '🌙';
-  else if (pref === 'gold') icon.textContent = '✨';
+  else if (pref === 'gold' || pref === 'gold-dark') icon.textContent = '✨';
+  else if (pref === 'gold-light') icon.textContent = '👑';
   else icon.textContent = '☀️';
 }
 
@@ -53,11 +57,11 @@ export function cycleTheme(): void {
   const current = (localStorage.getItem(THEME_KEY) || 'auto') as ThemePreference;
   const next: ThemePreference =
     current === 'auto'
-      ? 'dark'
-      : current === 'dark'
-        ? 'gold'
-        : current === 'gold'
-          ? 'light'
+      ? 'gold'
+      : current === 'gold' || current === 'gold-dark'
+        ? 'gold-light'
+        : current === 'gold-light'
+          ? 'dark'
           : 'auto';
   setThemePreference(next);
 }

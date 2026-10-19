@@ -47,6 +47,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
 
 const THEMES = [
   { value: 'gold', label: 'Gold Sombre' },
+  { value: 'gold-light', label: 'Gold Clair' },
   { value: 'dark', label: 'Sombre' },
   { value: 'auto', label: 'Automatique' },
 ] as const;

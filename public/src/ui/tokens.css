@@ -181,7 +181,11 @@
 }
 
 @layer base {
-  html[data-theme='gold'] {
+  /* ========================================================================
+   * THÈME GOLD SOMBRE TOTAL (Obsidian & Or Impérial)
+   * ====================================================================== */
+  html[data-theme='gold'],
+  html[data-theme='gold-dark'] {
     color-scheme: dark;
 
     /* Couleurs — fond et surfaces Gold Sombre Total (Obsidian & Or Impérial) */
@@ -227,10 +231,68 @@
     --color-white: #fdfbf7;
   }
 
-  html[data-theme='gold'] .text-white {
+  html[data-theme='gold'] .text-white,
+  html[data-theme='gold-dark'] .text-white {
     color: var(--color-label) !important;
   }
-  html[data-theme='gold'] [class*='text-white/'] {
+  html[data-theme='gold'] [class*='text-white/'],
+  html[data-theme='gold-dark'] [class*='text-white/'] {
+    color: var(--color-label-secondary) !important;
+  }
+
+  /* ========================================================================
+   * THÈME GOLD CLAIR (Champagne & Ivoire Haute Joaillerie)
+   * ====================================================================== */
+  html[data-theme='gold-light'] {
+    color-scheme: light;
+
+    /* Couleurs — fond et surfaces Champagne & Crème */
+    --color-bg: #f9f6f0;
+    --color-surface: #ffffff;
+    --color-raised: #f4eedd;
+    --color-separator: rgba(179, 139, 34, 0.18);
+
+    /* Texte — hiérarchie sur base espresso foncée (haute lisibilité) */
+    --color-label: #1c1917;
+    --color-label-secondary: rgba(28, 25, 23, 0.68);
+    --color-label-tertiary: rgba(28, 25, 23, 0.45);
+
+    /* Or impérial calibré pour fond clair */
+    --color-gold: #b38b22;
+    --color-gold-light: #d4af37;
+    --color-gold-subtle: rgba(179, 139, 34, 0.12);
+
+    /* Sémantique financière ajustée pour fond clair */
+    --color-positive: #16a34a;
+    --color-negative: #dc2626;
+    --color-warning: #d97706;
+    --color-positive-subtle: rgba(22, 163, 74, 0.12);
+    --color-negative-subtle: rgba(220, 38, 38, 0.12);
+    --color-warning-subtle: rgba(217, 119, 6, 0.12);
+
+    /* Nuances Tailwind adaptées au fond clair */
+    --color-zinc-200: #1c1917;
+    --color-zinc-300: rgba(28, 25, 23, 0.85);
+    --color-zinc-400: rgba(28, 25, 23, 0.68);
+    --color-zinc-500: rgba(28, 25, 23, 0.48);
+    --color-zinc-600: rgba(28, 25, 23, 0.3);
+    --color-zinc-700: rgba(28, 25, 23, 0.18);
+    --color-zinc-800: rgba(179, 139, 34, 0.18);
+    --color-zinc-900: #f4eedd;
+
+    /* Ombres douces dorées */
+    --shadow-raised: 0 1px 3px rgba(138, 109, 28, 0.08);
+    --shadow-floating: 0 8px 24px rgba(138, 109, 28, 0.15);
+    --shadow-gold-dot: 0 0 8px rgba(179, 139, 34, 0.5);
+
+    /* Neutralisation absolue des écritures blanches en mode clair */
+    --color-white: #1c1917;
+  }
+
+  html[data-theme='gold-light'] .text-white {
+    color: var(--color-label) !important;
+  }
+  html[data-theme='gold-light'] [class*='text-white/'] {
     color: var(--color-label-secondary) !important;
   }
 }

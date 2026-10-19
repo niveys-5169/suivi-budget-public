@@ -17,9 +17,15 @@
     color-scheme: dark;
   }
 
-  html[data-theme='gold'] {
+  html[data-theme='gold'],
+  html[data-theme='gold-dark'] {
     background-color: var(--color-bg, #090806);
     color-scheme: dark;
+  }
+
+  html[data-theme='gold-light'] {
+    background-color: var(--color-bg, #f9f6f0);
+    color-scheme: light;
   }
 
   body {
