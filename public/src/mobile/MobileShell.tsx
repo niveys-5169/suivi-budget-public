@@ -9,7 +9,7 @@ export const MobileShell: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <div
-      className="bg-bg text-white flex flex-col overflow-hidden"
+      className="bg-bg text-label flex flex-col overflow-hidden"
       style={{ height: isStandalone ? '100vh' : '100dvh' }}
     >
       <main

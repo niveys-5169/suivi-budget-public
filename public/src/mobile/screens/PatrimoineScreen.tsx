@@ -195,7 +195,7 @@ export const PatrimoineScreen: React.FC = () => {
           <span className="text-caption font-bold text-label-tertiary mb-1">
             Valeur nette totale
           </span>
-          <h2 className="text-display font-bold tracking-tight text-white flex items-center">
+          <h2 className="text-display font-bold tracking-tight text-label flex items-center">
             <FormattedNumber value={totalNet} style="currency" currency="EUR" />
           </h2>
           {evolution1M.endPoint && (
@@ -257,7 +257,7 @@ export const PatrimoineScreen: React.FC = () => {
                       <p className="text-footnote font-bold text-label-tertiary">
                         {SEGMENT_LABELS[segment.type]}
                       </p>
-                      <p className="text-title2 font-bold text-white tabular-nums">
+                      <p className="text-title2 font-bold text-label tabular-nums">
                         <FormattedNumber value={segment.amount} style="currency" currency="EUR" />
                       </p>
                     </div>
@@ -292,7 +292,7 @@ export const PatrimoineScreen: React.FC = () => {
                               {asset.ownerId}
                             </p>
                           </div>
-                          <span className="text-footnote font-bold tabular-nums text-white flex-shrink-0">
+                          <span className="text-footnote font-bold tabular-nums text-label flex-shrink-0">
                             {formatCurrency(asset.value, 'EUR', 'fr-FR', {
                               maximumFractionDigits: 0,
                             })}
@@ -403,14 +403,14 @@ export const PatrimoineScreen: React.FC = () => {
                     className="w-full text-left flex items-center justify-between px-4 py-4 bg-surface border border-separator rounded-xl hover:bg-white/[0.05] transition-colors"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-footnote font-bold text-white truncate">{h.name}</p>
+                      <p className="text-footnote font-bold text-label truncate">{h.name}</p>
                       <p className="text-caption text-label-tertiary tracking-wide mt-1">
                         {h.ticker} · {h.quantity} parts
                         {h.owner ? ` · ${h.owner}` : ''}
                       </p>
                     </div>
                     <div className="text-right ml-4 flex-shrink-0">
-                      <p className="text-footnote font-bold tabular-nums text-white">
+                      <p className="text-footnote font-bold tabular-nums text-label">
                         {formatCurrency(h.currentValue, 'EUR', 'fr-FR', {
                           maximumFractionDigits: 0,
                         })}

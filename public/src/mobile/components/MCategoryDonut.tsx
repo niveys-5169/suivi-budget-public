@@ -37,7 +37,7 @@ export const MCategoryDonut: React.FC<MCategoryDonutProps> = ({ data, total, lab
       </ResponsiveContainer>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-2">
-        <p className="text-display font-bold text-white tabular-nums leading-none">
+        <p className="text-display font-bold text-label tabular-nums leading-none">
           <FormattedNumber
             value={Math.abs(total)}
             style="currency"

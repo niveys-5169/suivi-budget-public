@@ -32,8 +32,8 @@ export const MCategoryRow: React.FC<MCategoryRowProps> = ({
 
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-baseline mb-2">
-          <p className="text-headline font-medium text-white truncate pr-2">{name}</p>
-          <p className="text-headline font-bold text-white tabular-nums shrink-0">
+          <p className="text-headline font-medium text-label truncate pr-2">{name}</p>
+          <p className="text-headline font-bold text-label tabular-nums shrink-0">
             <FormattedNumber value={Math.abs(amount)} style="currency" currency="EUR" />
           </p>
         </div>

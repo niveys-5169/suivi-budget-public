@@ -222,5 +222,15 @@
     --shadow-raised: 0 1px 3px rgba(138, 109, 28, 0.08);
     --shadow-floating: 0 8px 24px rgba(138, 109, 28, 0.15);
     --shadow-gold-dot: 0 0 8px rgba(179, 139, 34, 0.5);
+
+    /* Neutralisation globale du texte blanc en mode or */
+    --color-white: #1c1917;
+  }
+
+  html[data-theme='gold'] .text-white {
+    color: var(--color-label) !important;
+  }
+  html[data-theme='gold'] [class*='text-white/'] {
+    color: var(--color-label-secondary) !important;
   }
 }

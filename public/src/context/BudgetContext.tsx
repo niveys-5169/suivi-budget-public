@@ -80,7 +80,7 @@ interface BudgetContextType {
   convertToMonthly: (categorie: string, montant: number) => Promise<void>;
 }
 
-const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
+export const BudgetContext = createContext<BudgetContextType | undefined>(undefined);
 
 /** Fournit l'ensemble de l'état budget (enveloppes, overrides, helpers) à l'arbre React. */
 export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

@@ -64,7 +64,7 @@ export const MTransactionRow: React.FC<MTransactionRowProps> = ({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-headline font-medium text-white truncate">
+        <p className="text-headline font-medium text-label truncate">
           {transaction.libelle || 'Sans libellé'}
         </p>
         <p className="text-footnote text-label/50 truncate">
@@ -79,7 +79,7 @@ export const MTransactionRow: React.FC<MTransactionRowProps> = ({
         )}
         <div className="text-right">
           <p
-            className={`text-headline font-semibold tabular-nums ${isPositive ? 'text-positive' : 'text-white'}`}
+            className={`text-headline font-semibold tabular-nums ${isPositive ? 'text-positive' : 'text-label'}`}
           >
             {isPositive && '+'}
             <FormattedNumber value={Math.abs(amount)} style="currency" currency="EUR" />

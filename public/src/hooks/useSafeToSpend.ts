@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { useBalances } from './useBalances';
 import { useGlobalData } from '../context/GlobalDataContext';
-import { useTransactionContext } from '../context/TransactionContext';
-import { useBudget } from './useBudget';
+import { TransactionContext } from '../context/TransactionContext';
+import { BudgetContext } from '../context/BudgetContext';
 import { getAmountForPeriod, isSettled } from '../utils/recurrenceEngine';
 import { resolveRecurrencePeriods } from '../utils/resolveRecurrencePeriods';
 import { categoryKey } from '../utils/budgetHelpers';
@@ -276,10 +276,18 @@ export function calculateSafeToSpend(
 export const useSafeToSpend = (): SafeToSpendResult => {
   const { checkingTotal = 0 } = useBalances() || {};
   const { recurrences = [], ravConfig = null } = useGlobalData() || {};
-  const { transactions = [] } = useTransactionContext() || {};
-  const { budgets = [] } = useBudget();
+  const txContext = useContext(TransactionContext);
+  const transactions = txContext?.transactions;
+  const budgetContext = useContext(BudgetContext);
+  const budgets = budgetContext?.budgets;
 
   return useMemo(() => {
-    return calculateSafeToSpend(checkingTotal, recurrences, transactions, budgets, ravConfig);
+    return calculateSafeToSpend(
+      checkingTotal,
+      recurrences,
+      transactions || [],
+      budgets || [],
+      ravConfig,
+    );
   }, [checkingTotal, recurrences, transactions, budgets, ravConfig]);
 };

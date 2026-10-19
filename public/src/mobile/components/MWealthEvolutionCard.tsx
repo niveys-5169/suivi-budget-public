@@ -118,7 +118,7 @@ export const MWealthEvolutionCard: React.FC<MWealthEvolutionCardProps> = ({
                   {t({ id: CAT_LABEL_IDS[cat] })}
                 </span>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-footnote font-bold tabular-nums text-white">
+                  <span className="text-footnote font-bold tabular-nums text-label">
                     {eur(evo.end)}
                   </span>
                   <DeltaChip evo={evo} />
@@ -127,11 +127,11 @@ export const MWealthEvolutionCard: React.FC<MWealthEvolutionCardProps> = ({
             );
           })}
           <div className="flex items-center justify-between gap-2 pt-2">
-            <span className="text-footnote font-semibold text-white">
+            <span className="text-footnote font-semibold text-label">
               {t({ id: 'wealth.evolution.total' })}
             </span>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-footnote font-bold tabular-nums text-white">
+              <span className="text-footnote font-bold tabular-nums text-label">
                 {eur(totalEvo.end)}
               </span>
               <DeltaChip evo={totalEvo} />

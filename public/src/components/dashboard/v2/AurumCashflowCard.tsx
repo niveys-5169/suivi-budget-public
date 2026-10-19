@@ -62,21 +62,21 @@ export const AurumCashflowCard: React.FC = () => {
                   backgroundPosition: 'right 2px center',
                 }}
               >
-                <option value={30} className="bg-bg text-white">
+                <option value={30} className="bg-bg text-label">
                   30 jours
                 </option>
-                <option value={60} className="bg-bg text-white">
+                <option value={60} className="bg-bg text-label">
                   60 jours
                 </option>
-                <option value={90} className="bg-bg text-white">
+                <option value={90} className="bg-bg text-label">
                   90 jours
                 </option>
               </select>
             </div>
-            <h3 className="text-lg font-bold tracking-tight text-white">Projection</h3>
+            <h3 className="text-lg font-bold tracking-tight text-label">Projection</h3>
           </div>
         </div>
-        <p className="text-sm text-white/30 py-4 text-center">
+        <p className="text-sm text-label-tertiary py-4 text-center">
           Données insuffisantes pour projeter une tendance.
         </p>
       </section>
@@ -113,18 +113,18 @@ export const AurumCashflowCard: React.FC = () => {
                   backgroundPosition: 'right 2px center',
                 }}
               >
-                <option value={30} className="bg-bg text-white">
+                <option value={30} className="bg-bg text-label">
                   30 jours
                 </option>
-                <option value={60} className="bg-bg text-white">
+                <option value={60} className="bg-bg text-label">
                   60 jours
                 </option>
-                <option value={90} className="bg-bg text-white">
+                <option value={90} className="bg-bg text-label">
                   90 jours
                 </option>
               </select>
             </div>
-            <h3 className="text-lg font-bold tracking-tight text-white">Projection</h3>
+            <h3 className="text-lg font-bold tracking-tight text-label">Projection</h3>
           </div>
         </div>
         <div className="text-right">
@@ -134,7 +134,7 @@ export const AurumCashflowCard: React.FC = () => {
           >
             {formatCurrency(forecast.lowestPoint.balance)}
           </p>
-          <p className="text-caption text-white/40">{lowestDateFormatted}</p>
+          <p className="text-caption text-label-tertiary">{lowestDateFormatted}</p>
         </div>
       </div>
 
@@ -224,7 +224,7 @@ export const AurumCashflowCard: React.FC = () => {
                         )}
                         <div className="min-w-0">
                           <p
-                            className="text-footnote font-bold text-white truncate"
+                            className="text-footnote font-bold text-label truncate"
                             title={ev.label}
                           >
                             {ev.label}
@@ -248,7 +248,7 @@ export const AurumCashflowCard: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-white/30 py-2 text-center">
+                <p className="text-xs text-label-tertiary py-2 text-center">
                   Aucun mouvement planifié avant le point bas.
                 </p>
               )}

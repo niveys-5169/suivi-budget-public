@@ -59,9 +59,9 @@ export const MCategoryDrillDown: React.FC<MCategoryDrillDownProps> = ({
 
         {/* Total card */}
         <div className="px-4 pb-4">
-          <div className="bg-white/5 rounded-lg p-4 border border-separator">
+          <div className="bg-surface rounded-lg p-4 border border-separator">
             <p className="text-footnote text-label-tertiary mb-1">Total</p>
-            <p className="text-2xl font-bold text-white">
+            <p className="text-2xl font-bold text-label">
               <FormattedNumber value={Math.abs(totalSpent)} style="currency" currency="EUR" />
             </p>
           </div>
@@ -110,7 +110,7 @@ export const MCategoryDrillDown: React.FC<MCategoryDrillDownProps> = ({
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-body font-medium text-white truncate">{tx.libelle}</p>
+                <p className="text-body font-medium text-label truncate">{tx.libelle}</p>
                 <p className="text-footnote text-label-tertiary">{tx.date}</p>
               </div>
 
