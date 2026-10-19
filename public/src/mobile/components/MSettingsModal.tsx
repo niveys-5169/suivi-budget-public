@@ -33,8 +33,8 @@ interface MSettingsModalProps {
 }
 
 const THEMES = [
+  { value: 'gold', label: 'Gold Sombre' },
   { value: 'dark', label: 'Sombre' },
-  { value: 'gold', label: 'Gold' },
   { value: 'auto', label: 'Automatique' },
 ] as const;
 

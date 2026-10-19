@@ -16,7 +16,6 @@ export function resolveTheme(pref: string): ResolvedTheme {
   if (pref === 'dark') return 'dark';
   if (pref === 'gold') return 'gold';
   if (pref === 'light') return 'light';
-  if (getSystemPrefersDark() || isNightTime()) return 'dark';
   return 'gold';
 }
 
@@ -28,7 +27,7 @@ export function applyTheme(theme: ResolvedTheme): void {
     metaThemeColor.setAttribute(
       'content',
       theme === 'gold'
-        ? 'rgb(249, 246, 240)'
+        ? 'rgb(9, 8, 6)'
         : theme === 'light'
           ? 'rgb(255, 255, 255)'
           : 'rgb(11, 11, 20)',

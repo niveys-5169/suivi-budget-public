@@ -18,8 +18,8 @@
   }
 
   html[data-theme='gold'] {
-    background-color: var(--color-bg, #f9f6f0);
-    color-scheme: light;
+    background-color: var(--color-bg, #090806);
+    color-scheme: dark;
   }
 
   body {
