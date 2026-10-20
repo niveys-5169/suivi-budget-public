@@ -7,8 +7,9 @@ import {
   serverTimestamp,
   writeBatch,
   getDoc,
-  Timestamp,
+  onSnapshot,
 } from 'firebase/firestore';
+import type { DocumentData } from 'firebase/firestore';
 import {
   signInWithPopup,
   signInWithRedirect,
@@ -22,29 +23,13 @@ import { httpsCallable } from 'firebase/functions';
 import {
   buildPerHoldingDailySnapshots,
   holdingAssetId,
-  type PortfolioTx,
   type PriceHistory,
 } from '../utils/portfolioReconstruction';
+import type { Holding, PortfolioTx, PortfolioMirrorData } from '../types/banking.types';
 import { toMillis } from '../utils/firestoreDate';
 import { withRetry } from '../utils/withRetry';
 
-export interface Holding {
-  docId: string;
-  isin: string;
-  name: string;
-  ticker: string;
-  quantity: number;
-  avgPrice: number;
-  totalCost: number;
-  currentValue: number;
-  lastPrice: number;
-  account: string;
-  owner: string;
-  currency: string;
-  unrealizedGain: number;
-  unrealizedGainPct: number;
-  updatedAt: Timestamp | null;
-}
+export type { Holding, PortfolioTx };
 
 interface Instrument {
   name?: string;
@@ -52,13 +37,13 @@ interface Instrument {
   ticker?: string;
   last_price?: number;
   currency?: string;
-  updated_at?: Timestamp | null;
+  updated_at?: { toMillis?: () => number } | null;
 }
 
 function portfolioHoldingScore(h: Holding) {
   return [
     toMillis(h.updatedAt),
-    h.docId !== h.isin ? 1 : 0,
+    h.accountId ? 2 : h.docId !== h.isin ? 1 : 0,
     Number(h.currentValue) || 0,
     Number(h.quantity) || 0,
   ];
@@ -88,14 +73,17 @@ function mapPortfolioTxDoc(data: Record<string, unknown>): PortfolioTx {
     isin: String(data.isin || data.instrument_id || ''),
     ownerKey: String(data.ownerKey || data.owner_key || data.owner || ''),
     envelope: String(data.envelope || data.account || data.envelope_type || ''),
+    accountId: String(data.account_id || data.accountId || ''),
   };
 }
 
-/** Agrège le portefeuille boursier live (cours, P&L, répartition) depuis l'API Tronity. */
+/** Agrège le portefeuille boursier live (cours, P&L, répartition) depuis SuiviPortefeuille ou le miroir local. */
 export const usePortfolio = () => {
-  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [liveHoldings, setLiveHoldings] = useState<Holding[]>([]);
+  const [mirrorHoldings, setMirrorHoldings] = useState<Holding[]>([]);
   const [loading, setLoading] = useState(false);
-  const [transactions, setTransactions] = useState<PortfolioTx[] | null>(null);
+  const [liveTransactions, setLiveTransactions] = useState<PortfolioTx[] | null>(null);
+  const [mirrorTransactions, setMirrorTransactions] = useState<PortfolioTx[] | null>(null);
   const [txLoading, setTxLoading] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<{ written: number; skipped: number } | null>(
@@ -103,6 +91,27 @@ export const usePortfolio = () => {
   );
   const [user, setUser] = useState<User | null>(authPortfolio.currentUser);
   const [error, setError] = useState<string | null>(null);
+
+  // 1. Hydratation immédiate depuis le miroir serveur dans AURUM (metadata/portfolio_mirror)
+  useEffect(() => {
+    const unsubMirror = onSnapshot(
+      doc(db, 'metadata', 'portfolio_mirror'),
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data() as PortfolioMirrorData;
+        if (Array.isArray(data.holdings) && data.holdings.length > 0) {
+          setMirrorHoldings(data.holdings);
+        }
+        if (Array.isArray(data.transactions) && data.transactions.length > 0) {
+          setMirrorTransactions(data.transactions);
+        }
+      },
+      (err) => {
+        console.warn('[Portfolio] Failed to listen to portfolio_mirror:', err);
+      },
+    );
+    return () => unsubMirror();
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(authPortfolio, (u) => {
@@ -152,9 +161,10 @@ export const usePortfolio = () => {
     setLoading(true);
     setError(null);
     try {
-      const [holdingsSnap, instrumentsSnap] = await Promise.all([
+      const [holdingsSnap, instrumentsSnap, accountsSnap] = await Promise.all([
         getDocs(collection(dbPortfolio, `users/${u.uid}/holdings`)),
         getDocs(collection(dbPortfolio, `users/${u.uid}/instruments`)),
+        getDocs(collection(dbPortfolio, `users/${u.uid}/accounts`)).catch(() => ({ docs: [] })),
       ]);
 
       const instruments: Record<string, Instrument> = {};
@@ -162,15 +172,27 @@ export const usePortfolio = () => {
         instruments[d.id] = d.data() as Instrument;
       });
 
+      const accounts: Record<string, DocumentData> = {};
+      accountsSnap.docs.forEach((d) => {
+        accounts[d.id] = d.data();
+      });
+
       const rawHoldings: Holding[] = holdingsSnap.docs.map((d) => {
         const h = d.data();
         const isin = h.isin || d.id;
         const inst = instruments[isin] || instruments[d.id] || {};
+        const accountId = String(h.account_id || h.accountId || '').trim();
+        const acc = accountId ? accounts[accountId] || {} : {};
+
         const qty = Number(h.quantity) || 0;
         const curVal = Number(h.current_value) || Number(h.currentValue) || 0;
         const totalCost =
           Number(h.total_invested) || Number(h.total_cost) || Number(h.totalCost) || 0;
         const unrealizedGain = Number(h.unrealized_gain) || curVal - totalCost;
+
+        const envelope = String(acc.envelope || h.envelope || h.account || '').trim();
+        const accountLabel = String(acc.label || acc.name || '').trim();
+        const broker = String(acc.broker || h.broker || '').trim();
 
         return {
           docId: d.id,
@@ -190,8 +212,11 @@ export const usePortfolio = () => {
             Number(h.last_price) ||
             Number(h.lastPrice) ||
             (qty > 0 ? curVal / qty : 0),
-          account: h.envelope || h.account || '',
-          owner: h.owner || '',
+          account: envelope,
+          accountId: accountId || undefined,
+          accountLabel: accountLabel || (broker ? `${envelope} (${broker})` : envelope),
+          broker: broker || undefined,
+          owner: h.owner || acc.owner || '',
           currency: h.currency || inst.currency || 'EUR',
           unrealizedGain,
           unrealizedGainPct:
@@ -203,9 +228,7 @@ export const usePortfolio = () => {
 
       const deduped = new Map<string, Holding>();
       rawHoldings.forEach((h) => {
-        // Même fallback owner que holdingAssetId : un doc avec owner vide et son
-        // équivalent owner='nicolas' sont la même détention (sinon doublon affiché).
-        const key = `${h.isin}_${h.account}_${h.owner || 'nicolas'}`.toLowerCase();
+        const key = `${h.isin}_${h.accountId || h.account}_${h.owner || 'nicolas'}`.toLowerCase();
         const existing = deduped.get(key);
         if (!existing || isBetterPortfolioHolding(h, existing)) {
           deduped.set(key, h);
@@ -213,14 +236,11 @@ export const usePortfolio = () => {
       });
 
       const finalHoldings = Array.from(deduped.values());
-      setHoldings(finalHoldings);
+      setLiveHoldings(finalHoldings);
 
       const totalValue = finalHoldings.reduce((s, h) => s + h.currentValue, 0);
 
-      // Historise la valeur ACTUELLE réelle par position pour aujourd'hui, afin
-      // que la courbe quotidienne reflète les cours à jour (le snapshot serveur
-      // ne fait qu'un carry-forward et n'a pas accès au projet portefeuille).
-      // docId {assetId}_{today} + merge → idempotent, écrase avec la dernière valeur intraday.
+      // Historise la valeur ACTUELLE réelle par position pour aujourd'hui
       try {
         const today = new Date().toISOString().split('T')[0]!;
         const historyBatch = writeBatch(db);
@@ -252,7 +272,7 @@ export const usePortfolio = () => {
         console.error('[Portfolio] Failed to historise per-holding values:', histErr);
       }
 
-      // Sync back to budget metadata for fallback
+      // Sync back to budget metadata & update portfolio_mirror
       try {
         await withRetry(() =>
           setDoc(
@@ -260,8 +280,22 @@ export const usePortfolio = () => {
             {
               portfolioValue: totalValue,
               portfolioSyncedAt: serverTimestamp(),
-              // Permet à la synchro serveur quotidienne de lire le bon compte portefeuille.
               portfolioUid: u.uid,
+            },
+            { merge: true },
+          ),
+        );
+
+        // Update metadata/portfolio_mirror
+        await withRetry(() =>
+          setDoc(
+            doc(db, 'metadata', 'portfolio_mirror'),
+            {
+              holdings: finalHoldings,
+              accounts: Object.values(accounts),
+              totalValue,
+              syncedAt: serverTimestamp(),
+              uid: u.uid,
             },
             { merge: true },
           ),
@@ -286,32 +320,33 @@ export const usePortfolio = () => {
 
   /**
    * Charge (une fois, avec cache) les transactions du portefeuille pour la
-   * consultation par position. Retourne null si non connecté ou en erreur.
+   * consultation par position. Utilise le miroir si non connecté.
    */
   const fetchTransactions = useCallback(async (): Promise<PortfolioTx[] | null> => {
-    if (!user) return null;
-    if (transactions) return transactions;
-    setTxLoading(true);
-    try {
-      const txSnap = await getDocs(collection(dbPortfolio, `users/${user.uid}/transactions`));
-      const txs = txSnap.docs
-        .map((d) => mapPortfolioTxDoc(d.data()))
-        .filter((tx) => tx.date && tx.type);
-      setTransactions(txs);
-      return txs;
-    } catch (err: unknown) {
-      console.error('[Portfolio] Transactions fetch failed:', err);
-      return null;
-    } finally {
-      setTxLoading(false);
+    if (liveTransactions) return liveTransactions;
+    if (user) {
+      setTxLoading(true);
+      try {
+        const txSnap = await getDocs(collection(dbPortfolio, `users/${user.uid}/transactions`));
+        const txs = txSnap.docs
+          .map((d) => mapPortfolioTxDoc(d.data()))
+          .filter((tx) => tx.date && tx.type);
+        setLiveTransactions(txs);
+        return txs;
+      } catch (err: unknown) {
+        console.error('[Portfolio] Transactions fetch failed:', err);
+        return mirrorTransactions;
+      } finally {
+        setTxLoading(false);
+      }
     }
-  }, [user, transactions]);
+    return mirrorTransactions;
+  }, [user, liveTransactions, mirrorTransactions]);
 
   /**
    * Fetches transactions + historical prices from the portfolio Firestore,
    * reconstructs monthly values per (isin, owner, envelope) triplet,
    * and writes missing entries to placement_history.
-   * Deletes legacy portfolio_bkfill_* aggregate entries for covered months.
    */
   const backfillPortfolioHistory = useCallback(async (u: User) => {
     setBackfilling(true);
@@ -321,22 +356,7 @@ export const usePortfolio = () => {
       const txSnap = await getDocs(collection(dbPortfolio, `users/${u.uid}/transactions`));
 
       const transactions: PortfolioTx[] = txSnap.docs
-        .map((d) => {
-          const data = d.data();
-          return {
-            type: data.type || data.transaction_type || '',
-            date:
-              data.date instanceof Object && typeof data.date.toDate === 'function'
-                ? data.date.toDate().toISOString().split('T')[0]
-                : String(data.date || data.transaction_date || '').split('T')[0],
-            quantity: data.quantity ?? data.qty ?? 0,
-            amount: data.amount ?? data.total ?? data.price_total ?? 0,
-            fees: data.fees ?? data.commission ?? 0,
-            isin: data.isin || data.instrument_id || '',
-            ownerKey: data.ownerKey || data.owner_key || data.owner || '',
-            envelope: data.envelope || data.account || data.envelope_type || '',
-          };
-        })
+        .map((d) => mapPortfolioTxDoc(d.data()))
         .filter((tx) => tx.date && tx.type);
 
       if (!transactions.length) {
@@ -420,7 +440,6 @@ export const usePortfolio = () => {
       }
 
       // Step 5 — delete legacy portfolio_global aggregate entries for covered months
-      // to avoid double-counting in the wealth timeline
       const coveredMonths = [...new Set(holdingSnapshots.map((s) => s.monthKey))];
       const deleteChunkSize = 490;
       for (let i = 0; i < coveredMonths.length; i += deleteChunkSize) {
@@ -457,21 +476,42 @@ export const usePortfolio = () => {
     }
   }, [user, fetchPortfolio]);
 
-  const totalValue = useMemo(() => holdings.reduce((s, h) => s + h.currentValue, 0), [holdings]);
+  const refresh = useCallback(async () => {
+    if (user) {
+      await fetchPortfolio(user);
+    }
+    // Déclenche la synchro serveur via Cloud Function pour rafraîchir cours et miroir
+    try {
+      setLoading(true);
+      const triggerDailySync = httpsCallable(functions, 'trigger_portfolio_daily_sync');
+      await triggerDailySync();
+    } catch (err) {
+      console.warn('[Portfolio] trigger_portfolio_daily_sync failed or unavailable:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, fetchPortfolio]);
+
+  const effectiveHoldings = liveHoldings.length > 0 ? liveHoldings : mirrorHoldings;
+  const effectiveTransactions = liveTransactions || mirrorTransactions;
+  const totalValue = useMemo(
+    () => effectiveHoldings.reduce((s, h) => s + h.currentValue, 0),
+    [effectiveHoldings],
+  );
 
   return {
-    holdings,
+    holdings: effectiveHoldings,
     totalValue,
     loading,
     backfilling,
     backfillResult,
-    transactions,
+    transactions: effectiveTransactions,
     txLoading,
     fetchTransactions,
     user,
     error,
     login,
-    refresh: () => user && fetchPortfolio(user),
+    refresh,
     backfillHistory: () => user && backfillPortfolioHistory(user),
   };
 };

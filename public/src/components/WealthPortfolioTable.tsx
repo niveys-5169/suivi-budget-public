@@ -91,7 +91,7 @@ export const WealthPortfolioTable: React.FC<WealthPortfolioTableProps> = ({
                         <span>{h.ticker || h.isin}</span>
                         <span className="w-1 h-1 rounded-full bg-current opacity-20" />
                         <span className="flex items-center gap-1">
-                          <Globe size={10} className="opacity-50" /> {h.account}
+                          <Globe size={10} className="opacity-50" /> {h.accountLabel || h.account}
                         </span>
                       </div>
                     </div>

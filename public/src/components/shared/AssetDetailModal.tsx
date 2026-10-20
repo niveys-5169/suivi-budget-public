@@ -117,7 +117,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
 
   // Charge les transactions du portefeuille pour les positions boursières.
   useEffect(() => {
-    if (!isOpen || !isHolding || !portfolio.connected) return;
+    if (!isOpen || !isHolding) return;
     let cancelled = false;
     portfolio.fetchTransactions().then((result) => {
       if (!cancelled) setTxs(result || []);
@@ -349,29 +349,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
         {isHolding && (
           <div className="space-y-4">
             <h3 className={SECTION_TITLE_CLS}>{t({ id: 'wealth.assetDetail.transactions' })}</h3>
-            {!portfolio.connected ? (
-              <button
-                type="button"
-                onClick={portfolio.login}
-                className="w-full flex items-center justify-between px-4 py-4 rounded-tile bg-gold/5 border border-gold/20 hover:bg-gold/10 transition-all"
-              >
-                <div className="flex items-center gap-4 text-left">
-                  <BarChart3 size={16} className="text-gold/60" aria-hidden="true" />
-                  <span className="text-sm text-label-secondary">
-                    {t({ id: 'wealth.assetDetail.connectPortfolio' })}
-                  </span>
-                </div>
-                <span className="text-caption font-semibold text-gold/80">
-                  {t({ id: 'wealth.assetDetail.connect' })} →
-                </span>
-              </button>
-            ) : portfolio.txLoading && txs === null ? (
-              <div className="flex justify-center py-6">
-                <div className="w-5 h-5 border-2 border-gold/10 border-t-gold rounded-full animate-spin" />
-              </div>
-            ) : filteredTxs.length === 0 ? (
-              <p className="text-sm text-label-tertiary">{t({ id: 'wealth.assetDetail.noTx' })}</p>
-            ) : (
+            {filteredTxs.length > 0 ? (
               <div className="space-y-1">
                 {filteredTxs.map((tx, i) => {
                   const txType = String(tx.type || '')
@@ -408,6 +386,28 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({
                   );
                 })}
               </div>
+            ) : portfolio.txLoading && txs === null ? (
+              <div className="flex justify-center py-6">
+                <div className="w-5 h-5 border-2 border-gold/10 border-t-gold rounded-full animate-spin" />
+              </div>
+            ) : !portfolio.connected ? (
+              <button
+                type="button"
+                onClick={portfolio.login}
+                className="w-full flex items-center justify-between px-4 py-4 rounded-tile bg-gold/5 border border-gold/20 hover:bg-gold/10 transition-all"
+              >
+                <div className="flex items-center gap-4 text-left">
+                  <BarChart3 size={16} className="text-gold/60" aria-hidden="true" />
+                  <span className="text-sm text-label-secondary">
+                    {t({ id: 'wealth.assetDetail.connectPortfolio' })}
+                  </span>
+                </div>
+                <span className="text-caption font-semibold text-gold/80">
+                  {t({ id: 'wealth.assetDetail.connect' })} →
+                </span>
+              </button>
+            ) : (
+              <p className="text-sm text-label-tertiary">{t({ id: 'wealth.assetDetail.noTx' })}</p>
             )}
           </div>
         )}

@@ -1,15 +1,5 @@
-export interface PortfolioTx {
-  type: string;
-  date: string;
-  quantity: number | string;
-  amount: number | string;
-  fees?: number | string;
-  isin?: string;
-  ownerKey?: string;
-  owner?: string;
-  envelope?: string;
-  account?: string;
-}
+import type { PortfolioTx } from '../types/banking.types';
+export type { PortfolioTx };
 
 interface PositionState {
   quantity: number;
@@ -17,7 +7,7 @@ interface PositionState {
   costBasis: number;
 }
 
-function reconstitutePositionAtDate(transactions: PortfolioTx[]): PositionState {
+export function reconstitutePositionAtDate(transactions: PortfolioTx[]): PositionState {
   let quantity = 0;
   let totalInvested = 0;
   let totalWithdrawn = 0;
@@ -46,6 +36,11 @@ function reconstitutePositionAtDate(transactions: PortfolioTx[]): PositionState 
       totalWithdrawn += Math.max(0, txAmount - txFees);
     } else if (txType === 'DIVIDEND') {
       totalWithdrawn += txAmount;
+    } else if (txType === 'FEE_SHARES') {
+      const deducted = Math.min(txQty, quantity);
+      quantity = Math.max(0, quantity - deducted);
+      // totalInvested, totalWithdrawn et costBasis restent inchangés :
+      // le capital investi n'est pas retiré, seules des parts ont été prélevées.
     }
   });
 

@@ -90,7 +90,7 @@ export const useWealthAggregates = (
       ['cto', 'pea', 'assurance_vie', 'per'].includes(p.type),
     );
 
-    // Aggregation du portefeuille live par enveloppe (Compte) et par propriétaire
+    // Aggregation du portefeuille live par contrat/enveloppe (Compte) et par propriétaire
     const portfolioEnvelopes = new Map<
       string,
       {
@@ -99,6 +99,8 @@ export const useWealthAggregates = (
         ownerId: string;
         type: 'investissements' | 'retirement';
         value: number;
+        envelope?: string;
+        accountId?: string;
       }
     >();
 
@@ -106,19 +108,26 @@ export const useWealthAggregates = (
       portfolioHoldings.forEach((h) => {
         if (!h) return;
         const ownerId = (h.owner || 'nicolas').toLowerCase();
-        const accountName = h.account || 'Portefeuille Bourse';
-        const key = `${accountName}_${ownerId}`.toLowerCase();
+        const accountId = (h.accountId || '').trim().toLowerCase();
+        const rawEnvelope = (h.account || 'Portefeuille Bourse').trim();
+        const displayName = h.accountLabel || rawEnvelope;
+        const key = accountId
+          ? `${accountId}_${ownerId}`
+          : `${rawEnvelope}_${ownerId}`.toLowerCase();
 
         if (!portfolioEnvelopes.has(key)) {
           // Detect if this envelope is a PER/Retirement account
-          const isRetirement = isRetirementEnvelope(accountName);
+          const isRetirement =
+            isRetirementEnvelope(rawEnvelope) || isRetirementEnvelope(displayName);
 
           portfolioEnvelopes.set(key, {
             id: `live_pf_${key}`,
-            name: accountName,
+            name: displayName,
             ownerId: ownerId,
             type: isRetirement ? 'retirement' : ('investissements' as const),
             value: 0,
+            envelope: rawEnvelope,
+            accountId: accountId || undefined,
           });
         }
         portfolioEnvelopes.get(key)!.value += Number(h.currentValue) || 0;

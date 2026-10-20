@@ -10,7 +10,6 @@ import {
   setDoc,
   writeBatch,
   serverTimestamp,
-  Timestamp,
 } from 'firebase/firestore';
 import type { DocumentData, Firestore } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -18,27 +17,49 @@ import { withRetry } from '../utils/withRetry';
 import {
   buildPerHoldingDailySnapshots,
   holdingAssetId,
-  type PortfolioTx,
   type PriceHistory,
 } from '../utils/portfolioReconstruction';
+import type {
+  Holding,
+  PortfolioContractAccount,
+  PortfolioTx,
+  PortfolioMirrorData,
+} from '../types/banking.types';
 
-// Define local interfaces to avoid circular dependency issues
-export interface Holding {
-  docId: string;
-  isin: string;
-  name: string;
-  ticker: string;
-  quantity: number;
-  avgPrice: number;
-  totalCost: number;
-  currentValue: number;
-  lastPrice: number;
-  account: string;
-  owner: string;
-  currency: string;
-  unrealizedGain: number;
-  unrealizedGainPct: number;
-  updatedAt: Timestamp | null;
+export type { Holding, PortfolioContractAccount, PortfolioTx, PortfolioMirrorData };
+
+/**
+ * Fetch cached or server-synced portfolio data from metadata/portfolio_mirror.
+ */
+export async function getPortfolioMirror(): Promise<PortfolioMirrorData | null> {
+  try {
+    const snap = await getDoc(doc(db, 'metadata', 'portfolio_mirror'));
+    if (!snap.exists()) return null;
+    return snap.data() as PortfolioMirrorData;
+  } catch (err) {
+    console.error('[PortfolioService] Failed to load portfolio mirror:', err);
+    return null;
+  }
+}
+
+/**
+ * Persist client-computed portfolio data into metadata/portfolio_mirror.
+ */
+export async function savePortfolioMirror(data: Partial<PortfolioMirrorData>): Promise<void> {
+  try {
+    await withRetry(() =>
+      setDoc(
+        doc(db, 'metadata', 'portfolio_mirror'),
+        {
+          ...data,
+          syncedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    );
+  } catch (err) {
+    console.error('[PortfolioService] Failed to save portfolio mirror:', err);
+  }
 }
 
 /**
@@ -47,22 +68,37 @@ export interface Holding {
  * @returns Promise holding array
  */
 export async function getHoldings(uid: string): Promise<Holding[]> {
-  const holdingsSnap = await getDocs(collection(dbPortfolio, `users/${uid}/holdings`));
-  const instrumentsSnap = await getDocs(collection(dbPortfolio, `users/${uid}/instruments`));
+  const [holdingsSnap, instrumentsSnap, accountsSnap] = await Promise.all([
+    getDocs(collection(dbPortfolio, `users/${uid}/holdings`)),
+    getDocs(collection(dbPortfolio, `users/${uid}/instruments`)),
+    getDocs(collection(dbPortfolio, `users/${uid}/accounts`)).catch(() => ({ docs: [] })),
+  ]);
 
   const instruments: Record<string, DocumentData> = {};
   instrumentsSnap.docs.forEach((d) => {
     instruments[d.id] = d.data();
   });
 
+  const accounts: Record<string, DocumentData> = {};
+  accountsSnap.docs.forEach((d) => {
+    accounts[d.id] = d.data();
+  });
+
   const rawHoldings: Holding[] = holdingsSnap.docs.map((d) => {
     const h = d.data();
     const isin = h.isin || d.id;
     const inst = instruments[isin] || instruments[d.id] || {};
+    const accountId = String(h.account_id || h.accountId || '').trim();
+    const acc = accountId ? accounts[accountId] || {} : {};
+
     const qty = Number(h.quantity) || 0;
     const curVal = Number(h.current_value) || Number(h.currentValue) || 0;
     const totalCost = Number(h.total_invested) || Number(h.total_cost) || Number(h.totalCost) || 0;
     const unrealizedGain = Number(h.unrealized_gain) || curVal - totalCost;
+
+    const envelope = String(acc.envelope || h.envelope || h.account || '').trim();
+    const accountLabel = String(acc.label || acc.name || '').trim();
+    const broker = String(acc.broker || h.broker || '').trim();
 
     return {
       docId: d.id,
@@ -82,8 +118,11 @@ export async function getHoldings(uid: string): Promise<Holding[]> {
         Number(h.last_price) ||
         Number(h.lastPrice) ||
         (qty > 0 ? curVal / qty : 0),
-      account: h.envelope || h.account || '',
-      owner: h.owner || '',
+      account: envelope,
+      accountId: accountId || undefined,
+      accountLabel: accountLabel || (broker ? `${envelope} (${broker})` : envelope),
+      broker: broker || undefined,
+      owner: h.owner || acc.owner || '',
       currency: h.currency || inst.currency || 'EUR',
       unrealizedGain,
       unrealizedGainPct:
@@ -95,7 +134,7 @@ export async function getHoldings(uid: string): Promise<Holding[]> {
   // Deduplication logic (same as in usePortfolio)
   const deduped = new Map<string, Holding>();
   rawHoldings.forEach((h) => {
-    const key = `${h.isin}_${h.account}_${h.owner || 'nicolas'}`.toLowerCase();
+    const key = `${h.isin}_${h.accountId || h.account}_${h.owner || 'nicolas'}`.toLowerCase();
     const existing = deduped.get(key);
     if (!existing || isBetterPortfolioHolding(h, existing)) {
       deduped.set(key, h);
@@ -111,7 +150,7 @@ export async function getHoldings(uid: string): Promise<Holding[]> {
 function portfolioHoldingScore(h: Holding): number[] {
   return [
     h.updatedAt ? h.updatedAt.toMillis() : 0,
-    h.docId !== h.isin ? 1 : 0,
+    h.accountId ? 2 : h.docId !== h.isin ? 1 : 0,
     Number(h.currentValue) || 0,
     Number(h.quantity) || 0,
   ];
@@ -147,6 +186,7 @@ export async function getTransactions(uid: string): Promise<PortfolioTx[]> {
         isin: data.isin || data.instrument_id || '',
         ownerKey: data.ownerKey || data.owner_key || data.owner || '',
         envelope: data.envelope || data.account || data.envelope_type || '',
+        accountId: data.account_id || data.accountId || '',
       };
     })
     .filter((tx) => tx.date && tx.type);

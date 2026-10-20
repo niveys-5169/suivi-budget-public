@@ -348,17 +348,18 @@ export const PatrimoineScreen: React.FC = () => {
             <h3 className="text-caption font-bold tracking-normal text-label-tertiary">
               Portefeuille boursier
             </h3>
-            {portfolioUser && (
+            {(portfolioUser || holdings.length > 0) && (
               <button
                 onClick={refresh}
                 className={`w-11 h-11 rounded-lg bg-surface border border-separator flex items-center justify-center text-white/40 hover:text-gold transition-colors ${portfolioLoading ? 'animate-spin text-gold' : ''}`}
+                title="Actualiser les cours"
               >
                 <RefreshCw size={12} />
               </button>
             )}
           </div>
 
-          {!portfolioUser && !portfolioLoading && (
+          {!portfolioUser && !portfolioLoading && holdings.length === 0 && (
             <button
               onClick={login}
               className="w-full flex items-center justify-between px-4 py-4 rounded-lg bg-gold/5 border border-gold/20 hover:bg-gold/10 transition-all"
@@ -376,14 +377,14 @@ export const PatrimoineScreen: React.FC = () => {
             </button>
           )}
 
-          {portfolioUser && holdings.length > 0 && (
+          {holdings.length > 0 && (
             <div className="space-y-2">
               {holdings
                 .slice()
                 .sort((a, b) => b.currentValue - a.currentValue)
                 .map((h) => (
                   <button
-                    key={`${h.isin}_${h.account}_${h.owner}`}
+                    key={`${h.isin}_${h.accountId || h.account}_${h.owner}`}
                     onClick={() =>
                       setDetailTarget({
                         kind: 'holding',
@@ -405,7 +406,8 @@ export const PatrimoineScreen: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-footnote font-bold text-label truncate">{h.name}</p>
                       <p className="text-caption text-label-tertiary tracking-wide mt-1">
-                        {h.ticker} · {h.quantity} parts
+                        {h.ticker ? `${h.ticker} · ` : ''}
+                        {h.quantity} parts · {h.accountLabel || h.account}
                         {h.owner ? ` · ${h.owner}` : ''}
                       </p>
                     </div>
@@ -427,7 +429,7 @@ export const PatrimoineScreen: React.FC = () => {
             </div>
           )}
 
-          {portfolioUser && portfolioLoading && (
+          {portfolioLoading && (
             <div className="flex justify-center py-6">
               <div className="w-5 h-5 border-2 border-gold/10 border-t-gold rounded-full animate-spin" />
             </div>

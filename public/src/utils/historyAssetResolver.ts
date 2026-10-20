@@ -15,6 +15,8 @@ export interface ResolvableAsset {
   name: string;
   ownerId: string;
   type: string;
+  envelope?: string;
+  accountId?: string;
 }
 
 /** Comparaison souple : minuscules, alphanum uniquement. */
@@ -64,9 +66,13 @@ export function resolveHistoryAssetIds(
 
   // 2. Enveloppe portefeuille live → expansion vers les positions par titre.
   if (asset.id.startsWith('live_pf_')) {
-    const suffix = `_${safeSegment(owner)}_${safeSegment(asset.name)}`;
+    const rawEnvelope = asset.envelope || asset.name;
+    const suffix1 = `_${safeSegment(owner)}_${safeSegment(rawEnvelope)}`;
+    const suffix2 = `_${safeSegment(owner)}_${safeSegment(asset.name)}`;
     historyIds.forEach((id) => {
-      if (isPerPositionPortfolioId(id) && id.endsWith(suffix)) result.add(id);
+      if (isPerPositionPortfolioId(id) && (id.endsWith(suffix1) || id.endsWith(suffix2))) {
+        result.add(id);
+      }
     });
     return result;
   }

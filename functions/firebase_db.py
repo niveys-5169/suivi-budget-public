@@ -778,24 +778,95 @@ def sync_portfolio_daily() -> int:
         f"(projet={PORTFOLIO_PROJECT_ID}, uid={uid})."
     )
 
+    # 1. Lecture optionnelle des métadonnées (instruments, contrats, transactions)
+    # pour alimenter le miroir serveur dans metadata/portfolio_mirror
+    instruments_map = {}
+    try:
+        inst_stream = pdb.collection(f"users/{uid}/instruments").stream()
+        for idoc in inst_stream:
+            idata = idoc.to_dict() or {}
+            if any(k in idata for k in ("name", "short_name", "ticker", "last_price")):
+                instruments_map[idoc.id.upper()] = idata
+    except Exception as e:
+        log.warning(f"sync_portfolio_daily: lecture instruments impossible: {e}")
+
+    accounts_map = {}
+    try:
+        acc_stream = pdb.collection(f"users/{uid}/accounts").stream()
+        for adoc in acc_stream:
+            adata = adoc.to_dict() or {}
+            if any(k in adata for k in ("label", "envelope", "broker", "productId", "status")):
+                adata["id"] = adoc.id
+                accounts_map[adoc.id] = adata
+    except Exception as e:
+        log.warning(f"sync_portfolio_daily: lecture accounts impossible: {e}")
+
+    tx_list = []
+    try:
+        tx_stream = pdb.collection(f"users/{uid}/transactions").stream()
+        for tdoc in tx_stream:
+            tdata = tdoc.to_dict() or {}
+            tx_type = str(tdata.get("type") or tdata.get("transaction_type") or "").strip().upper()
+            tx_date_raw = tdata.get("date") or tdata.get("transaction_date")
+            tx_date = ""
+            if hasattr(tx_date_raw, "isoformat"):
+                tx_date = tx_date_raw.isoformat()[:10]
+            elif hasattr(tx_date_raw, "strftime"):
+                tx_date = tx_date_raw.strftime("%Y-%m-%d")
+            else:
+                tx_date = str(tx_date_raw or "")[:10]
+
+            if tx_date and tx_type in ("BUY", "SELL", "DIVIDEND", "TRANSFER_IN", "TRANSFER_OUT", "FEE_SHARES"):
+                tx_list.append({
+                    "type": tx_type,
+                    "date": tx_date,
+                    "quantity": _num(tdata.get("quantity"), tdata.get("qty")),
+                    "amount": _num(tdata.get("amount"), tdata.get("total"), tdata.get("price_total")),
+                    "fees": _num(tdata.get("fees"), tdata.get("commission")),
+                    "isin": str(tdata.get("isin") or tdata.get("instrument_id") or "").upper(),
+                    "ownerKey": str(tdata.get("ownerKey") or tdata.get("owner_key") or tdata.get("owner") or ""),
+                    "owner": str(tdata.get("owner") or ""),
+                    "envelope": str(tdata.get("envelope") or tdata.get("account") or tdata.get("envelope_type") or ""),
+                    "accountId": str(tdata.get("account_id") or tdata.get("accountId") or ""),
+                })
+    except Exception as e:
+        log.warning(f"sync_portfolio_daily: lecture transactions impossible: {e}")
+
+    mirror_holdings = []
+    raw_mirror_map = {}
+
     for hdoc in holdings:
         h = hdoc.to_dict() or {}
         isin = str(h.get("isin") or hdoc.id or "").strip()
         if not isin:
             continue
         current_value = _num(h.get("current_value"), h.get("currentValue"), h.get("value"))
+        quantity = _num(h.get("quantity"), h.get("qty"))
         if current_value <= 0:
             # Position soldée (quantité 0) : on historise un point à 0, sinon le fill-forward
             # de la timeline conserverait indéfiniment sa dernière valeur positive.
             # Valeur absente sur une position encore détenue : on ignore (cours non chargé).
-            quantity = h.get("quantity")
-            if quantity is None or _num(quantity) > 0:
+            raw_quantity = h.get("quantity")
+            if raw_quantity is None or _num(raw_quantity) > 0:
                 continue
             current_value = 0.0
-        owner = str(h.get("owner") or "Nicolas").strip() or "Nicolas"
-        envelope = str(h.get("envelope") or h.get("account") or "").strip()
+
+        account_id = str(h.get("account_id") or h.get("accountId") or "").strip()
+        acc = accounts_map.get(account_id, {})
+        envelope = str(acc.get("envelope") or h.get("envelope") or h.get("account") or "").strip()
+        account_label = str(acc.get("label") or acc.get("name") or "").strip()
+        broker = str(acc.get("broker") or h.get("broker") or "").strip()
+
+        inst = instruments_map.get(isin.upper(), {})
+        nom = str(inst.get("name") or inst.get("short_name") or h.get("name") or h.get("short_name") or isin.upper())
+        ticker = str(inst.get("ticker") or h.get("ticker") or "")
+        last_price = _num(inst.get("last_price"), h.get("last_price"), h.get("lastPrice"))
+
+        owner = str(h.get("owner") or acc.get("owner") or "Nicolas").strip() or "Nicolas"
         net_invested = _num(h.get("total_invested"), h.get("total_cost"), h.get("totalCost"))
-        nom = str(h.get("name") or h.get("short_name") or isin.upper())
+        avg_price = _num(h.get("avg_buy_price"), h.get("avg_price"), h.get("avgPrice"))
+        if avg_price <= 0 and quantity > 0:
+            avg_price = net_invested / quantity
 
         asset_id = _holding_asset_id(isin, owner, envelope or "default")
         payload = {
@@ -817,9 +888,62 @@ def sync_portfolio_daily() -> int:
             _run_with_backoff(lambda b=batch: b.commit(), "Commit sync portefeuille (chunk)")
             batch = db.batch()
 
+        # Construction de l'entrée miroir si détenue (quantité > 0 ou valeur > 0)
+        if quantity > 0 or current_value > 0:
+            unrealized_gain = current_value - net_invested
+            unrealized_gain_pct = (unrealized_gain / net_invested * 100) if net_invested > 0 else 0.0
+            resolved_last_price = last_price if last_price > 0 else ((current_value / quantity) if quantity > 0 else 0.0)
+
+            mirror_item = {
+                "docId": hdoc.id,
+                "isin": isin,
+                "name": nom,
+                "ticker": ticker,
+                "quantity": quantity,
+                "avgPrice": round(avg_price, 4),
+                "totalCost": round(net_invested, 2),
+                "currentValue": round(current_value, 2),
+                "lastPrice": round(resolved_last_price, 4),
+                "account": envelope,
+                "accountId": account_id,
+                "accountLabel": account_label or envelope,
+                "broker": broker,
+                "owner": owner,
+                "currency": str(h.get("currency") or inst.get("currency") or "EUR"),
+                "unrealizedGain": round(unrealized_gain, 2),
+                "unrealizedGainPct": round(unrealized_gain_pct, 2),
+                "updatedAt": now,
+            }
+            # Déduplication par ISIN + accountId (ou enveloppe) + titulaire
+            dedup_key = f"{isin}_{account_id or envelope}_{owner}".lower()
+            existing_mirror = raw_mirror_map.get(dedup_key)
+            if not existing_mirror or mirror_item["currentValue"] > existing_mirror["currentValue"]:
+                raw_mirror_map[dedup_key] = mirror_item
+
     if count % 500 != 0 and count > 0:
         _run_with_backoff(lambda b=batch: b.commit(), "Commit sync portefeuille")
     log.info(f"Sync portefeuille quotidienne : {count} positions écrites.")
+
+    # 2. Persistance du miroir dans metadata/portfolio_mirror et metadata/patrimoine_settings
+    try:
+        final_mirror_holdings = list(raw_mirror_map.values())
+        total_portfolio_val = sum(item["currentValue"] for item in final_mirror_holdings)
+        mirror_payload = {
+            "holdings": final_mirror_holdings,
+            "accounts": list(accounts_map.values()),
+            "transactions": tx_list,
+            "totalValue": round(total_portfolio_val, 2),
+            "syncedAt": now,
+            "uid": uid,
+        }
+        db.collection("metadata").document("portfolio_mirror").set(mirror_payload, merge=True)
+        db.collection("metadata").document("patrimoine_settings").set({
+            "portfolioValue": round(total_portfolio_val, 2),
+            "portfolioSyncedAt": now,
+            "portfolioUid": uid,
+        }, merge=True)
+    except Exception as e:
+        log.warning(f"sync_portfolio_daily: écriture metadata/portfolio_mirror échouée: {e}")
 
     return count
 

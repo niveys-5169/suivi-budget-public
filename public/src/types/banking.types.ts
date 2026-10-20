@@ -675,3 +675,59 @@ export interface ChartTooltipProps<T = Record<string, unknown>> {
   payload?: Array<{ value: number; name?: string; color?: string; dataKey?: string; payload: T }>;
   label?: string | number;
 }
+
+export interface PortfolioTx {
+  type: string;
+  date: string;
+  quantity: number | string;
+  amount: number | string;
+  fees?: number | string;
+  isin?: string;
+  ownerKey?: string;
+  owner?: string;
+  envelope?: string;
+  account?: string;
+  accountId?: string;
+}
+
+export interface PortfolioContractAccount {
+  id: string;
+  label: string;
+  owner: string;
+  ownerKey?: string;
+  envelope: string;
+  broker?: string;
+  productId?: string | null;
+  openedAt?: string | null;
+  status?: 'open' | 'closed';
+}
+
+export interface Holding {
+  docId: string;
+  isin: string;
+  name: string;
+  ticker: string;
+  quantity: number;
+  avgPrice: number;
+  totalCost: number;
+  currentValue: number;
+  lastPrice: number;
+  account: string;
+  accountId?: string;
+  accountLabel?: string;
+  broker?: string;
+  owner: string;
+  currency: string;
+  unrealizedGain: number;
+  unrealizedGainPct: number;
+  updatedAt: Timestamp | null;
+}
+
+export interface PortfolioMirrorData {
+  holdings: Holding[];
+  accounts?: PortfolioContractAccount[];
+  transactions?: PortfolioTx[];
+  totalValue: number;
+  syncedAt: FirestoreDateLike | null;
+  uid?: string;
+}
