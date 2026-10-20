@@ -18,7 +18,7 @@ import { AurumCashflowCard } from '../../components/dashboard/v2/AurumCashflowCa
 import { SafeToSpendPill } from '../../components/shared/SafeToSpendPill';
 import { BankBalanceStatus } from '../../components/banking/BankBalanceStatus';
 import { FLAGS } from '../../lib/featureFlags';
-import { Button, IconButton } from '../../ui';
+import { IconButton } from '../../ui';
 
 export const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -39,10 +39,6 @@ export const HomeScreen: React.FC = () => {
     () => new Map(checkingBalances.map((b) => [b.id, mouvementsDepuisSolde(b, transactions)])),
     [checkingBalances, transactions],
   );
-
-  const recentTransactions = useMemo(() => {
-    return [...transactions].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 4);
-  }, [transactions]);
 
   return (
     <div className="flex flex-col h-full overflow-y-auto pb-20">
@@ -99,75 +95,6 @@ export const HomeScreen: React.FC = () => {
           {FLAGS.SAFE_TO_SPEND && showBalance && (
             <div className="pt-2 border-t border-separator/60">
               <SafeToSpendPill compact />
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Recent Activity Section */}
-      <section className="px-4 py-2">
-        <div className="flex items-center justify-between py-2">
-          <span className="text-caption font-serif font-bold tracking-wider text-gold">
-            ACTIVITÉ RÉCENTE
-          </span>
-          <Button
-            variant="plain"
-            size="sm"
-            onClick={() => navigate('/transactions')}
-            className="text-caption font-medium text-gold hover:underline !px-0 !min-h-0"
-          >
-            Voir tout
-          </Button>
-        </div>
-        <div className="rounded-xl bg-surface border border-separator divide-y divide-separator overflow-hidden">
-          {recentTransactions.length > 0 ? (
-            recentTransactions.map((tx, idx) => (
-              <div
-                key={tx.id || `${tx.compte}-${tx.date}-${idx}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  setEditingTx(tx);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setEditingTx(tx);
-                  }
-                }}
-                className="p-4 flex items-center justify-between gap-2 active:bg-raised/40 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-gold font-serif font-bold text-caption shrink-0">
-                    {tx.libelle ? tx.libelle.charAt(0).toUpperCase() : '€'}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-body font-medium text-label truncate">
-                      {tx.libelle || 'Transaction'}
-                    </p>
-                    <p className="text-caption text-label-tertiary">
-                      {tx.categorie || 'Général'}
-                      {tx.date
-                        ? ` • ${new Date(tx.date).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}`
-                        : ''}
-                    </p>
-                  </div>
-                </div>
-                <span
-                  className={`font-serif font-bold tabular-nums text-body shrink-0 ${
-                    (tx.montant ?? 0) < 0 ? 'text-negative' : 'text-positive'
-                  }`}
-                >
-                  <FormattedNumber value={tx.montant ?? 0} style="currency" currency="EUR" />
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="p-6 text-center text-caption text-label-tertiary">
-              Aucune opération récente
             </div>
           )}
         </div>
