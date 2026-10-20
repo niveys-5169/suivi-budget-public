@@ -18,7 +18,7 @@ import { AurumCashflowCard } from '../../components/dashboard/v2/AurumCashflowCa
 import { SafeToSpendPill } from '../../components/shared/SafeToSpendPill';
 import { BankBalanceStatus } from '../../components/banking/BankBalanceStatus';
 import { FLAGS } from '../../lib/featureFlags';
-import { Button, IconButton, Text } from '../../ui';
+import { Button, IconButton } from '../../ui';
 
 export const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -101,73 +101,6 @@ export const HomeScreen: React.FC = () => {
               <SafeToSpendPill compact />
             </div>
           )}
-        </div>
-      </section>
-
-      {/* Gold Trend Wave Chart Card */}
-      <section className="px-4 py-2">
-        <div className="rounded-xl p-4 bg-surface border border-separator relative overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <Text variant="caption" tone="tertiary">
-                Tendance mensuelle
-              </Text>
-              <Text variant="headline" className="text-label">
-                Performance & Liquidités
-              </Text>
-            </div>
-            <span className="px-2 py-1 rounded-full text-caption font-medium bg-gold/10 text-gold border border-gold/20">
-              30 derniers jours
-            </span>
-          </div>
-
-          <div className="relative py-2">
-            <svg
-              className="w-full h-24 overflow-visible"
-              viewBox="0 0 320 80"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="aurumGoldArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-gold)" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="var(--color-gold)" stopOpacity="0.0" />
-                </linearGradient>
-                <filter id="aurumGlow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="2.5" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-              </defs>
-              <path
-                d="M 0 65 C 45 60, 85 28, 140 38 C 190 48, 235 18, 275 22 C 295 24, 310 14, 320 12 L 320 80 L 0 80 Z"
-                fill="url(#aurumGoldArea)"
-              />
-              <path
-                d="M 0 65 C 45 60, 85 28, 140 38 C 190 48, 235 18, 275 22 C 295 24, 310 14, 320 12"
-                fill="none"
-                stroke="var(--color-gold)"
-                strokeWidth="2.5"
-                filter="url(#aurumGlow)"
-              />
-              <circle cx="275" cy="22" r="4" fill="var(--color-gold)" />
-              <circle
-                cx="275"
-                cy="22"
-                r="8"
-                fill="none"
-                stroke="var(--color-gold)"
-                strokeOpacity="0.4"
-              />
-            </svg>
-            <div className="absolute top-2 right-8 px-2 py-1 rounded-md bg-gold/20 border border-gold/40 backdrop-blur-md text-caption font-mono font-bold text-gold shadow-sm">
-              Tendance positive
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center gap-1 pt-2">
-            <div className="w-4 h-1.5 rounded-full bg-gold" />
-            <div className="w-1.5 h-1.5 rounded-full bg-separator" />
-            <div className="w-1.5 h-1.5 rounded-full bg-separator" />
-          </div>
         </div>
       </section>
 
