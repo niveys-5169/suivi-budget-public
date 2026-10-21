@@ -157,7 +157,7 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
             </Card>
           </Section>
 
-          <Section title="Email récapitulatif">
+          <Section title="Emails & alertes">
             <WeeklyReportSettingsCard />
           </Section>
 

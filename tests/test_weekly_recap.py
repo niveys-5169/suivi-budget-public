@@ -209,3 +209,46 @@ def test_run_weekly_recap_success():
     assert res["messageId"] == "msg_123"
     assert res["recipients"] == ["custom@example.com"]
     gmail.send_html_email.assert_called_once()
+
+
+def test_build_weekly_recap_data_with_options():
+    ref_date = date(2026, 10, 23)
+    balances = [{"compte": "BforBank", "current_balance": 1000.0, "is_savings": False}]
+    savings = [{"compte": "Livret A", "solde": 5000.0}]
+
+    data = build_weekly_recap_data(
+        balances=balances,
+        transactions=[],
+        budgets=[],
+        reference_date=ref_date,
+        include_checking=False,
+        include_savings=True,
+        savings_balances=savings,
+        include_expenses=False,
+        include_budgets=False,
+    )
+
+    assert data["balances"]["accounts"] == []
+    assert len(data["balances"]["savings_accounts"]) == 1
+    assert data["balances"]["savings_accounts"][0]["compte"] == "Livret A"
+    assert data["balances"]["total_savings"] == 5000.0
+
+
+def test_check_and_run_scheduled_weekly_recap_schedule_mismatch():
+    db = MagicMock()
+    gmail = MagicMock()
+    config_ref = MagicMock()
+    config_snap = MagicMock()
+    config_snap.exists = True
+    config_snap.to_dict.return_value = {"enabled": True, "dayOfWeek": 5, "sendHour": 18}
+    config_ref.get.return_value = config_snap
+    db.collection().document.return_value = config_ref
+
+    from weekly_recap import check_and_run_scheduled_weekly_recap
+
+    # Test avec un Lundi 18h (2026-10-19 18:00 UTC) au lieu de Vendredi
+    res = check_and_run_scheduled_weekly_recap(db, gmail, now=datetime(2026, 10, 19, 18, 0, tzinfo=timezone.utc))
+    assert res["status"] == "skipped"
+    assert res["reason"] == "schedule_mismatch"
+    gmail.send_html_email.assert_not_called()
+

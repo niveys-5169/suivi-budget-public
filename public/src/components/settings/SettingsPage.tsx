@@ -37,10 +37,11 @@ import {
   Tile,
 } from '../../ui';
 
-export type SettingsSection = 'general' | 'ia' | 'categories' | 'import';
+export type SettingsSection = 'general' | 'notifications' | 'ia' | 'categories' | 'import';
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'general', label: 'Général' },
+  { id: 'notifications', label: 'Emails & alertes' },
   { id: 'ia', label: 'Assistant IA' },
   { id: 'categories', label: 'Catégories & comptes' },
   { id: 'import', label: 'Import des données' },
@@ -103,6 +104,12 @@ const GeneralSection: React.FC = () => {
       </Section>
       <Section title="Application">
         <List>
+          <LinkRow
+            icon={<Mail size={18} />}
+            title="Emails & alertes"
+            subtitle="Planification et contenu du bilan hebdomadaire"
+            to="/settings?section=notifications"
+          />
           <LinkRow
             icon={<Link2 size={18} />}
             title="Connexions bancaires"
@@ -311,6 +318,11 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       {active === 'general' && <GeneralSection />}
+      {active === 'notifications' && (
+        <Section title="Email récapitulatif hebdomadaire">
+          <WeeklyReportSettingsCard />
+        </Section>
+      )}
       {active === 'ia' && (
         <Section title="Assistant IA">
           <Text variant="footnote" tone="tertiary" className="px-1">

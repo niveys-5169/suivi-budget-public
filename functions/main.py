@@ -654,20 +654,20 @@ def scheduled_banking_sync(event: scheduler_fn.ScheduledEvent) -> None:
 
 
 @scheduler_fn.on_schedule(
-    schedule="0 18 * * 5",
+    schedule="0 7-22 * * *",
     timezone="Europe/Paris",
     region="europe-west1",
     secrets=[GMAIL_TOKEN_SECRET],
 )
 def scheduled_weekly_recap_email(event: scheduler_fn.ScheduledEvent) -> None:
-    """Envoie l'email récapitulatif chaque vendredi à 18h00 (Europe/Paris)."""
-    from weekly_recap import run_weekly_recap
+    """Vérifie chaque heure (7h-22h Europe/Paris) si le bilan hebdomadaire doit être envoyé selon la configuration du site."""
+    from weekly_recap import check_and_run_scheduled_weekly_recap
     from firebase_db import _get_db
     try:
         gmail = _build_gmail_client()
-        run_weekly_recap(_get_db(), gmail, force=False)
+        check_and_run_scheduled_weekly_recap(_get_db(), gmail)
     except Exception:
-        logging.exception("Échec de l'envoi planifié de l'email récapitulatif hebdomadaire")
+        logging.exception("Échec de la vérification/envoi planifié de l'email récapitulatif hebdomadaire")
 
 
 @https_fn.on_call(region="europe-west1", secrets=[GMAIL_TOKEN_SECRET])

@@ -735,6 +735,13 @@ export interface PortfolioMirrorData {
 export interface WeeklyReportConfig {
   enabled: boolean;
   recipients: string[];
+  dayOfWeek?: number; // 1 = Lundi, 2 = Mardi, ..., 5 = Vendredi, 7 = Dimanche (défaut: 5)
+  sendHour?: number; // Heure 7..22 Europe/Paris (défaut: 18)
+  includeCheckingBalances?: boolean; // défaut true
+  includeSavingsBalances?: boolean; // défaut false
+  includeWeeklyExpenses?: boolean; // défaut true
+  includeBudgetAlerts?: boolean; // défaut true
+  budgetWarningThreshold?: number; // défaut 80 (ex: 75, 80, 85, 90)
   lastSentAt?: FirestoreDateLike;
   lastStatus?: 'success' | 'error';
   lastError?: string | null;

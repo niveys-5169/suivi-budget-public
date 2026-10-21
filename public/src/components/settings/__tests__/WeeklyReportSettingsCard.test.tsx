@@ -26,7 +26,7 @@ describe('WeeklyReportSettingsCard', () => {
   it('affiche le titre et les éléments de configuration', () => {
     render(<WeeklyReportSettingsCard />);
     expect(screen.getByText('Email récapitulatif hebdomadaire')).toBeInTheDocument();
-    expect(screen.getByText(/Chaque vendredi à 18h00/)).toBeInTheDocument();
+    expect(screen.getByText(/Chaque Vendredi à 18h00/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('test@example.com')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Envoyer maintenant' })).toBeInTheDocument();
   });
@@ -42,5 +42,23 @@ describe('WeeklyReportSettingsCard', () => {
     const switchBtn = screen.getByRole('switch', { name: "Activer l'envoi hebdomadaire" });
     fireEvent.click(switchBtn);
     expect(mockUpdateConfig).toHaveBeenCalledWith({ enabled: false });
+  });
+
+  it('met à jour le jour et l heure d envoi', () => {
+    render(<WeeklyReportSettingsCard />);
+    const daySelect = screen.getByLabelText("Jour d'envoi");
+    fireEvent.change(daySelect, { target: { value: '1' } });
+    expect(mockUpdateConfig).toHaveBeenCalledWith({ dayOfWeek: 1 });
+
+    const hourSelect = screen.getByLabelText("Heure d'envoi (Europe/Paris)");
+    fireEvent.change(hourSelect, { target: { value: '8' } });
+    expect(mockUpdateConfig).toHaveBeenCalledWith({ sendHour: 8 });
+  });
+
+  it('met à jour les sections à inclure', () => {
+    render(<WeeklyReportSettingsCard />);
+    const savingsSwitch = screen.getByRole('switch', { name: "Inclure les livrets d'épargne" });
+    fireEvent.click(savingsSwitch);
+    expect(mockUpdateConfig).toHaveBeenCalledWith({ includeSavingsBalances: true });
   });
 });

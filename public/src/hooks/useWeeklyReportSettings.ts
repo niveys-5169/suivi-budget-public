@@ -9,6 +9,13 @@ import { WeeklyReportConfig } from '../types/banking.types';
 const DEFAULT_CONFIG: WeeklyReportConfig = {
   enabled: true,
   recipients: [],
+  dayOfWeek: 5,
+  sendHour: 18,
+  includeCheckingBalances: true,
+  includeSavingsBalances: false,
+  includeWeeklyExpenses: true,
+  includeBudgetAlerts: true,
+  budgetWarningThreshold: 80,
 };
 
 export const useWeeklyReportSettings = () => {
@@ -30,6 +37,14 @@ export const useWeeklyReportSettings = () => {
           setConfig({
             enabled: data.enabled !== false,
             recipients: Array.isArray(data.recipients) ? data.recipients : [],
+            dayOfWeek: typeof data.dayOfWeek === 'number' ? data.dayOfWeek : 5,
+            sendHour: typeof data.sendHour === 'number' ? data.sendHour : 18,
+            includeCheckingBalances: data.includeCheckingBalances !== false,
+            includeSavingsBalances: data.includeSavingsBalances === true,
+            includeWeeklyExpenses: data.includeWeeklyExpenses !== false,
+            includeBudgetAlerts: data.includeBudgetAlerts !== false,
+            budgetWarningThreshold:
+              typeof data.budgetWarningThreshold === 'number' ? data.budgetWarningThreshold : 80,
             lastSentAt: data.lastSentAt,
             lastStatus: data.lastStatus,
             lastError: data.lastError,
