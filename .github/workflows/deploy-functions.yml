@@ -363,6 +363,7 @@ jobs:
             "eb-save-mapping"
             "banking-reconcile-action"
             "sync-banking"
+            "send-weekly-recap-email"
           )
 
           for SERVICE in "${SERVICES[@]}"; do

@@ -21,6 +21,7 @@ import { toast } from '../../lib/toast';
 import { CategoryIconEditor } from '../CategoryIconEditor';
 import { AIProvidersForm } from '../advanced/AIProvidersForm';
 import { GitHubSettingsForm } from './GitHubSettingsForm';
+import { WeeklyReportSettingsCard } from './WeeklyReportSettingsCard';
 import {
   Button,
   Card,
@@ -270,6 +271,9 @@ const ImportSection: React.FC = () => {
             to="/excluded"
           />
         </List>
+      </Section>
+      <Section title="Email récapitulatif hebdomadaire">
+        <WeeklyReportSettingsCard />
       </Section>
       <Section title="Véhicule électrique">
         <List>

@@ -25,6 +25,7 @@ SHARED = [
     "dedup.py",
     "gmail_client.py",
     "transaction_parser.py",
+    "weekly_recap.py",
 ]
 
 

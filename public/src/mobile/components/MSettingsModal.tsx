@@ -13,6 +13,7 @@ import { usePWAUpdate } from '../../hooks/usePWAUpdate';
 import { usePreferences } from '../../hooks/usePreferences';
 import { useSyncTransactions } from '../../hooks/useSyncTransactions';
 import { GitHubSettingsForm } from '../../components/settings/GitHubSettingsForm';
+import { WeeklyReportSettingsCard } from '../../components/settings/WeeklyReportSettingsCard';
 import { MAIConfigSheet } from './MAIConfigSheet';
 import { configuredProviders, PROVIDER_META, readAISettings } from '../../utils/aiConfig';
 import {
@@ -154,6 +155,10 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
             <Card>
               <GitHubSettingsForm />
             </Card>
+          </Section>
+
+          <Section title="Email récapitulatif">
+            <WeeklyReportSettingsCard />
           </Section>
 
           {/* Les quatre actions étaient quatre cartes-boutons au markup identique. */}

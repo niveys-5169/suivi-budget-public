@@ -10,6 +10,8 @@ import quopri
 import re
 import logging
 from email.utils import parseaddr
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
@@ -229,3 +231,31 @@ class GmailClient:
         except HttpError as e:
             log.error(f"Erreur de vérification d'origine Gmail : {e}")
             return False
+
+    def get_profile_email(self) -> str | None:
+        """Retourne l'adresse email associée au compte Gmail via getProfile()."""
+        try:
+            profile = self.service.users().getProfile(userId="me").execute()
+            return str(profile.get("emailAddress", "")).strip() or None
+        except HttpError as e:
+            log.error(f"Erreur getProfile Gmail (email) : {e}")
+            return None
+
+    def send_html_email(self, to_emails: list[str], subject: str, html_body: str, text_body: str = "") -> str:
+        """Envoie un email HTML/texte via l'API Gmail."""
+        if not to_emails:
+            raise ValueError("Au moins un destinataire est requis.")
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["To"] = ", ".join(to_emails)
+
+        if text_body:
+            msg.attach(MIMEText(text_body, "plain", "utf-8"))
+        if html_body:
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+        result = self.service.users().messages().send(userId="me", body={"raw": raw}).execute()
+        return result.get("id", "")
+

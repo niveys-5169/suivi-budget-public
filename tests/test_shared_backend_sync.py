@@ -39,6 +39,7 @@ IDENTICAL_MODULES = [
     "balance_coherence.py",
     "transaction_parser.py",
     "gmail_client.py",
+    "weekly_recap.py",
 ]
 
 

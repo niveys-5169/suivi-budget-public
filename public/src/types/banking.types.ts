@@ -731,3 +731,13 @@ export interface PortfolioMirrorData {
   syncedAt: FirestoreDateLike | null;
   uid?: string;
 }
+
+export interface WeeklyReportConfig {
+  enabled: boolean;
+  recipients: string[];
+  lastSentAt?: FirestoreDateLike;
+  lastStatus?: 'success' | 'error';
+  lastError?: string | null;
+  lastRecipients?: string[];
+  updatedAt?: FirestoreDateLike;
+}

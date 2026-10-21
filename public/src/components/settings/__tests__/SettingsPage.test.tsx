@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 import { SettingsPage } from '../SettingsPage';
 
-vi.mock('../../../services/firebase', () => ({ functions: {} }));
+vi.mock('../../../services/firebase', () => ({ functions: {}, db: {} }));
 vi.mock('../../../services/firebase-api', () => ({
   getGitHubSettings: vi.fn().mockResolvedValue(null),
   saveGitHubSettings: vi.fn(),
@@ -23,6 +23,15 @@ vi.mock('../../../hooks/usePWAUpdate', () => ({
 }));
 vi.mock('../../../hooks/useAdvancedSettings', () => ({
   useAdvancedSettings: () => ({ ownerMapping: null, updateOwnerMapping: vi.fn() }),
+}));
+vi.mock('../../../hooks/useWeeklyReportSettings', () => ({
+  useWeeklyReportSettings: () => ({
+    config: { enabled: true, recipients: [] },
+    loading: false,
+    isSending: false,
+    updateConfig: vi.fn(),
+    sendNow: vi.fn(),
+  }),
 }));
 vi.mock('../../../hooks/useBalances', () => ({ useBalances: () => ({ balances: [] }) }));
 vi.mock('../../CategoryIconEditor', () => ({ CategoryIconEditor: () => null }));

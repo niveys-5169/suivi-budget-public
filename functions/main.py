@@ -651,3 +651,45 @@ def scheduled_banking_sync(event: scheduler_fn.ScheduledEvent) -> None:
     from bank_sync import sync_banking as run
     from enable_banking_client import EnableBankingClient
     run(store(), EnableBankingClient, lambda: _run_linxo_import_core(_build_gmail_client()))
+
+
+@scheduler_fn.on_schedule(
+    schedule="0 18 * * 5",
+    timezone="Europe/Paris",
+    region="europe-west1",
+    secrets=[GMAIL_TOKEN_SECRET],
+)
+def scheduled_weekly_recap_email(event: scheduler_fn.ScheduledEvent) -> None:
+    """Envoie l'email récapitulatif chaque vendredi à 18h00 (Europe/Paris)."""
+    from weekly_recap import run_weekly_recap
+    from firebase_db import _get_db
+    try:
+        gmail = _build_gmail_client()
+        run_weekly_recap(_get_db(), gmail, force=False)
+    except Exception:
+        logging.exception("Échec de l'envoi planifié de l'email récapitulatif hebdomadaire")
+
+
+@https_fn.on_call(region="europe-west1", secrets=[GMAIL_TOKEN_SECRET])
+def send_weekly_recap_email(req: https_fn.CallableRequest) -> dict:
+    """Déclenche manuellement l'envoi de l'email récapitulatif hebdomadaire."""
+    from weekly_recap import run_weekly_recap
+    from firebase_db import _get_db
+    try:
+        require_owner(req)
+        gmail = _build_gmail_client()
+        result = run_weekly_recap(_get_db(), gmail, force=True)
+        return {
+            "status": "success",
+            "messageId": result.get("messageId"),
+            "recipients": result.get("recipients", []),
+        }
+    except https_fn.HttpsError:
+        raise
+    except Exception as e:
+        logging.exception("Erreur dans send_weekly_recap_email")
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INTERNAL,
+            message=str(e),
+        )
+
