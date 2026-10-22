@@ -48,6 +48,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          check-latest: true
           # Sur le runner self-hosted (CI_RUNNER défini), la machine est
           # persistante : son cache npm local survit déjà entre les runs.
           # Le cache actions/setup-node re-télécharge ~600 Mo depuis le
