@@ -325,3 +325,26 @@ describe('computeReferenceIncome', () => {
     expect(total).toBe(2900);
   });
 });
+
+describe('catégories de revenu de référence', () => {
+  it('isSalaryOrCafCategory reconnaît salaires et CAF, sans tenir compte de la casse', () => {
+    expect(isSalaryOrCafCategory('Salaire Nico')).toBe(true);
+    expect(isSalaryOrCafCategory('CAF')).toBe(true);
+    expect(isSalaryOrCafCategory('Allocations familiales')).toBe(true);
+    expect(isSalaryOrCafCategory('Remboursement')).toBe(false);
+    expect(isSalaryOrCafCategory(null)).toBe(false);
+  });
+
+  it('matchesIncomeCategory distingue deux salaires différents', () => {
+    expect(matchesIncomeCategory('Salaire Nico', 'salaire nico')).toBe(true);
+    expect(matchesIncomeCategory('Salaire Nico', 'Salaire Gwen')).toBe(false);
+    expect(matchesIncomeCategory('CAF', 'Versement CAF')).toBe(true);
+  });
+
+  it('isAllowedIncomeCategory privilégie les catégories configurées', () => {
+    expect(isAllowedIncomeCategory('Salaire Gwen')).toBe(true);
+    expect(isAllowedIncomeCategory('Salaire Gwen', ['Salaire Nico'])).toBe(false);
+    expect(isAllowedIncomeCategory('Salaire Nico', ['Salaire Nico'])).toBe(true);
+    expect(isAllowedIncomeCategory('')).toBe(false);
+  });
+});

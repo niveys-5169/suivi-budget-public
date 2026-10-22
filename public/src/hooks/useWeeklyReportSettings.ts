@@ -20,14 +20,12 @@ const DEFAULT_CONFIG: WeeklyReportConfig = {
 
 export const useWeeklyReportSettings = () => {
   const [config, setConfig] = useState<WeeklyReportConfig>(DEFAULT_CONFIG);
-  const [loading, setLoading] = useState(true);
+  // Sans Firestore configuré, rien à charger.
+  const [loading, setLoading] = useState(Boolean(db));
   const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
-    if (!db) {
-      setLoading(false);
-      return;
-    }
+    if (!db) return;
     const configDoc = doc(db, 'config', 'weekly_report');
     const unsub = onSnapshot(
       configDoc,

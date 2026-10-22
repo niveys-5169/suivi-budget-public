@@ -36,7 +36,7 @@ describe('useExpenseBudget', () => {
   it('sums declared salaries and active monthly recurring income', () => {
     mockUseGlobalData.mockReturnValue({
       ravConfig: { provision_salaires: { nico: { montant: 2000, categorie: 'Salaire Nico' } } },
-      recurrences: [recurrence({ expectedAmount: 500 })],
+      recurrences: [recurrence({ label: 'CAF', category: 'CAF', expectedAmount: 500 })],
     } as never);
 
     const { result } = renderHook(() => useExpenseBudget());
