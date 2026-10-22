@@ -22,38 +22,13 @@ export interface SafeToSpendResult {
   hasBudgets: boolean;
 }
 
-/**
- * Vérifie si une catégorie correspond aux Salaires ou à la CAF.
- */
-export function isSalaryOrCafCategory(catName: string | null | undefined): boolean {
-  if (!catName) return false;
-  const k = categoryKey(catName);
-  return k.includes('salaire') || k.includes('caf') || k.includes('allocations familiales');
-}
+import {
+  isSalaryOrCafCategory,
+  matchesIncomeCategory,
+  isAllowedIncomeCategory,
+} from '../utils/ravCalculations';
 
-/**
- * Compare deux catégories de revenu pour éviter de mélanger deux salaires distincts
- * (ex: Salaire Nico vs Salaire Gwen) tout en autorisant les variantes de casse/accents.
- */
-export function matchesIncomeCategory(itemCat: string, txCatOrLabel: string): boolean {
-  const k1 = categoryKey(itemCat);
-  const k2 = categoryKey(txCatOrLabel);
-  if (!k1 || !k2) return false;
-  if (k1 === k2) return true;
-
-  if (k1.includes('caf') && k2.includes('caf')) return true;
-
-  if (k1.includes('salaire') && k2.includes('salaire')) {
-    const words1 = k1.split(/\s+/).filter((w) => w !== 'salaire');
-    const words2 = k2.split(/\s+/).filter((w) => w !== 'salaire');
-    if (words1.length > 0 && words2.length > 0) {
-      return words1.some((w) => words2.includes(w));
-    }
-    return true;
-  }
-
-  return false;
-}
+export { isSalaryOrCafCategory, matchesIncomeCategory, isAllowedIncomeCategory };
 
 /**
  * Calcul pur du Reste-à-Vivre Réel (Safe-to-Spend).
@@ -87,7 +62,7 @@ export function calculateSafeToSpend(
     (tx) => (tx.moisAffectation || tx.date || '').slice(0, 7) === periodKey,
   );
 
-  // 1. REVENUS ATTENDUS : Uniquement les budgets Salaires et la CAF (non encore reçus ce mois-ci)
+  // 1. REVENUS ATTENDUS : Uniquement les salaires et la CAF déclarés (non encore reçus ce mois-ci)
   // Neutralise toutes les autres récurrences (virements internes, épargne, remboursements, etc.)
   interface IncomeTarget {
     category: string;
@@ -96,9 +71,19 @@ export function calculateSafeToSpend(
   }
   const incomeTargets = new Map<string, IncomeTarget>();
 
+  const allowedIncomeFilter = (catOrLabel: string) =>
+    isAllowedIncomeCategory(catOrLabel, ravConfig?.revenu_categories);
+
+  const findMatchingTarget = (catOrLabel: string): IncomeTarget | undefined => {
+    for (const target of incomeTargets.values()) {
+      if (matchesIncomeCategory(target.category, catOrLabel)) return target;
+    }
+    return undefined;
+  };
+
   // A. Budgets actifs pour Salaires et CAF
   budgets
-    .filter((b) => b.actif !== false && isSalaryOrCafCategory(b.categorie || b.nom))
+    .filter((b) => b.actif !== false && allowedIncomeFilter(b.categorie || b.nom))
     .forEach((b) => {
       const amount = Math.max(0, b.montant ?? 0);
       if (amount > 0) {
@@ -116,9 +101,11 @@ export function calculateSafeToSpend(
     const provAmount = Number(prov?.montant) || 0;
     if (provAmount <= 0) continue;
     const provCategory = prov?.categorie || 'Salaire';
-    const key = categoryKey(provCategory);
-    if (!incomeTargets.has(key)) {
-      incomeTargets.set(key, {
+    if (!allowedIncomeFilter(provCategory)) continue;
+
+    const existing = findMatchingTarget(provCategory);
+    if (!existing) {
+      incomeTargets.set(categoryKey(provCategory), {
         category: provCategory,
         expectedAmount: provAmount,
       });
@@ -130,7 +117,7 @@ export function calculateSafeToSpend(
     (r) =>
       r.active &&
       r.expectedAmount > 0 &&
-      (isSalaryOrCafCategory(r.category) || isSalaryOrCafCategory(r.label)),
+      (allowedIncomeFilter(r.category || '') || allowedIncomeFilter(r.label || '')),
   );
   if (salaryOrCafRecurrences.length > 0) {
     const recurrenceStates = resolveRecurrencePeriods(
@@ -141,14 +128,15 @@ export function calculateSafeToSpend(
     );
 
     for (const r of salaryOrCafRecurrences) {
-      const cat = isSalaryOrCafCategory(r.category)
+      const cat = allowedIncomeFilter(r.category || '')
         ? r.category || 'Salaire'
         : r.label || 'Salaire';
       const key = categoryKey(cat);
       const state = recurrenceStates.get(r.id);
       const isAlreadySettled = state && isSettled(state.state);
+      const existing = findMatchingTarget(cat) || findMatchingTarget(r.label || '');
 
-      if (!incomeTargets.has(key)) {
+      if (!existing) {
         const amount = Math.abs(getAmountForPeriod(r, periodKey));
         if (amount > 0 && !isAlreadySettled) {
           incomeTargets.set(key, {
@@ -158,7 +146,6 @@ export function calculateSafeToSpend(
           });
         }
       } else if (isAlreadySettled) {
-        const existing = incomeTargets.get(key)!;
         existing.recurrenceId = r.id;
       }
     }

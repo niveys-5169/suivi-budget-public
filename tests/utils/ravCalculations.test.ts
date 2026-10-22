@@ -4,6 +4,10 @@ import {
   categoryMatcher,
   getRecurringProvisions,
   computeDerivedRav,
+  computeReferenceIncome,
+  isAllowedIncomeCategory,
+  isSalaryOrCafCategory,
+  matchesIncomeCategory,
   DEFAULT_EXCLUDED_EXPENSES,
 } from '../../public/src/utils/ravCalculations';
 import type { Transaction, Recurrence } from '../../public/src/types/banking.types';
@@ -216,5 +220,108 @@ describe('computeDerivedRav', () => {
     // 2000 - 0 + (-50) = 1950. Un signe inversé donnerait 2050 (provision qui
     // augmenterait le reste au lieu de le diminuer).
     expect(r.reste).toBe(1950);
+  });
+
+  it('dédoublonne les salaires saisis et les récurrences pour éviter d’atteindre 11 000 €', () => {
+    const config: RavConfigFormValues = {
+      ...baseConfig,
+      revenu_categories: ['Salaire Gwen', 'Salaire Nico', 'CAF'],
+      provision_salaires: {
+        nico: { montant: 2650, categorie: 'Salaire Nico' },
+        gwen: { montant: 2355, categorie: 'Salaire Gwen' },
+      },
+    };
+    const recurrences: Recurrence[] = [
+      // Récurrence du salaire Nico déjà provisionné -> NE DOIT PAS ÊTRE AJOUTÉE
+      {
+        id: 'rec-sal-nico',
+        label: 'Virement Salaire Nico',
+        category: 'Salaire Nico',
+        expectedAmount: 2650,
+        active: true,
+      } as Recurrence,
+      // Récurrence du salaire Gwen déjà provisionné -> NE DOIT PAS ÊTRE AJOUTÉE
+      {
+        id: 'rec-sal-gwen',
+        label: 'Virement Salaire Gwen',
+        category: 'Salaire Gwen',
+        expectedAmount: 2355,
+        active: true,
+      } as Recurrence,
+      // Récurrence CAF (non provisionnée manuellement) -> DOIT ÊTRE AJOUTÉE
+      {
+        id: 'rec-caf',
+        label: 'Allocations CAF',
+        category: 'CAF',
+        expectedAmount: 750,
+        active: true,
+      } as Recurrence,
+      // Virement compte à compte ou épargne -> NE DOIT PAS ÊTRE AJOUTÉ
+      {
+        id: 'rec-virement-interne',
+        label: 'Virement Livret A vers Courant',
+        category: 'Virements internes',
+        expectedAmount: 5000,
+        active: true,
+      } as Recurrence,
+    ];
+
+    const r = computeDerivedRav(config, ctx([], recurrences));
+    // Revenu attendu = 2650 (Nico) + 2355 (Gwen) + 750 (CAF) = 5755 €
+    // (et JAMAIS ~11 000 € ou 16 000 € avec le virement interne !)
+    expect(r.revenuRef).toBe(5755);
+    expect(r.reste).toBe(5755);
+  });
+
+  it('utilise les récurrences de salaires si aucune provision manuelle n’est renseignée', () => {
+    const config: RavConfigFormValues = {
+      ...baseConfig,
+      revenu_categories: ['Salaire Gwen', 'Salaire Nico', 'CAF'],
+      provision_salaires: {},
+    };
+    const recurrences: Recurrence[] = [
+      {
+        id: 'rec-sal-nico',
+        label: 'Salaire Nico',
+        category: 'Salaire Nico',
+        expectedAmount: 2650,
+        active: true,
+      } as Recurrence,
+      {
+        id: 'rec-caf',
+        label: 'CAF',
+        category: 'CAF',
+        expectedAmount: 750,
+        active: true,
+      } as Recurrence,
+    ];
+    const r = computeDerivedRav(config, ctx([], recurrences));
+    expect(r.revenuRef).toBe(3400);
+  });
+});
+
+describe('computeReferenceIncome', () => {
+  it('filtre strictement sur les catégories de revenus autorisées', () => {
+    const cfg = {
+      revenu_categories: ['Salaire Nico', 'CAF'],
+      provision_salaires: {
+        nico: { montant: 2500, categorie: 'Salaire Nico' },
+        hors_perimetre: { montant: 1000, categorie: 'Autre revenu non validé' },
+      },
+    };
+    const recurrences: Recurrence[] = [
+      { id: '1', label: 'CAF', category: 'CAF', expectedAmount: 400, active: true } as Recurrence,
+      {
+        id: '2',
+        label: 'Vente leboncoin',
+        category: 'Divers',
+        expectedAmount: 300,
+        active: true,
+      } as Recurrence,
+    ];
+
+    const total = computeReferenceIncome(cfg, recurrences, '2026-10');
+    // 2500 (Nico) + 400 (CAF) = 2900 €
+    expect(total).toBe(2900);
   });
 });

@@ -12,6 +12,7 @@ import type { Recurrence } from '../types/banking.types';
 import type { Transaction } from '../types/banking.types';
 import { useTransactionContext } from '../context/TransactionContext';
 import { resolveRecurrencePeriods } from '../utils/resolveRecurrencePeriods';
+import { isAllowedIncomeCategory, matchesIncomeCategory } from '../utils/ravCalculations';
 
 export type ForecastHorizon = 30 | 60 | 90;
 
@@ -118,6 +119,10 @@ export const useCashflowForecast = (
       startDate,
       horizonDays,
       transactions,
+    ).filter(
+      (r) =>
+        isAllowedIncomeCategory(r.category || '', ravConfig?.revenu_categories) ||
+        isAllowedIncomeCategory(r.label || '', ravConfig?.revenu_categories),
     );
 
     // Revenus déclarés dans le RAV non déjà couverts par une récurrence
@@ -130,16 +135,12 @@ export const useCashflowForecast = (
         amount: Number(p.montant) || 0,
         dayOfMonth: 1,
       }))
+      .filter((ravInc) => isAllowedIncomeCategory(ravInc.label, ravConfig?.revenu_categories))
       .filter((ravInc) => {
-        const normalizedRavLabel = ravInc.label.toLowerCase();
         return !recurrencesIncomes.some((recInc) => {
-          const normalizedRecLabel = recInc.label.toLowerCase();
-          const normalizedRecCategory = (recInc.category || '').toLowerCase();
           return (
-            normalizedRecLabel.includes(normalizedRavLabel) ||
-            normalizedRavLabel.includes(normalizedRecLabel) ||
-            normalizedRecCategory.includes(normalizedRavLabel) ||
-            normalizedRavLabel.includes(normalizedRecCategory) ||
+            matchesIncomeCategory(recInc.category || '', ravInc.label) ||
+            matchesIncomeCategory(recInc.label, ravInc.label) ||
             recInc.key === ravInc.key
           );
         });
