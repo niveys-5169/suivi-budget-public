@@ -45,9 +45,11 @@ interface Props {
   sortMode?: BudgetSortMode;
   onSortModeChange?: (mode: BudgetSortMode) => void;
   onReorder?: (orderedIds: string[]) => void;
-  /** Provision mensuelle des enveloppes annuelles, comprise dans `totalBudget`. */
+  /** Provision mensuelle des enveloppes annuelles, hors `totalBudget`. */
   envelopeProvision?: number;
   onShowEnvelopes?: () => void;
+  /** Solde prévu (Reste à vivre) ; remplace le solde net encaissé − dépensé s'il est fourni. */
+  forecastBalance?: number;
 }
 
 export const BankinBudgetMain: React.FC<Props> = ({
@@ -70,7 +72,9 @@ export const BankinBudgetMain: React.FC<Props> = ({
   onReorder,
   envelopeProvision = 0,
   onShowEnvelopes,
+  forecastBalance,
 }) => {
+  const headlineBalance = forecastBalance ?? netBalance;
   const remaining = Math.max(0, totalBudget - budgetSpent);
   const isOver = totalBudget > 0 && budgetSpent > totalBudget;
   const progress = totalBudget > 0 ? Math.min(100, (budgetSpent / totalBudget) * 100) : 0;
@@ -94,7 +98,8 @@ export const BankinBudgetMain: React.FC<Props> = ({
     }
     if (!chartData.length) return [];
     const targetRevenue = totalIncomeBudget > 0 ? totalIncomeBudget : totalReceived;
-    const totalNetBudget = targetRevenue - totalBudget;
+    // Les provisions d'enveloppes sortent aussi du mois, même hors budget total.
+    const totalNetBudget = targetRevenue - totalBudget - envelopeProvision;
     return Array.from({ length: maxDay }, (_, i) => ({
       day: i + 1,
       theoretical: (totalNetBudget / maxDay) * (i + 1),
@@ -104,6 +109,7 @@ export const BankinBudgetMain: React.FC<Props> = ({
     totalBudget,
     totalReceived,
     totalIncomeBudget,
+    envelopeProvision,
     viewMode,
     incomeCategories.length,
     expenseCategories.length,
@@ -118,15 +124,22 @@ export const BankinBudgetMain: React.FC<Props> = ({
         <div className="text-center space-y-4">
           <div className="flex flex-col items-center">
             <span className="text-caption font-bold text-label-tertiary mb-1">
-              Solde Net {viewMode === 'monthly' ? 'du mois' : 'YTD (Annuel)'}
+              {forecastBalance !== undefined
+                ? 'Solde prévu du mois'
+                : `Solde Net ${viewMode === 'monthly' ? 'du mois' : 'YTD (Annuel)'}`}
             </span>
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className={`text-5xl font-serif font-semibold tracking-tight [font-variant-numeric:tabular-nums] ${netBalance >= 0 ? 'text-gold' : 'text-negative'}`}
+              className={`text-5xl font-serif font-semibold tracking-tight [font-variant-numeric:tabular-nums] ${headlineBalance >= 0 ? 'text-gold' : 'text-negative'}`}
             >
-              {fmt(netBalance)}
+              {fmt(headlineBalance)}
             </motion.div>
+            {forecastBalance !== undefined && (
+              <span className="text-caption text-label-tertiary mt-1">
+                Revenus de référence − dépenses − récurrentes à venir
+              </span>
+            )}
           </div>
 
           <div className="flex items-center justify-center gap-6">
@@ -190,7 +203,7 @@ export const BankinBudgetMain: React.FC<Props> = ({
           {envelopeProvision > 0 && onShowEnvelopes && (
             <div className="flex justify-center mt-2">
               <Button variant="plain" size="sm" onClick={onShowEnvelopes}>
-                Dont {fmt(envelopeProvision)}/mois mis de côté pour les enveloppes →
+                Hors {fmt(envelopeProvision)}/mois mis de côté pour les enveloppes →
               </Button>
             </div>
           )}

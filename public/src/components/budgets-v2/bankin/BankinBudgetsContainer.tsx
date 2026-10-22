@@ -9,6 +9,7 @@ import { useBalances } from '../../../hooks/useBalances';
 import { usePreferences } from '../../../hooks/usePreferences';
 import { sortBudgetCategories, mergeManualOrder } from '../../../utils/budgetSort';
 import { useAnnualEnvelopes } from '../../../hooks/useAnnualEnvelopes';
+import { useRavSummary } from '../../../hooks/useRavSummary';
 import { updateBudget } from '../../../api/budgets';
 import { BankinBudgetMain } from './BankinBudgetMain';
 import { BankinBudgetCategoryDetail } from './BankinBudgetCategoryDetail';
@@ -50,6 +51,7 @@ export const BankinBudgetsContainer: React.FC = () => {
   const { transactions, togglePointe, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
   const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
+  const rav = useRavSummary(monthKey, transactions);
   const { tab, setTab } = useBudgetTab();
   const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
     usePreferences();
@@ -210,12 +212,9 @@ export const BankinBudgetsContainer: React.FC = () => {
 
     allCategoryKeys.forEach((catKey) => {
       if (!catKey) return;
-      if (isEnvelopeKey(catKey)) {
-        // Hors grille ; la provision mensuelle (montant ÷ 12) reste dans le budget total.
-        const envBudget = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
-        totalExpenseBudget += envBudget ? envBudget.montant : 0;
-        return;
-      }
+      // Hors grille et hors budget total : la provision est mise de côté, comme
+      // les dépenses de l'enveloppe sont hors jauge (sinon le Restant la compte comme disponible).
+      if (isEnvelopeKey(catKey)) return;
       const catName = keyToLabel[catKey] || catKey;
       const catTx = txByCategory[catKey] || [];
 
@@ -519,6 +518,8 @@ export const BankinBudgetsContainer: React.FC = () => {
             viewMode === 'monthly' ? envelopes.reduce((s, e) => s + e.provisionMensuelle, 0) : 0
           }
           onShowEnvelopes={() => setTab('enveloppes')}
+          // Sans revenus de référence configurés, on garde le solde réellement encaissé.
+          forecastBalance={viewMode === 'monthly' && rav.revenuRef > 0 ? rav.reste : undefined}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { Transaction, Recurrence } from '../types/banking.types';
+import { Transaction, Recurrence, RavConfig } from '../types/banking.types';
 import type { RavConfigFormValues } from '../lib/schemas/forms';
 import { getPeriodKey, getAmountForPeriod, isSettled } from './recurrenceEngine';
 import { resolveRecurrencePeriods } from './resolveRecurrencePeriods';
@@ -15,6 +15,35 @@ export interface DerivedRav {
 }
 
 export const DEFAULT_EXCLUDED_EXPENSES = new Set([...PATRIMONIAL_FLOW_CATEGORY_ALIASES, 'Prêt']);
+
+export const EMPTY_RAV_CONFIG: RavConfigFormValues = {
+  revenu_mensuel_net: null,
+  provision_salaires: {},
+  revenu_categories: [],
+  depense_categories: [],
+  included_accounts: [],
+};
+
+/** Config RAV Firestore → valeurs complètes (migre l'ancien `revenu_mensuel_net` en provision salaire). */
+export function toRavFormConfig(ravConfig: RavConfig | null): RavConfigFormValues {
+  if (!ravConfig) return EMPTY_RAV_CONFIG;
+  const next: RavConfigFormValues = {
+    revenu_mensuel_net: ravConfig.revenu_mensuel_net ?? null,
+    provision_salaires: ravConfig.provision_salaires ?? {},
+    revenu_categories: ravConfig.revenu_categories ?? [],
+    depense_categories: ravConfig.depense_categories ?? [],
+    included_accounts: ravConfig.included_accounts ?? [],
+  };
+  if (
+    ravConfig.revenu_mensuel_net &&
+    (!ravConfig.provision_salaires || Object.keys(ravConfig.provision_salaires).length === 0)
+  ) {
+    next.provision_salaires = {
+      nico: { montant: ravConfig.revenu_mensuel_net, categorie: 'Salaire Nico' },
+    };
+  }
+  return next;
+}
 
 const counted = (tx: Transaction) =>
   tx.bankStatus !== 'cancelled' &&

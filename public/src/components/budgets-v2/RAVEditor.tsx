@@ -23,16 +23,8 @@ import { fmt, parseDecimal } from '../../utils/format';
 import { ravConfigSchema, type RavConfigFormValues } from '../../lib/schemas/forms';
 import { CategoryTagSection } from './CategoryTagSection';
 import { RavSummaryBar } from './RavSummaryBar';
-import { computeDerivedRav } from '../../utils/ravCalculations';
+import { computeDerivedRav, EMPTY_RAV_CONFIG, toRavFormConfig } from '../../utils/ravCalculations';
 import { withRetry } from '../../utils/withRetry';
-
-const EMPTY_CONFIG: RavConfigFormValues = {
-  revenu_mensuel_net: null,
-  provision_salaires: {},
-  revenu_categories: [],
-  depense_categories: [],
-  included_accounts: [],
-};
 
 interface Props {
   monthKey: string;
@@ -55,7 +47,7 @@ export const RAVEditor: React.FC<Props> = ({ monthKey, onClose }) => {
     formState: { isSubmitting },
   } = useForm<RavConfigFormValues>({
     resolver: zodResolver(ravConfigSchema),
-    defaultValues: EMPTY_CONFIG,
+    defaultValues: EMPTY_RAV_CONFIG,
   });
 
   const [editing, setEditing] = useState(false);
@@ -64,26 +56,7 @@ export const RAVEditor: React.FC<Props> = ({ monthKey, onClose }) => {
   const [newExpense, setNewExpense] = useState('');
   const [showCategoryPicker, setShowCategoryPicker] = useState<'income' | 'expense' | null>(null);
 
-  const persistedConfig: RavConfigFormValues = useMemo(() => {
-    if (!globalRavConfig) return EMPTY_CONFIG;
-    const next: RavConfigFormValues = {
-      revenu_mensuel_net: globalRavConfig.revenu_mensuel_net ?? null,
-      provision_salaires: globalRavConfig.provision_salaires ?? {},
-      revenu_categories: globalRavConfig.revenu_categories ?? [],
-      depense_categories: globalRavConfig.depense_categories ?? [],
-      included_accounts: globalRavConfig.included_accounts ?? [],
-    };
-    if (
-      globalRavConfig.revenu_mensuel_net &&
-      (!globalRavConfig.provision_salaires ||
-        Object.keys(globalRavConfig.provision_salaires).length === 0)
-    ) {
-      next.provision_salaires = {
-        nico: { montant: globalRavConfig.revenu_mensuel_net, categorie: 'Salaire Nico' },
-      };
-    }
-    return next;
-  }, [globalRavConfig]);
+  const persistedConfig = useMemo(() => toRavFormConfig(globalRavConfig), [globalRavConfig]);
 
   useEffect(() => {
     if (!editing) reset(persistedConfig);

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { BankinBudgetsContainer } from '../BankinBudgetsContainer';
 import React from 'react';
@@ -31,6 +31,11 @@ vi.mock('../../../../context/BudgetContext', () => ({
     viewMode: 'monthly',
     setViewMode: mockSetViewMode,
   }),
+}));
+
+let mockRavConfig: Record<string, unknown> | null = null;
+vi.mock('../../../../context/GlobalDataContext', () => ({
+  useGlobalData: () => ({ accountBalances: [], ravConfig: mockRavConfig, recurrences: [] }),
 }));
 
 vi.mock('../../../../context/TransactionContext', () => ({
@@ -213,15 +218,36 @@ describe('BankinBudgetsContainer', () => {
       expect(screen.getByText('Enveloppes annuelles')).toBeInTheDocument();
     });
 
-    it('garde la provision dans le budget total sans compter l’acompte dans la jauge', () => {
+    it('sort la provision du budget total comme l’acompte de la jauge', () => {
       render(<BankinBudgetsContainer />);
 
-      // Budget total = 1000 + 500 + 250 de provision.
-      expect(screen.getAllByText(/1\s750/)[0]).toBeInTheDocument();
-      // Restant = 1750 − (1000 + 200), l'acompte de 400 est payé par l'enveloppe.
-      expect(screen.getAllByText(/550/)[0]).toBeInTheDocument();
-      // Le solde net reste la trésorerie réelle : −1600.
+      // Budget total = 1000 + 500 ; les 250 de provision sont mis de côté.
+      expect(screen.getAllByText(/1\s500/)[0]).toBeInTheDocument();
+      expect(screen.queryByText(/1\s750/)).not.toBeInTheDocument();
+      // Restant = 1500 − (1000 + 200), l'acompte de 400 est payé par l'enveloppe.
+      expect(screen.getAllByText(/300/)[0]).toBeInTheDocument();
+      // Sans revenus de référence, le solde reste la trésorerie réelle : −1600.
+      expect(screen.getByText(/Solde Net du mois/)).toBeInTheDocument();
       expect(screen.getAllByText(/1\s600/)[0]).toBeInTheDocument();
+    });
+  });
+
+  describe('solde prévu', () => {
+    afterEach(() => {
+      mockRavConfig = null;
+    });
+
+    it('affiche le Reste à vivre quand des revenus de référence sont configurés', () => {
+      mockRavConfig = {
+        provision_salaires: { nico: { montant: 3000, categorie: 'Salaire Nico' } },
+      };
+      // Le RAV ne compte que les transactions pointées.
+      mockTransactions = DEFAULT_TRANSACTIONS.map((t) => ({ ...t, pointe: true }));
+      render(<BankinBudgetsContainer />);
+
+      // 3000 de référence − 1200 dépensés, sans salaire encore encaissé.
+      expect(screen.getByText('Solde prévu du mois')).toBeInTheDocument();
+      expect(screen.getAllByText(/1\s800/)[0]).toBeInTheDocument();
     });
   });
 });

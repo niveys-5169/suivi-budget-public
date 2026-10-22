@@ -22,6 +22,7 @@ import { useBudgetExclusions } from '../../hooks/useBudgetExclusions';
 import { useTransactions } from '../../hooks/useTransactions';
 import { useBalances } from '../../hooks/useBalances';
 import { useAnnualEnvelopes } from '../../hooks/useAnnualEnvelopes';
+import { useRavSummary } from '../../hooks/useRavSummary';
 import { usePreferences } from '../../hooks/usePreferences';
 import { sortBudgetCategories, mergeManualOrder } from '../../utils/budgetSort';
 import { SegmentedControl, Button } from '../../ui';
@@ -53,6 +54,7 @@ export const BudgetsScreen: React.FC = () => {
   const { transactions, saveTransaction, deleteTransaction } = useTransactions();
   const { balances } = useBalances();
   const { envelopes, envelopeKeys } = useAnnualEnvelopes(transactions);
+  const rav = useRavSummary(monthKey, transactions);
   const { tab, setTab } = useBudgetTab();
   const { budgetSortMode, setBudgetSortMode, budgetManualOrder, setBudgetManualOrder } =
     usePreferences();
@@ -113,12 +115,9 @@ export const BudgetsScreen: React.FC = () => {
 
     allCategoryKeys.forEach((catKey) => {
       if (!catKey) return;
-      if (isEnvelopeKey(catKey)) {
-        // Hors grille ; la provision mensuelle (montant ÷ 12) reste dans le budget total.
-        const envBudget = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
-        totalExpenseBudget += envBudget ? envBudget.montant : 0;
-        return;
-      }
+      // Hors grille et hors budget total : la provision est mise de côté, comme
+      // les dépenses de l'enveloppe sont hors jauge (sinon le Restant la compte comme disponible).
+      if (isEnvelopeKey(catKey)) return;
       const catName = keyToLabel[catKey] || catKey;
       const catTx = txByCategory[catKey] || [];
       const inflow = catTx.reduce(
@@ -196,6 +195,8 @@ export const BudgetsScreen: React.FC = () => {
   );
 
   const envelopeProvision = envelopes.reduce((s, e) => s + e.provisionMensuelle, 0);
+  // Solde prévu = Reste à vivre ; sans revenus de référence, on garde le solde encaissé.
+  const showForecast = viewMode === 'monthly' && rav.revenuRef > 0;
   const fmtEur = (n: number) => formatCurrency(n, 'EUR', 'fr-FR', { maximumFractionDigits: 0 });
 
   const masteryProgress =
@@ -348,8 +349,12 @@ export const BudgetsScreen: React.FC = () => {
             ) : (
               <>
                 <MBudgetHero
-                  netBalance={budgetData.netBalance}
-                  label={`Solde net ${viewMode === 'monthly' ? 'du mois' : 'YTD'}`}
+                  netBalance={showForecast ? rav.reste : budgetData.netBalance}
+                  label={
+                    showForecast
+                      ? 'Solde prévu du mois'
+                      : `Solde net ${viewMode === 'monthly' ? 'du mois' : 'YTD'}`
+                  }
                   totalReceived={budgetData.totalReceived}
                   totalSpent={budgetData.totalSpent}
                 />
@@ -365,7 +370,7 @@ export const BudgetsScreen: React.FC = () => {
                 {viewMode === 'monthly' && envelopeProvision > 0 && (
                   <div className="flex justify-center px-4">
                     <Button variant="plain" size="sm" onClick={() => setTab('enveloppes')}>
-                      Dont {fmtEur(envelopeProvision)}/mois pour les enveloppes →
+                      Hors {fmtEur(envelopeProvision)}/mois pour les enveloppes →
                     </Button>
                   </div>
                 )}
