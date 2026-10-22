@@ -67,7 +67,11 @@ vi.mock('../../../../public/src/hooks/useDashboard', () => ({
   }),
 }));
 
-vi.mock('../../../../public/src/context/TransactionContext', () => ({
+vi.mock('../../../../public/src/context/TransactionContext', async () => ({
+  // useSafeToSpend lit le contexte avec useContext(TransactionContext)
+  TransactionContext: (await vi.importActual<typeof import('react')>('react')).createContext(
+    undefined,
+  ),
   useTransactionContext: () => ({
     transactions: [],
     loading: false,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Mail, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useWeeklyReportSettings } from '../../hooks/useWeeklyReportSettings';
 import {
@@ -51,12 +51,15 @@ export const WeeklyReportSettingsCard: React.FC = () => {
   const [recipientsInput, setRecipientsInput] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
 
-  useEffect(() => {
-    if (!loading) {
-      setRecipientsInput(config.recipients?.join(', ') || '');
-      setHasChanges(false);
-    }
-  }, [loading, config.recipients]);
+  // Resynchronise le champ quand les destinataires enregistrés changent
+  // (ajustement pendant le rendu plutôt que setState dans un effet).
+  const savedRecipients = loading ? null : config.recipients?.join(', ') || '';
+  const [syncedRecipients, setSyncedRecipients] = useState<string | null>(null);
+  if (savedRecipients !== null && savedRecipients !== syncedRecipients) {
+    setSyncedRecipients(savedRecipients);
+    setRecipientsInput(savedRecipients);
+    setHasChanges(false);
+  }
 
   const handleToggle = (enabled: boolean) => {
     updateConfig({ enabled });

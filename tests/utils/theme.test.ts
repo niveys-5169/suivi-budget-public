@@ -22,8 +22,9 @@ describe('theme system', () => {
     expect(resolveTheme('dark')).toBe('dark');
   });
 
-  it('résout explicitement le thème light', () => {
-    expect(resolveTheme('light')).toBe('light');
+  it('résout le thème light vers le gold clair', () => {
+    expect(resolveTheme('light')).toBe('gold-light');
+    expect(resolveTheme('gold-light')).toBe('gold-light');
   });
 
   it('applique le thème gold sur le document et met à jour le meta tag', () => {
@@ -34,6 +35,9 @@ describe('theme system', () => {
     applyTheme('gold');
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
+    expect(meta.getAttribute('content')).toBe('rgb(9, 8, 6)');
+
+    applyTheme('gold-light');
     expect(meta.getAttribute('content')).toBe('rgb(249, 246, 240)');
 
     document.head.removeChild(meta);
@@ -53,17 +57,17 @@ describe('theme system', () => {
   });
 
   it('fait défiler les thèmes via cycleTheme', () => {
-    localStorage.setItem(THEME_KEY, 'dark');
+    localStorage.setItem(THEME_KEY, 'auto');
     cycleTheme();
     expect(localStorage.getItem(THEME_KEY)).toBe('gold');
 
     cycleTheme();
-    expect(localStorage.getItem(THEME_KEY)).toBe('light');
-
-    cycleTheme();
-    expect(localStorage.getItem(THEME_KEY)).toBe('auto');
+    expect(localStorage.getItem(THEME_KEY)).toBe('gold-light');
 
     cycleTheme();
     expect(localStorage.getItem(THEME_KEY)).toBe('dark');
+
+    cycleTheme();
+    expect(localStorage.getItem(THEME_KEY)).toBe('auto');
   });
 });
