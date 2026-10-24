@@ -14,6 +14,7 @@ Garde-fou : tests/test_shared_backend_sync.py échoue si les copies divergent.
 
 from __future__ import annotations
 
+from html import escape as html_escape
 import logging
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
@@ -129,7 +130,10 @@ def build_weekly_recap_data(
     total_savings_balance = 0.0
     if include_savings and savings_balances:
         for s in savings_balances:
-            solde = float(s.get("solde", 0.0))
+            raw_solde = s.get("current_balance")
+            if raw_solde is None:
+                raw_solde = s.get("solde", 0.0)
+            solde = float(raw_solde)
             total_savings_balance += solde
             savings_accounts.append({
                 "compte": str(s.get("compte") or s.get("id") or "Épargne"),
@@ -145,6 +149,8 @@ def build_weekly_recap_data(
 
     if include_expenses:
         for tx in transactions:
+            if tx.get("bankStatus") == "cancelled":
+                continue
             tx_date = str(tx.get("date") or "")
             if not (week_start_str <= tx_date <= week_end_str):
                 continue
@@ -190,6 +196,8 @@ def build_weekly_recap_data(
     if include_budgets:
         current_month_net: Dict[str, float] = {}
         for tx in transactions:
+            if tx.get("bankStatus") == "cancelled":
+                continue
             tx_month = str(tx.get("moisAffectation") or tx.get("date", "")[:7])
             if tx_month != current_month_key:
                 continue
@@ -302,6 +310,8 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
     include_budgets = opts.get("include_budgets", True)
     warning_threshold = opts.get("warning_threshold", 80.0)
 
+    _esc = lambda v: html_escape(str(v or ""))
+
     # 1. Section Soldes des comptes courants
     checking_section_html = ""
     if include_checking and data["balances"]["accounts"]:
@@ -312,11 +322,11 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
             ecart_str = f" ({format_eur(acc['ecart'])})" if acc.get("ecart") is not None else ""
             accounts_rows += f"""
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 10px 0; color: #F5F5F7; font-size: 14px;">{acc['compte']}</td>
+              <td style="padding: 10px 0; color: #F5F5F7; font-size: 14px;">{_esc(acc['compte'])}</td>
               <td style="padding: 10px 0; text-align: right; color: #F5F5F7; font-size: 14px; font-weight: 600;">{format_eur(acc['solde'])}</td>
               <td style="padding: 10px 0; text-align: right;">
                 <span style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.05); color: {tone_color};">
-                  {acc['status_label']}{ecart_str}
+                  {_esc(acc['status_label'])}{ecart_str}
                 </span>
               </td>
             </tr>
@@ -339,7 +349,7 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
         for s in data["balances"]["savings_accounts"]:
             savings_rows += f"""
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
-              <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{s['compte']}</td>
+              <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{_esc(s['compte'])}</td>
               <td style="padding: 8px 0; text-align: right; color: #F5F5F7; font-size: 13px; font-weight: 600;">{format_eur(s['solde'])}</td>
             </tr>
             """
@@ -360,7 +370,7 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
         for cat in data["expenses"]["categories"][:5]:
             cat_rows += f"""
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-              <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{cat['categorie']}</td>
+              <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{_esc(cat['categorie'])}</td>
               <td style="padding: 8px 0; text-align: right; color: #9E9EA7; font-size: 12px;">{cat['pourcentage']}%</td>
               <td style="padding: 8px 0; text-align: right; color: #F5F5F7; font-size: 13px; font-weight: 600;">{format_eur(cat['montant'])}</td>
             </tr>
@@ -373,8 +383,8 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
             <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
               <td style="padding: 8px 0; color: #9E9EA7; font-size: 12px; width: 45px;">{d_fr}</td>
               <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">
-                {tx['libelle']}
-                <div style="font-size: 11px; color: #9E9EA7;">{tx['categorie']}</div>
+                {_esc(tx['libelle'])}
+                <div style="font-size: 11px; color: #9E9EA7;">{_esc(tx['categorie'])}</div>
               </td>
               <td style="padding: 8px 0; text-align: right; color: #EF4444; font-size: 13px; font-weight: 600;">
                 -{format_eur(tx['montant'])}
@@ -416,7 +426,7 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
             for b in data["budgets"]["exceeded"]:
                 rows += f"""
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                  <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{b['categorie']}</td>
+                  <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{_esc(b['categorie'])}</td>
                   <td style="padding: 8px 0; text-align: right; color: #9E9EA7; font-size: 12px;">{format_eur(b['depense'])} / {format_eur(b['budget'])}</td>
                   <td style="padding: 8px 0; text-align: right; color: #EF4444; font-size: 13px; font-weight: 600;">
                     +{format_eur(b['depassement'])} ({b['pourcentage']}%)
@@ -438,7 +448,7 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
             for b in data["budgets"]["warning"]:
                 rows += f"""
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                  <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{b['categorie']}</td>
+                  <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{_esc(b['categorie'])}</td>
                   <td style="padding: 8px 0; text-align: right; color: #9E9EA7; font-size: 12px;">reste {format_eur(b['reste'])}</td>
                   <td style="padding: 8px 0; text-align: right; color: #F59E0B; font-size: 13px; font-weight: 600;">{b['pourcentage']}%</td>
                 </tr>
@@ -641,7 +651,7 @@ def run_weekly_recap(
         budgets=budgets,
         monthly_overrides=monthly_overrides,
         excluded_categories=excluded_categories,
-        reference_date=now_utc.date(),
+        reference_date=now_utc.astimezone(PARIS_TZ).date(),
         include_checking=include_checking,
         include_savings=include_savings,
         savings_balances=savings_balances,

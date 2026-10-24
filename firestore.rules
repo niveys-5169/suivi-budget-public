@@ -26,10 +26,11 @@ service cloud.firestore {
     match /bank_reports/{document} { allow read: if isOwner(); }
     match /bank_sync_runs/{document} { allow read: if isOwner(); }
     match /bank_runtime/{document} { allow read: if isOwner(); }
+    match /recurring_expense_settings/{document=**} { allow read: if isOwner(); }
     match /{collection}/{document=**} {
 
-      // Propriétaire uniquement : lecture + écriture
-      allow read, write: if !isBankingCollection(collection) && isOwner();
+      // Propriétaire uniquement : lecture + écriture (recurring_expense_settings gelé en lecture seule)
+      allow read, write: if !isBankingCollection(collection) && collection != 'recurring_expense_settings' && isOwner();
     }
   }
 }

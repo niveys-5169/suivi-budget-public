@@ -252,3 +252,56 @@ def test_check_and_run_scheduled_weekly_recap_schedule_mismatch():
     assert res["reason"] == "schedule_mismatch"
     gmail.send_html_email.assert_not_called()
 
+
+def test_weekly_recap_escapes_xss_and_filters_cancelled():
+    data = {
+        "period": {"start": "2026-10-17", "end": "2026-10-23", "month": "2026-10"},
+        "balances": {
+            "total": 100.0,
+            "accounts": [{"compte": "<script>alert(1)</script>", "solde": 100.0, "status_label": "<b>OK</b>", "status_tone": "positive"}],
+            "savings_accounts": [{"compte": "<img src=x onerror=alert(2)>", "solde": 500.0}],
+            "total_savings": 500.0,
+        },
+        "expenses": {
+            "total_expenses": 50.0,
+            "total_income": 0.0,
+            "net": -50.0,
+            "categories": [{"categorie": "<Cat & Test>", "montant": 50.0, "pourcentage": 100.0}],
+            "top_transactions": [{"date": "2026-10-23", "libelle": "<libelle dangerous>", "montant": 50.0, "categorie": "<Cat & Test>"}],
+        },
+        "budgets": {
+            "exceeded": [{"categorie": "<Budget Exceeded>", "budget": 30.0, "depense": 50.0, "depassement": 20.0, "pourcentage": 166.7}],
+            "warning": [{"categorie": "<Budget Warning>", "budget": 100.0, "depense": 85.0, "reste": 15.0, "pourcentage": 85.0}],
+        },
+        "options": {"include_checking": True, "include_savings": True, "include_expenses": True, "include_budgets": True},
+    }
+
+    html = render_weekly_recap_html(data)
+    assert "<script>" not in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "<img" not in html
+    assert "&lt;img src=x onerror=alert(2)&gt;" in html
+    assert "<libelle dangerous>" not in html
+    assert "&lt;libelle dangerous&gt;" in html
+    assert "<Cat & Test>" not in html
+    assert "&lt;Cat &amp; Test&gt;" in html
+
+    # Test cancelled transactions ignored & current_balance preferred in savings
+    ref_date = date(2026, 10, 23)
+    txs = [
+        {"date": "2026-10-20", "montant": -100.0, "categorie": "Alimentation", "bankStatus": "cancelled"},
+        {"date": "2026-10-20", "montant": -50.0, "categorie": "Alimentation"},
+    ]
+    savings = [{"compte": "Livret", "current_balance": 1200.0, "solde": 1000.0}]
+    recap = build_weekly_recap_data(
+        balances=[],
+        transactions=txs,
+        budgets=[{"categorie": "Alimentation", "montant": 200.0}],
+        savings_balances=savings,
+        include_savings=True,
+        reference_date=ref_date,
+    )
+    assert recap["expenses"]["total_expenses"] == 50.0
+    assert recap["balances"]["total_savings"] == 1200.0
+
+

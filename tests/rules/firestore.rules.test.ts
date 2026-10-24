@@ -34,6 +34,7 @@ const READ_ONLY_BANK_PATHS = [
   'bank_reports/reconciliation',
   'bank_sync_runs/r',
   'bank_runtime/config',
+  'recurring_expense_settings/r1',
 ];
 
 const FRONT_PATHS = [
