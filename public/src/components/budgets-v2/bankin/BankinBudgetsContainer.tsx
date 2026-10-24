@@ -276,21 +276,20 @@ export const BankinBudgetsContainer: React.FC = () => {
       const meta = getCategoryMeta(catName);
 
       // --- SECTION REVENUS ---
-      // On l'ajoute si on a reçu de l'argent (>0) OU si c'est explicitement un budget de revenu
-      if (isBudgetDefinedAsIncome || (inflow > 0 && !budgetObj && storedIsIncome === undefined)) {
+      if (isBudgetDefinedAsIncome) {
         incomeCategories.push({
           id: catName,
           nom: catName,
           depense: inflow,
-          montant: isBudgetDefinedAsIncome ? budgetMontant : 0,
+          montant: budgetMontant,
           sparklineData: generateSparkline(true),
           color: meta.color,
           transactions: mappedTransactions,
           isIncome: true,
           storedIsIncome,
         });
-        if (isBudgetDefinedAsIncome) totalIncomeBudget += budgetMontant;
-      } else if (outflow < 0 || budgetMontant > 0 || storedIsIncome === false) {
+        totalIncomeBudget += budgetMontant;
+      } else {
         // --- SECTION DÉPENSES ---
         // Le montant "spent" affiché est le NET (Dépenses - Remboursements).
         // Pas de clamp : un excédent de remboursements affiche un solde positif (vert).
@@ -518,8 +517,14 @@ export const BankinBudgetsContainer: React.FC = () => {
             viewMode === 'monthly' ? envelopes.reduce((s, e) => s + e.provisionMensuelle, 0) : 0
           }
           onShowEnvelopes={() => setTab('enveloppes')}
-          // Sans revenus de référence configurés, on garde le solde réellement encaissé.
-          forecastBalance={viewMode === 'monthly' && rav.revenuRef > 0 ? rav.reste : undefined}
+          // Sans revenus de référence configurés ou sur un mois passé clôturé, on garde le solde réellement encaissé.
+          forecastBalance={
+            viewMode === 'monthly' &&
+            monthKey >= new Date().toISOString().slice(0, 7) &&
+            rav.revenuRef > 0
+              ? rav.reste
+              : undefined
+          }
         />
       )}
     </div>

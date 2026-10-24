@@ -7,6 +7,8 @@ import { usePatrimoine } from '../hooks/usePatrimoine';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { useCredits } from '../hooks/useCredits';
 import { useRecurrences } from '../hooks/useRecurrences';
+import { useGlobalData } from '../context/GlobalDataContext';
+import { computeReferenceIncome } from '../utils/ravCalculations';
 import type { Credit } from '../types/banking.types';
 import {
   capitalRestantDuTotal,
@@ -135,16 +137,18 @@ export const WealthPage: React.FC = () => {
     usePatrimoine();
 
   const { incomes: incomeRecurrences } = useRecurrences();
-  // Taux d'endettement du foyer : tous les crédits / tous les revenus récurrents,
-  // quel que soit le filtre propriétaire.
-  const tauxEndettementFoyer = useMemo(
-    () =>
-      tauxEndettement(
-        mensualitesEnCours(credits, new Date()),
-        incomeRecurrences.reduce((sum, r) => sum + Math.abs(r.expectedAmount), 0),
-      ),
-    [credits, incomeRecurrences],
-  );
+  const { ravConfig, recurrences } = useGlobalData();
+  // Taux d'endettement du foyer : tous les crédits / revenus de référence du foyer
+  // (inclut provision_salaires et récurrences positives de salaires/CAF).
+  const tauxEndettementFoyer = useMemo(() => {
+    const totalIncome = computeReferenceIncome(ravConfig, recurrences);
+    return tauxEndettement(
+      mensualitesEnCours(credits, new Date()),
+      totalIncome > 0
+        ? totalIncome
+        : incomeRecurrences.reduce((sum, r) => sum + Math.abs(r.expectedAmount), 0),
+    );
+  }, [credits, ravConfig, recurrences, incomeRecurrences]);
   // Valeur nette = actifs − capital restant dû. Le CRD n'est déduit que si le
   // filtre de type inclut l'immobilier (sinon on soustrairait une dette sans son actif).
   const crdApplied =
@@ -254,12 +258,19 @@ export const WealthPage: React.FC = () => {
         }
       : undefined;
 
-  const dynamicOwners = [
-    { id: 'nicolas', label: 'Nicolas' },
-    { id: 'sienna', label: 'Sienna' },
-    { id: 'romane', label: 'Romane' },
-    { id: 'gwen', label: 'Gwen' },
-  ];
+  const rawOwners = (ownerMapping?.owners || []).filter((o) => o.toLowerCase() !== 'commun');
+  const dynamicOwners =
+    rawOwners.length === 0
+      ? [
+          { id: 'nicolas', label: 'Nicolas' },
+          { id: 'sienna', label: 'Sienna' },
+          { id: 'romane', label: 'Romane' },
+          { id: 'gwen', label: 'Gwen' },
+        ]
+      : rawOwners.map((o) => ({
+          id: o.toLowerCase(),
+          label: o.charAt(0).toUpperCase() + o.slice(1),
+        }));
 
   return (
     <div className="pt-6 md:pt-12 min-h-screen">

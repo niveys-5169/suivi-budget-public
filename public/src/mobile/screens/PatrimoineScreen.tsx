@@ -107,6 +107,13 @@ export const PatrimoineScreen: React.FC = () => {
     internalSelectedTypes,
   );
 
+  const filteredHoldings = useMemo(() => {
+    if (ownerScope === 'all') return holdings;
+    return holdings.filter((h) =>
+      ownerScope.some((s) => s.toLowerCase() === (h.owner || '').toLowerCase()),
+    );
+  }, [holdings, ownerScope]);
+
   // Valeur nette = actifs − capital restant dû, déduit seulement si le filtre de
   // type inclut l'immobilier (sinon on soustrairait une dette sans son actif).
   const crdOwner = useMemo(
@@ -377,9 +384,9 @@ export const PatrimoineScreen: React.FC = () => {
             </button>
           )}
 
-          {holdings.length > 0 && (
+          {filteredHoldings.length > 0 && (
             <div className="space-y-2">
-              {holdings
+              {filteredHoldings
                 .slice()
                 .sort((a, b) => b.currentValue - a.currentValue)
                 .map((h) => (

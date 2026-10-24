@@ -58,7 +58,9 @@ export const MCategoryRow: React.FC<MCategoryRowProps> = ({
             onToggleHide(name);
           }}
           className={`p-2 rounded-lg transition-colors shrink-0 hover:bg-white/10 ${
-            isHidden ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-active:opacity-100'
+            isHidden
+              ? 'opacity-100'
+              : 'opacity-60 md:opacity-0 md:group-hover:opacity-100 md:group-active:opacity-100'
           }`}
           title={isHidden ? 'Afficher' : "Masquer de l'analyse"}
         >

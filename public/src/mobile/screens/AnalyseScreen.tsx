@@ -215,10 +215,18 @@ export const AnalyseScreen: React.FC = () => {
 
       <div className="divide-y divide-separator border-t border-separator">
         {categoryData.items.map((item) => (
-          <button
+          <div
             key={item.name}
+            role="button"
+            tabIndex={0}
             onClick={() => setDrillDownCategory(item.name)}
-            className="w-full text-left"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setDrillDownCategory(item.name);
+              }
+            }}
+            className="w-full text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-gold/30"
           >
             <MCategoryRow
               name={item.name}
@@ -227,7 +235,7 @@ export const AnalyseScreen: React.FC = () => {
               onToggleHide={toggleHideCategory}
               isHidden={false}
             />
-          </button>
+          </div>
         ))}
 
         {categoryData.items.length === 0 && (

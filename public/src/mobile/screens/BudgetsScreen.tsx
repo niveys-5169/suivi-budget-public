@@ -130,39 +130,41 @@ export const BudgetsScreen: React.FC = () => {
       );
       const budgetObj = activeBudgets.find((b) => categoryKey(b.categorie || '') === catKey);
       const budgetMontant = budgetObj ? budgetObj.montant : 0;
+      const storedIsIncome = (
+        budgetObj ?? budgets.find((b) => categoryKey(b.categorie || '') === catKey)
+      )?.isIncome;
       // Tri-état : true/false force le sens ; absent → heuristiques en secours.
       const isIncome =
-        budgetObj?.isIncome === true
+        storedIsIncome === true
           ? true
-          : budgetObj?.isIncome === false
+          : storedIsIncome === false
             ? false
             : Boolean(budgetObj?.type === 'revenu' || (inflow > 0 && inflow > Math.abs(outflow)));
 
-      if (isIncome || (inflow > 0 && !budgetObj)) {
+      if (isIncome) {
         incomeCategories.push({
           id: catName,
           nom: catName,
           depense: inflow,
-          montant: isIncome ? budgetMontant : 0,
+          montant: budgetMontant,
           isIncome: true,
           transactions: [],
           sparklineData: [],
-          storedIsIncome: budgetObj?.isIncome,
+          storedIsIncome,
         });
-      }
-      if (!isIncome || outflow < 0) {
+      } else {
         const netSpent = -(inflow + outflow);
         expenseCategories.push({
           id: catName,
           nom: catName,
           depense: netSpent,
-          montant: isIncome ? 0 : budgetMontant,
+          montant: budgetMontant,
           isIncome: false,
           transactions: [],
           sparklineData: [],
-          storedIsIncome: budgetObj?.isIncome,
+          storedIsIncome,
         });
-        if (!isIncome) totalExpenseBudget += budgetMontant;
+        totalExpenseBudget += budgetMontant;
       }
     });
 
@@ -195,8 +197,9 @@ export const BudgetsScreen: React.FC = () => {
   );
 
   const envelopeProvision = envelopes.reduce((s, e) => s + e.provisionMensuelle, 0);
-  // Solde prévu = Reste à vivre ; sans revenus de référence, on garde le solde encaissé.
-  const showForecast = viewMode === 'monthly' && rav.revenuRef > 0;
+  // Solde prévu = Reste à vivre sur le mois courant/futur ; sur un mois passé ou sans revenus de référence, on garde le solde encaissé.
+  const isPastMonth = monthKey < new Date().toISOString().slice(0, 7);
+  const showForecast = viewMode === 'monthly' && !isPastMonth && rav.revenuRef > 0;
   const fmtEur = (n: number) => formatCurrency(n, 'EUR', 'fr-FR', { maximumFractionDigits: 0 });
 
   const masteryProgress =
@@ -233,8 +236,18 @@ export const BudgetsScreen: React.FC = () => {
 
   const handleToggleSens = async (catId: string, current: boolean | undefined) => {
     const budget = budgets.find((b) => categoryKey(b.categorie || '') === categoryKey(catId));
-    if (!budget) return;
     const next = current === undefined ? true : current === true ? false : undefined;
+    if (!budget) {
+      if (next === undefined) return;
+      await updateBudget(budgetDocKey(catId), {
+        categorie: catId,
+        nom: catId,
+        montant: 0,
+        actif: false,
+        isIncome: next,
+      });
+      return;
+    }
     const payload = next !== undefined ? { isIncome: next } : { isIncome: deleteField() };
     await updateBudget(budget.id || budgetDocKey(budget.categorie || ''), payload);
   };
@@ -242,11 +255,14 @@ export const BudgetsScreen: React.FC = () => {
   const drillDown = useMemo(() => {
     if (!viewingCategory) return null;
     const categoryTx = budgetData.txByCategory[categoryKey(viewingCategory)] ?? [];
-    const totalSpent = categoryTx.reduce((acc, tx) => acc + Math.abs(tx.montant || 0), 0);
-    const color = getCategoryMeta(viewingCategory).color;
     const catDetail = [...budgetData.expenseCategories, ...budgetData.incomeCategories].find(
       (c) => c.id === viewingCategory,
     );
+    const isIncomeCat = catDetail?.isIncome ?? false;
+    const totalSpent = isIncomeCat
+      ? categoryTx.reduce((acc, tx) => acc + (tx.montant || 0), 0)
+      : Math.abs(categoryTx.reduce((acc, tx) => acc + (tx.montant || 0), 0));
+    const color = getCategoryMeta(viewingCategory).color;
     const [py = NaN, pm = NaN] = monthKey.split('-').map(Number);
     const lastDay = String(new Date(py, pm, 0).getDate()).padStart(2, '0');
     const periodeDebut = viewMode === 'monthly' ? `${monthKey}-01` : `${py}-01-01`;
