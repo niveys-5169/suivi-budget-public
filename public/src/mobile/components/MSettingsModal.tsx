@@ -60,23 +60,30 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
   const handleClearCache = async () => {
     setIsClearing(true);
     try {
-      const keysToKeep = ['auth_token', 'user_preferences'];
       Object.keys(localStorage).forEach((key) => {
-        if (!keysToKeep.includes(key)) {
+        if (!key.startsWith('firebase:') && key !== 'user_preferences' && key !== 'auth_token') {
           localStorage.removeItem(key);
         }
       });
 
-      const databases = await indexedDB.databases();
-      for (const db of databases) {
-        if (db.name) indexedDB.deleteDatabase(db.name);
+      if (typeof window.indexedDB?.databases === 'function') {
+        const databases = await window.indexedDB.databases();
+        const deletePromises = databases
+          .filter((db) => db.name && !db.name.toLowerCase().includes('firebase'))
+          .map((db) => {
+            return new Promise<void>((resolve) => {
+              const req = window.indexedDB.deleteDatabase(db.name!);
+              req.onsuccess = () => resolve();
+              req.onerror = () => resolve();
+              req.onblocked = () => resolve();
+            });
+          });
+        await Promise.all(deletePromises);
       }
 
       if ('caches' in window) {
         const cacheNames = await caches.keys();
-        for (const cacheName of cacheNames) {
-          await caches.delete(cacheName);
-        }
+        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
       }
 
       window.location.reload();

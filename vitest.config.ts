@@ -22,10 +22,11 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
+      '**/.venv/**',
       '**/.worktrees/**',
       '**/Suivi-Budget-mirror/**',
       '**/e2e/**',
-      'tests/rules/**',
+      '**/tests/rules/**',
       '**/playwright-report/**',
       '**/storybook-static/**',
     ],
