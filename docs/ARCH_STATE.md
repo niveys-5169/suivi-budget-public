@@ -302,6 +302,15 @@ courbe d'évolution n'a besoin d'aucune collection dédiée.
   (dans `AssetDetailModal`). Catégorie `immobilier` dans `useWealthAggregates`,
   `WealthCategory`, `computeWealthTotals`. Mobile : consultation seulement.
 
+## 💰 Reste-à-Vivre (RAV) « Option A », enveloppes annuelles et mois passés (octobre 2026)
+
+Alignement du calcul du Reste-à-Vivre (`utils/ravCalculations.ts`, `hooks/useRavSummary.ts`, `components/budgets-v2/RAVEditor.tsx`) et de la parité Desktop / Mobile :
+
+- **Enveloppes annuelles (Option A)** — `hooks/useAnnualEnvelopes.ts` accepte un `targetMonthKey` optionnel et expose `envelopeKeys` ainsi que `totalProvisionMensuelle` (somme des provisions mensuelles `1/12`). `computeDerivedRav` exclut les dépenses ponctuelles et récurrences des catégories d'enveloppes annuelles et retranche une unique fois la provision mensuelle fixe (`envelopeProvision`).
+- **Dépenses nettes & filtrage des récurrences** — les dépenses du mois sont agrégées en net par catégorie (un remboursement réduit la dépense de sa catégorie), et `getRecurringProvisions` applique le même filtre d'exclusion (`DEFAULT_EXCLUDED_EXPENSES` : Prêt, Épargne, Impôts, Virement interne) ainsi que `included_accounts` pour éviter tout saut du RAV le jour du prélèvement. `hooks/useSafeToSpend.ts` normalise également les budgets annuels (`/ 12`) et intègre les remboursements sur les catégories de dépense.
+- **Mois passés clôturés** — lorsque `monthKey < currentMonthKey`, aucune provision « à venir » (récurrences ou enveloppes) n'est déduite (`0`), et l'en-tête Budgets (`BankinBudgetsContainer` / `BudgetsScreen`) affiche le solde réalisé (`netBalance`) au lieu du solde prévu.
+- **Classification Revenus / Dépenses unifiée** — `BankinBudgetsContainer` (desktop) et `BudgetsScreen` (mobile) partagent la même condition stricte `if (isBudgetDefinedAsIncome) { ... } else { ... }`, évitant qu'un remboursement sur une catégorie non budgétée ne la bascule dans les revenus ou ne la duplique.
+
 ## 🔗 Infrastructure
 
 ### Secrets d’exécution Google Secret Manager (13 octobre 2026)

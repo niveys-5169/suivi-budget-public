@@ -264,4 +264,55 @@ describe('calculateSafeToSpend', () => {
     expect(result.projectedLiquidity).toBe(3000);
     expect(result.safeToSpend).toBe(3000);
   });
+
+  it('normalise les budgets annuels en 1/12e et prend en compte les remboursements de dépenses', () => {
+    const fixedDate = new Date(2026, 9, 18);
+    const budgets: BudgetBase[] = [
+      {
+        id: 'b-vacances',
+        nom: 'Vacances',
+        categorie: 'Vacances',
+        montant: 2400, // Budget annuel de 2400 € => 200 € / mois
+        actif: true,
+        type: 'annuel',
+      },
+      {
+        id: 'b-sante',
+        nom: 'Santé',
+        categorie: 'Santé',
+        montant: 100,
+        actif: true,
+        type: 'mensuel',
+      },
+    ];
+
+    const transactions: Transaction[] = [
+      {
+        id: 'tx-medecin',
+        libelle: 'Consultation',
+        montant: -60,
+        categorie: 'Santé',
+        date: '2026-10-05',
+        compte: 'Courant',
+        pointe: true,
+      },
+      {
+        id: 'tx-remboursement',
+        libelle: 'Remboursement CPAM',
+        montant: 40, // Remboursement de 40 € => dépense nette Santé = 20 €
+        categorie: 'Santé',
+        date: '2026-10-10',
+        compte: 'Courant',
+        pointe: true,
+      },
+    ];
+
+    // Vacances : budget mensuel 2400/12 = 200, dépensé 0 => restant 200
+    // Santé : budget 100, dépensé net 20 => restant 80
+    // Total restant = 280 €
+    const result = calculateSafeToSpend(2000, [], transactions, budgets, null, fixedDate);
+
+    expect(result.remainingBudgets).toBe(280);
+    expect(result.safeToSpend).toBe(1720); // 2000 - 280
+  });
 });

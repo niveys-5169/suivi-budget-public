@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useGlobalData } from '../context/GlobalDataContext';
+import { useAnnualEnvelopes } from './useAnnualEnvelopes';
 import { computeDerivedRav, toRavFormConfig } from '../utils/ravCalculations';
 import type { Transaction } from '../types/banking.types';
 
@@ -9,6 +10,7 @@ import type { Transaction } from '../types/banking.types';
  */
 export const useRavSummary = (monthKey: string, transactions: Transaction[]) => {
   const { ravConfig, recurrences } = useGlobalData();
+  const { envelopeKeys, totalProvisionMensuelle } = useAnnualEnvelopes(transactions, monthKey);
 
   return useMemo(
     () =>
@@ -16,7 +18,9 @@ export const useRavSummary = (monthKey: string, transactions: Transaction[]) => 
         monthKey,
         txList: transactions,
         recurrences: recurrences.filter((r) => r.active),
+        envelopeKeys,
+        envelopeProvision: totalProvisionMensuelle,
       }),
-    [ravConfig, recurrences, monthKey, transactions],
+    [ravConfig, recurrences, monthKey, transactions, envelopeKeys, totalProvisionMensuelle],
   );
 };

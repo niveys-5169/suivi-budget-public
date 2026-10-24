@@ -183,24 +183,55 @@ export function categoryMatcher(
   return (cat: string) => !normalizedExcluded.has(normCategory(cat));
 }
 
+export interface RecurringProvisionsOptions {
+  categoryFilter?: (cat: string) => boolean;
+  includedAccounts?: string[];
+  referenceDate?: Date;
+  checkPastMonth?: boolean;
+}
+
 /**
  * Provisions signées (négatives pour les dépenses, positives pour les revenus)
  * des récurrences actives d'un sens donné, pour le mois courant. Provisionné
  * uniquement si la période courante n'est ni payée ni ignorée (évite de
  * compter deux fois une charge déjà pointée ce mois-ci).
+ * Pour un mois passé clôturé (avec checkPastMonth), retourne 0.
  */
 export function getRecurringProvisions(
   monthKey: string,
   txs: Transaction[],
   recurrences: Recurrence[],
   movementType: 'expense' | 'income',
+  options?: RecurringProvisionsOptions,
 ): number {
-  const isExpense = movementType === 'expense';
-  const today = new Date();
+  const today = options?.referenceDate || new Date();
+  if (options?.checkPastMonth) {
+    const currentMonthKey = today.toISOString().slice(0, 7);
+    if (monthKey < currentMonthKey) {
+      return 0;
+    }
+  }
 
-  const activeOfType = recurrences.filter(
-    (r) => r.active && (isExpense ? r.expectedAmount < 0 : r.expectedAmount > 0),
-  );
+  const isExpense = movementType === 'expense';
+
+  const activeOfType = recurrences.filter((r) => {
+    if (!r.active) return false;
+    if (isExpense ? r.expectedAmount >= 0 : r.expectedAmount <= 0) return false;
+    if (options?.categoryFilter && !options.categoryFilter(r.category || '')) return false;
+    const recAccount =
+      (r as { account?: string; compte?: string }).account ||
+      (r as { account?: string; compte?: string }).compte;
+    if (
+      options?.includedAccounts &&
+      options.includedAccounts.length > 0 &&
+      recAccount &&
+      !options.includedAccounts.includes(recAccount)
+    ) {
+      return false;
+    }
+    return true;
+  });
+
   const periodKey = getPeriodKey(`${monthKey}-01`);
   const periodTxs = txs.filter(
     (t) => counted(t) && (t.moisAffectation || t.date || '').slice(0, 7) === monthKey,
@@ -216,18 +247,23 @@ export function getRecurringProvisions(
   }, 0);
 }
 
-interface RavContext {
+export interface RavContext {
   monthKey: string;
   txList: Transaction[];
   recurrences: Recurrence[];
+  envelopeKeys?: Set<string>;
+  envelopeProvision?: number;
+  referenceDate?: Date;
 }
 
 /** Calcule le Reste-À-Vivre dérivé d'une configuration et d'un contexte transactionnel. */
 export function computeDerivedRav(cfg: RavConfigFormValues, ctx: RavContext): DerivedRav {
-  const { monthKey, txList, recurrences } = ctx;
+  const { monthKey, txList, recurrences, envelopeKeys, envelopeProvision = 0, referenceDate } = ctx;
   const expenseMatches = categoryMatcher(cfg.depense_categories, DEFAULT_EXCLUDED_EXPENSES);
+  const isEnvelopeCat = (cat: string) => Boolean(envelopeKeys?.has(categoryKey(cat)));
+  const isExpenseIncluded = (cat: string) => expenseMatches(cat) && !isEnvelopeCat(cat);
 
-  let totalExpenses = 0;
+  const netByCategory: Record<string, number> = {};
 
   txList.forEach((tx) => {
     const isRightMonth = (tx.moisAffectation || tx.date || '').slice(0, 7) === monthKey;
@@ -237,23 +273,40 @@ export function computeDerivedRav(cfg: RavConfigFormValues, ctx: RavContext): De
     if (isRightMonth && counted(tx) && isAccountIncluded) {
       const amount = tx.montant ?? 0;
       const cat = (tx.categorie || '').trim();
-      if (amount < 0 && expenseMatches(cat)) {
-        totalExpenses += amount;
+      if (isExpenseIncluded(cat)) {
+        const key = categoryKey(cat);
+        netByCategory[key] = (netByCategory[key] || 0) + amount;
       }
     }
   });
 
-  const expenseProvisions = getRecurringProvisions(monthKey, txList, recurrences, 'expense');
+  let totalExpenses = 0;
+  for (const net of Object.values(netByCategory)) {
+    if (net < 0) totalExpenses += net;
+  }
+
+  const today = referenceDate || new Date();
+  const currentMonthKey = today.toISOString().slice(0, 7);
+  const isPastMonth = monthKey < currentMonthKey;
+
+  const expenseProvisions = getRecurringProvisions(monthKey, txList, recurrences, 'expense', {
+    categoryFilter: isExpenseIncluded,
+    includedAccounts: cfg.included_accounts,
+    referenceDate: today,
+    checkPastMonth: true,
+  });
   const revenuRef = computeReferenceIncome(cfg, recurrences, monthKey);
-  // expenseProvisions est négatif (dépenses) : l'additionner le retranche bien du reste.
-  const reste = revenuRef - Math.abs(totalExpenses) + expenseProvisions;
+  const monthlyEnvelope = isPastMonth ? 0 : Math.max(0, envelopeProvision);
+  const totalProvisions = expenseProvisions - monthlyEnvelope;
+  // totalProvisions est négatif (dépenses + provision annuelle) : l'additionner le retranche bien du reste.
+  const reste = revenuRef - Math.abs(totalExpenses) + totalProvisions;
   const pct = revenuRef > 0 ? Math.max(0, Math.min(100, (reste / revenuRef) * 100)) : 0;
 
   return {
     reste,
     revenuRef,
     totalDep: totalExpenses,
-    provisions: expenseProvisions,
+    provisions: totalProvisions,
     modeLabel: 'FIXE',
     pct,
   };

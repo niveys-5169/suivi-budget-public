@@ -216,17 +216,16 @@ export function calculateSafeToSpend(
   const spentByCatKey = new Map<string, number>();
   periodTxs.forEach((tx) => {
     const amount = tx.montant ?? 0;
-    if (amount < 0) {
-      const catK = categoryKey(tx.categorie || 'Autre');
-      spentByCatKey.set(catK, (spentByCatKey.get(catK) || 0) + Math.abs(amount));
-    }
+    const catK = categoryKey(tx.categorie || 'Autre');
+    spentByCatKey.set(catK, (spentByCatKey.get(catK) || 0) - amount);
   });
 
   let remainingBudgets = 0;
   for (const b of activeExpenseBudgets) {
     const catK = categoryKey(b.categorie);
-    const budgetAmount = Math.max(0, b.montant ?? 0);
-    const spentAmount = spentByCatKey.get(catK) || 0;
+    const rawBudget = Math.max(0, b.montant ?? 0);
+    const budgetAmount = b.type === 'annuel' ? rawBudget / 12 : rawBudget;
+    const spentAmount = Math.max(0, spentByCatKey.get(catK) || 0);
     const rawRemaining = Math.max(0, budgetAmount - spentAmount);
 
     // Déduit la charge fixe déjà comptabilisée dans les récurrences pour cette catégorie

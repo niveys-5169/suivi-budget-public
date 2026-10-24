@@ -18,6 +18,7 @@ import {
 import { db } from '../../services/firebase';
 import { useTransactions } from '../../hooks/useTransactions';
 import { useBudgetContext } from '../../context/BudgetContext';
+import { useAnnualEnvelopes } from '../../hooks/useAnnualEnvelopes';
 import { useGlobalData } from '../../context/GlobalDataContext';
 import { fmt, parseDecimal } from '../../utils/format';
 import { ravConfigSchema, type RavConfigFormValues } from '../../lib/schemas/forms';
@@ -74,10 +75,18 @@ export const RAVEditor: React.FC<Props> = ({ monthKey, onClose }) => {
     return Array.from(new Set([...fromTx, ...fromBudget])).sort((a, b) => a.localeCompare(b, 'fr'));
   }, [txList, getBudgetCategoryCandidates]);
 
+  const { envelopeKeys, totalProvisionMensuelle } = useAnnualEnvelopes(txList, monthKey);
+
   const computedFromConfig = useCallback(
     (cfg: RavConfigFormValues) =>
-      computeDerivedRav(cfg, { monthKey, txList, recurrences: activeRecurrences }),
-    [monthKey, txList, activeRecurrences],
+      computeDerivedRav(cfg, {
+        monthKey,
+        txList,
+        recurrences: activeRecurrences,
+        envelopeKeys,
+        envelopeProvision: totalProvisionMensuelle,
+      }),
+    [monthKey, txList, activeRecurrences, envelopeKeys, totalProvisionMensuelle],
   );
 
   // Toutes les valeurs ont un défaut (useForm), d'où le type complet, comme watch().

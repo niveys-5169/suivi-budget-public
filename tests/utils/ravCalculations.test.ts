@@ -138,10 +138,11 @@ describe('getRecurringProvisions', () => {
 });
 
 describe('computeDerivedRav', () => {
-  const ctx = (txList: Transaction[], recurrences: Recurrence[] = []) => ({
+  const ctx = (txList: Transaction[], recurrences: Recurrence[] = [], referenceDate?: Date) => ({
     monthKey: '2024-03',
     txList,
     recurrences,
+    referenceDate: referenceDate ?? new Date('2024-03-15'),
   });
 
   it('returns zeros for an empty config and no data', () => {
@@ -346,5 +347,119 @@ describe('catégories de revenu de référence', () => {
     expect(isAllowedIncomeCategory('Salaire Gwen', ['Salaire Nico'])).toBe(false);
     expect(isAllowedIncomeCategory('Salaire Nico', ['Salaire Nico'])).toBe(true);
     expect(isAllowedIncomeCategory('')).toBe(false);
+  });
+});
+
+describe('computeDerivedRav — Option A Enveloppes, Récurrences exclues et Remboursements', () => {
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
+
+  it('exclut les dépenses d’enveloppes annuelles et déduit la provision mensuelle d’enveloppe', () => {
+    const config: RavConfigFormValues = {
+      ...baseConfig,
+      provision_salaires: { nico: { montant: 3000, categorie: 'Salaire' } },
+    };
+    const txs: Transaction[] = [
+      tx({ montant: -200, categorie: 'Courses', date: `${currentMonthKey}-05` }),
+      // Dépense ponctuelle d'enveloppe annuelle (ex: vacances)
+      tx({ montant: -1200, categorie: 'Vacances', date: `${currentMonthKey}-10` }),
+    ];
+    const envelopeKeys = new Set(['vacances']);
+    const envelopeProvision = 150; // 150 € / mois
+
+    const res = computeDerivedRav(config, {
+      monthKey: currentMonthKey,
+      txList: txs,
+      recurrences: [],
+      envelopeKeys,
+      envelopeProvision,
+    });
+
+    // totalDep ne doit inclure que Courses (-200 €), pas Vacances (-1200 €)
+    expect(res.totalDep).toBe(-200);
+    // provisions doit inclure la provision d'enveloppe (-150 €)
+    expect(res.provisions).toBe(-150);
+    // reste = 3000 (salaire) - 200 (courses) - 150 (provision vacances) = 2650 €
+    expect(res.reste).toBe(2650);
+  });
+
+  it('ignore les récurrences de catégories exclues (ex: Prêt, Épargne) dans les provisions', () => {
+    const config: RavConfigFormValues = {
+      ...baseConfig,
+      provision_salaires: { nico: { montant: 3000, categorie: 'Salaire' } },
+    };
+    const recurrences: Recurrence[] = [
+      {
+        id: 'rec-pret',
+        label: 'Prêt Immo',
+        category: 'Prêt',
+        expectedAmount: -1000,
+        dayOfMonth: 10,
+        active: true,
+      } as Recurrence,
+      {
+        id: 'rec-internet',
+        label: 'Fibre',
+        category: 'Internet',
+        expectedAmount: -40,
+        dayOfMonth: 20,
+        active: true,
+      } as Recurrence,
+    ];
+
+    const res = computeDerivedRav(config, {
+      monthKey: currentMonthKey,
+      txList: [],
+      recurrences,
+    });
+
+    // Seule la fibre (-40 €) doit être provisionnée, pas le prêt (-1000 €) qui est hors dépenses RAV
+    expect(res.provisions).toBe(-40);
+    expect(res.reste).toBe(2960);
+  });
+
+  it('ne calcule aucune provision « à venir » sur un mois passé clôturé', () => {
+    const config: RavConfigFormValues = {
+      ...baseConfig,
+      provision_salaires: { nico: { montant: 3000, categorie: 'Salaire' } },
+    };
+    const recurrences: Recurrence[] = [
+      {
+        id: 'rec-internet',
+        label: 'Fibre',
+        category: 'Internet',
+        expectedAmount: -40,
+        dayOfMonth: 20,
+        active: true,
+      } as Recurrence,
+    ];
+
+    const res = computeDerivedRav(config, {
+      monthKey: '2020-01', // Mois très ancien
+      txList: [],
+      recurrences,
+    });
+
+    expect(res.provisions).toBe(0);
+  });
+
+  it('compense les remboursements sur une catégorie de dépense (dépenses nettes)', () => {
+    const config: RavConfigFormValues = {
+      ...baseConfig,
+      provision_salaires: { nico: { montant: 3000, categorie: 'Salaire' } },
+    };
+    const txs: Transaction[] = [
+      tx({ montant: -100, categorie: 'Santé', date: `${currentMonthKey}-02` }),
+      tx({ montant: 30, categorie: 'Santé', date: `${currentMonthKey}-08` }), // Remboursement Sécu
+    ];
+
+    const res = computeDerivedRav(config, {
+      monthKey: currentMonthKey,
+      txList: txs,
+      recurrences: [],
+    });
+
+    // Dépense nette Santé = -70 €
+    expect(res.totalDep).toBe(-70);
+    expect(res.reste).toBe(2930);
   });
 });
