@@ -30,14 +30,18 @@ const rec = (over: Partial<Recurrence>): Recurrence =>
 const link = vi.fn().mockResolvedValue(undefined);
 const unlink = vi.fn().mockResolvedValue(undefined);
 
-function setup(candidates: Recurrence[], linkedTxToRecurrence: Record<string, Recurrence> = {}) {
+function setup(
+  candidates: Recurrence[],
+  linkedTxToRecurrence: Record<string, Recurrence> = {},
+  onLinked?: (rec: Recurrence) => void,
+) {
   (useRecurrences as any).mockReturnValue({
     mappings: { linkedTxToRecurrence, candidateTxToRecurrence: {} },
     recurrenceCandidates: () => candidates,
     link,
     unlink,
   });
-  return render(<RecurrenceLinkField transaction={transaction} />);
+  return render(<RecurrenceLinkField transaction={transaction} onLinked={onLinked} />);
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -85,6 +89,17 @@ describe('RecurrenceLinkField', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /lier à une récurrence/i })).toBeInTheDocument(),
     );
+  });
+
+  it('notifie le formulaire parent une fois la liaison faite', async () => {
+    const target = rec({ category: 'Streaming' });
+    const onLinked = vi.fn();
+    setup([target], {}, onLinked);
+
+    fireEvent.click(screen.getByRole('button', { name: /lier à une récurrence/i }));
+    fireEvent.click(screen.getByText('Netflix'));
+
+    await waitFor(() => expect(onLinked).toHaveBeenCalledWith(target));
   });
 
   it('affiche la récurrence liée et permet de délier', async () => {

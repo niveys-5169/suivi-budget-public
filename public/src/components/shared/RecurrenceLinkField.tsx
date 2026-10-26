@@ -10,6 +10,8 @@ import type { Recurrence, Transaction } from '../../types/banking.types';
 interface RecurrenceLinkFieldProps {
   /** Transaction ENREGISTRÉE — la liaison écrit sur le document, pas sur le formulaire. */
   transaction: Transaction;
+  /** Appelé après une liaison réussie, pour resynchroniser les champs du formulaire parent. */
+  onLinked?: (rec: Recurrence) => void;
 }
 
 /**
@@ -22,7 +24,10 @@ interface RecurrenceLinkFieldProps {
  * empilées partagent l'écoute `Escape` et le piège de focus, et se fermeraient
  * ensemble.
  */
-export const RecurrenceLinkField: React.FC<RecurrenceLinkFieldProps> = ({ transaction }) => {
+export const RecurrenceLinkField: React.FC<RecurrenceLinkFieldProps> = ({
+  transaction,
+  onLinked,
+}) => {
   const { formatMessage: t } = useIntl();
 
   // Le mois de la TRANSACTION, pas celui affiché à l'écran : c'est la période
@@ -110,7 +115,7 @@ export const RecurrenceLinkField: React.FC<RecurrenceLinkFieldProps> = ({ transa
               title={rec.label}
               subtitle={`${rec.category} · ${hint(rec)}`}
               trailing={<Amount value={rec.expectedAmount} variant="footnote" />}
-              onClick={() => run(link(rec, transaction))}
+              onClick={() => run(link(rec, transaction).then(() => onLinked?.(rec)))}
             />
           ))}
         </List>
