@@ -53,6 +53,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     handleSubmit,
     reset,
     getValues,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
@@ -315,7 +316,15 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
 
               {transaction?.id && (
                 <div className="sm:col-span-2">
-                  <RecurrenceLinkField transaction={transaction} />
+                  <RecurrenceLinkField
+                    transaction={transaction}
+                    onLinked={(rec) => {
+                      // `link()` a déjà écrit catégorie et pointage sur le document ;
+                      // sans ceci, « Valider » réécrirait les anciennes valeurs du formulaire.
+                      if (rec.category) setValue('categorie', rec.category);
+                      setValue('pointe', true);
+                    }}
+                  />
                 </div>
               )}
 
