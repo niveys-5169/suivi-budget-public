@@ -9,9 +9,14 @@ export const hideLoader = () => {
   }
 };
 
-export const setLoaderMsg = (html: string) => {
+export const setLoaderMsg = (msg: string) => {
   const loader = document.getElementById('loader');
   if (loader) {
-    loader.innerHTML = '<div class="spinner"></div><br>' + html;
+    loader.replaceChildren();
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    const br = document.createElement('br');
+    const text = document.createTextNode(msg);
+    loader.append(spinner, br, text);
   }
 };

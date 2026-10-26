@@ -40,11 +40,13 @@ jobs:
       - name: Cleanup recharges Tronity dupliquées
         env:
           FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+          CLEANUP_MODE: ${{ inputs.mode }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "▶ Mode dry-run (${{ inputs.mode }}) : aucune suppression ne sera effectuée."
-            python src/cleanup_tronity_duplicates.py --mode "${{ inputs.mode }}" --dry-run
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "▶ Mode dry-run ($CLEANUP_MODE) : aucune suppression ne sera effectuée."
+            python src/cleanup_tronity_duplicates.py --mode "$CLEANUP_MODE" --dry-run
           else
-            echo "▶ Mode réel (${{ inputs.mode }}) : suppression effective dans Firestore."
-            python src/cleanup_tronity_duplicates.py --mode "${{ inputs.mode }}"
+            echo "▶ Mode réel ($CLEANUP_MODE) : suppression effective dans Firestore."
+            python src/cleanup_tronity_duplicates.py --mode "$CLEANUP_MODE"
           fi

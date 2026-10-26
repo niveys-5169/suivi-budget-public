@@ -159,5 +159,5 @@ def record_reconciliation_action_logic(req: https_fn.CallableRequest) -> dict:
             raise e
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
-            message=str(e)
+            message="Erreur interne du serveur."
         )

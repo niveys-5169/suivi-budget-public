@@ -8,6 +8,20 @@ const toPascalCase = (name: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('');
 
+/**
+ * Nettoie un fragment SVG avant injection DOM pour empêcher toute exécution de script
+ * (balises actives, gestionnaires d'événements inline `on*`, URLs `javascript:` / `data:text/html`).
+ */
+export const sanitizeSvg = (rawSvg: string): string =>
+  rawSvg
+    .replace(/<\s*(script|foreignObject|iframe|object|embed)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+    .replace(/<\s*(script|foreignObject|iframe|object|embed)\b[^>]*\/?\s*>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(
+      /\s+(?:xlink:)?href\s*=\s*(?:"\s*(?:javascript:|data:text\/html)[^"]*"|'\s*(?:javascript:|data:text\/html)[^']*'|(?:\s*(?:javascript:|data:text\/html))[^\s>]*)/gi,
+      '',
+    );
+
 // Nom hors de la table statique (icône choisie avant la liste curatée) : on
 // charge la bibliothèque complète à la demande plutôt qu'au démarrage. Le
 // build CJS est un module distinct du barrel ESM importé en statique ailleurs ;
@@ -62,7 +76,7 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({
       <div
         className={`flex items-center justify-center ${className}`}
         style={{ color: color || 'currentColor' }}
-        dangerouslySetInnerHTML={{ __html: icon }}
+        dangerouslySetInnerHTML={{ __html: sanitizeSvg(icon) }}
       />
     );
   }

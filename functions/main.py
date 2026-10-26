@@ -88,6 +88,11 @@ MAX_EMAILS_PER_RUN = int(os.environ.get("MAX_EMAILS_PER_RUN", "25"))
 GITHUB_REPO_OWNER = os.environ.get("GITHUB_REPO_OWNER", "niveys-5169")
 GITHUB_REPO_NAME = os.environ.get("GITHUB_REPO_NAME", "suivi-budget-public")
 GITHUB_DISPATCH_TIMEOUT_S = 20
+ALLOWED_GITHUB_DISPATCH_EVENTS = frozenset({
+    "import-linxo",
+    "import-tronity",
+    "estimate-property",
+})
 
 
 def _build_gmail_client() -> GmailClient:
@@ -299,11 +304,11 @@ def trigger_patrimoine_snapshot(req: https_fn.CallableRequest) -> dict:
         return {"status": "success", "entries": count}
     except https_fn.HttpsError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception("Erreur dans trigger_patrimoine_snapshot")
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
-            message=str(e)
+            message="Erreur interne du serveur."
         )
 
 @scheduler_fn.on_schedule(schedule="5 0 * * *", region="europe-west1")
@@ -333,11 +338,11 @@ def trigger_portfolio_daily_sync(req: https_fn.CallableRequest) -> dict:
         return {"status": "success", "entries": count}
     except https_fn.HttpsError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception("Erreur dans trigger_portfolio_daily_sync")
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
-            message=str(e)
+            message="Erreur interne du serveur."
         )
 
 @https_fn.on_call(region="europe-west1", secrets=[GMAIL_TOKEN_SECRET])
@@ -348,11 +353,11 @@ def import_linxo_transactions(req: https_fn.CallableRequest) -> dict:
         return _run_linxo_import_core(gmail)
     except https_fn.HttpsError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception("Erreur non gérée dans import_linxo_transactions")
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
-            message=f"Erreur inattendue : {type(e).__name__}: {e}"
+            message="Erreur interne du serveur."
         )
 
 def _dispatch_github_workflow_logic(req: https_fn.CallableRequest) -> dict:
@@ -361,12 +366,17 @@ def _dispatch_github_workflow_logic(req: https_fn.CallableRequest) -> dict:
         require_owner(req)
 
         event_type = req.data.get("event_type")
-        if not event_type:
+        if not event_type or not isinstance(event_type, str) or event_type not in ALLOWED_GITHUB_DISPATCH_EVENTS:
             raise https_fn.HttpsError(
                 code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
-                message="event_type manquant."
+                message="event_type invalide ou manquant."
             )
         client_payload = req.data.get("client_payload")
+        if client_payload is not None and not isinstance(client_payload, dict):
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+                message="client_payload doit être un objet JSON."
+            )
 
         token = GITHUB_DISPATCH_TOKEN_SECRET.value
         if not token:
@@ -395,11 +405,11 @@ def _dispatch_github_workflow_logic(req: https_fn.CallableRequest) -> dict:
         return {"status": "success"}
     except https_fn.HttpsError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception("Erreur dans dispatch_github_workflow")
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
-            message=str(e)
+            message="Erreur interne du serveur."
         )
 
 @https_fn.on_call(region="europe-west1", secrets=[GITHUB_DISPATCH_TOKEN_SECRET])
@@ -566,9 +576,9 @@ def setup_gmail_watch(req: https_fn.CallableRequest) -> dict:
         }
     except https_fn.HttpsError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception("Erreur dans setup_gmail_watch")
-        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INTERNAL, str(e))
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INTERNAL, "Erreur interne du serveur.")
 
 
 @scheduler_fn.on_schedule(
@@ -686,10 +696,10 @@ def send_weekly_recap_email(req: https_fn.CallableRequest) -> dict:
         }
     except https_fn.HttpsError:
         raise
-    except Exception as e:
+    except Exception:
         logging.exception("Erreur dans send_weekly_recap_email")
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
-            message=str(e),
+            message="Erreur interne du serveur.",
         )
 

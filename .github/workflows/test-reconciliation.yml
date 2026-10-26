@@ -23,6 +23,9 @@ on:
       - '.github/workflows/test-reconciliation.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: test-reconciliation-${{ github.ref }}
   cancel-in-progress: true

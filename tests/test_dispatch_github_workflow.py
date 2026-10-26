@@ -62,6 +62,27 @@ def test_dispatch_missing_event_type(main_module):
     assert exc_info.value.code == https_fn.FunctionsErrorCode.INVALID_ARGUMENT
 
 
+def test_dispatch_unknown_event_type_rejected(main_module):
+    req = create_mock_callable_request(auth_uid=OWNER_UID, data={"event_type": "arbitrary-event"})
+
+    with pytest.raises(https_fn.HttpsError) as exc_info:
+        main_module._dispatch_github_workflow_logic(req)
+
+    assert exc_info.value.code == https_fn.FunctionsErrorCode.INVALID_ARGUMENT
+
+
+def test_dispatch_non_dict_client_payload_rejected(main_module):
+    req = create_mock_callable_request(
+        auth_uid=OWNER_UID,
+        data={"event_type": "import-linxo", "client_payload": ["not-a-dict"]},
+    )
+
+    with pytest.raises(https_fn.HttpsError) as exc_info:
+        main_module._dispatch_github_workflow_logic(req)
+
+    assert exc_info.value.code == https_fn.FunctionsErrorCode.INVALID_ARGUMENT
+
+
 def test_dispatch_missing_token(main_module, mocker):
     mocker.patch.object(
         main_module,
@@ -138,3 +159,4 @@ def test_dispatch_github_http_error(main_module, mocker):
         main_module._dispatch_github_workflow_logic(req)
 
     assert exc_info.value.code == https_fn.FunctionsErrorCode.INTERNAL
+    assert "Bad credentials" not in exc_info.value.message
