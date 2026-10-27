@@ -37,6 +37,20 @@ vi.mock('../../../public/src/hooks/useSyncTransactions', () => ({
   useSyncTransactions: () => ({ sync: vi.fn(), isSyncing: false }),
 }));
 
+const addCategory = vi.hoisted(() => vi.fn());
+vi.mock('../../../public/src/context/BudgetContext', () => ({
+  useBudgetContext: () => ({
+    getBudgetCategoryCandidates: () => ['Salaire'],
+    removedCategories: [],
+    addCategory,
+    deleteCategory: vi.fn(),
+  }),
+}));
+
+vi.mock('../../../public/src/context/CategoryMetaContext', () => ({
+  useCategoryMeta: () => ({ overrides: {}, setMeta: vi.fn(), resetMeta: vi.fn(), loading: false }),
+}));
+
 /**
  * La config IA n'occupe plus la feuille Paramètres : une ligne ouvre une feuille
  * dédiée. Les requêtes visent cette feuille, pas celle du dessous (qui a son
@@ -69,6 +83,20 @@ describe('MSettingsModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /Enregistrer/i }));
 
     await waitFor(() => expect(saveGitHubSettings).toHaveBeenCalledWith('new-owner', 'new-repo'));
+  });
+
+  it('crée une catégorie depuis la PWA', async () => {
+    addCategory.mockResolvedValue(undefined);
+    render(<MSettingsModal isOpen onClose={onCloseMock} />);
+    expect(screen.queryByLabelText('Nom de la nouvelle catégorie')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Gérer les catégories/i }));
+
+    fireEvent.change(screen.getByLabelText('Nom de la nouvelle catégorie'), {
+      target: { value: 'Indemnités de licenciement' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter' }));
+
+    await waitFor(() => expect(addCategory).toHaveBeenCalledWith('Indemnités de licenciement'));
   });
 
   it('enregistre clé, modèle et URL par fournisseur (ancien format migré)', async () => {

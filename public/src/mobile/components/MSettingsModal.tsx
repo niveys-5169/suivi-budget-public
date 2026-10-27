@@ -7,6 +7,7 @@ import {
   CloudDownload,
   BrainCircuit,
   ChevronRight,
+  Shapes,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePWAUpdate } from '../../hooks/usePWAUpdate';
@@ -14,6 +15,8 @@ import { usePreferences } from '../../hooks/usePreferences';
 import { useSyncTransactions } from '../../hooks/useSyncTransactions';
 import { GitHubSettingsForm } from '../../components/settings/GitHubSettingsForm';
 import { WeeklyReportSettingsCard } from '../../components/settings/WeeklyReportSettingsCard';
+import { CategoryIconEditor } from '../../components/CategoryIconEditor';
+import { Modal } from '../../components/shared/Modal';
 import { MAIConfigSheet } from './MAIConfigSheet';
 import { configuredProviders, PROVIDER_META, readAISettings } from '../../utils/aiConfig';
 import {
@@ -55,6 +58,7 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
   const [isSigning, setIsSigning] = useState(false);
 
   const [isAIConfigOpen, setIsAIConfigOpen] = useState(false);
+  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const aiProviders = configuredProviders(readAISettings());
 
   const handleClearCache = async () => {
@@ -126,6 +130,24 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
                 block
               />
             </Stack>
+          </Section>
+
+          <Section title="Catégories">
+            <List>
+              <ListItem
+                leading={
+                  <Tile>
+                    <Shapes size={18} />
+                  </Tile>
+                }
+                title="Gérer les catégories"
+                subtitle="Ajouter, supprimer, icône et couleur"
+                trailing={
+                  <ChevronRight size={16} className="text-label-tertiary" aria-hidden="true" />
+                }
+                onClick={() => setIsCategoriesOpen(true)}
+              />
+            </List>
           </Section>
 
           <Section title="Assistant IA">
@@ -221,6 +243,20 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
       </Sheet.Body>
       {isAIConfigOpen && (
         <MAIConfigSheet closeOnSave={false} onClose={() => setIsAIConfigOpen(false)} />
+      )}
+      {isCategoriesOpen && (
+        <Modal
+          isOpen
+          onClose={() => setIsCategoriesOpen(false)}
+          title="Catégories"
+          variant="sheet"
+          size="sm"
+          fullHeight={false}
+        >
+          <div className="px-6 py-4 pb-safe-md">
+            <CategoryIconEditor />
+          </div>
+        </Modal>
       )}
     </Sheet>
   );
