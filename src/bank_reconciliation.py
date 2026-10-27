@@ -43,6 +43,17 @@ def strong_match(a, b):
         normalize_label(a.get("libelle")) and normalize_label(a.get("libelle")) == normalize_label(b.get("libelle"))))
 
 
+def same_operation_other_shape(a, b):
+    """One booked operation served twice by the bank: with an entry_reference and a long label,
+    then without one (empty) and a short label contained in the long one."""
+    if not compatible(a, b) or str(a.get("date", ""))[:10] != str(b.get("date", ""))[:10]:
+        return False
+    if bool(a.get("reference")) == bool(b.get("reference")):
+        return False
+    short, long = sorted((normalize_label(a.get("libelle")), normalize_label(b.get("libelle"))), key=len)
+    return len(short) >= 8 and short in long
+
+
 def reconcile(eb, linxo):
     """No greedy match: certainty requires a unique candidate in BOTH directions."""
     candidates = [(a["id"], b["id"], strong_match(a, b)) for a in eb for b in linxo

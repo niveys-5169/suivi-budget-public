@@ -49,6 +49,11 @@ class BankStore:
                             item[key] = previous[key]
                     if previous.get('linxoObservationId'):
                         self.put('bank_observations', previous['linxoObservationId'], {'enableObservationId': item['id']})
+                elif (twin := self._other_shape_twin(item, existing, items)):
+                    # Same booked operation, other bank representation: keep the row already published.
+                    item['supersededBy'] = twin['id']
+                    if twin.get('canonicalId'):
+                        item['canonicalId'] = twin['canonicalId']
                 else:
                     item['transitionCandidates'] = [o['id'] for o in existing if o['source'] == 'enable_banking'
                         and o.get('bankStatus') == 'pending' and o.get('canonicalId') and not o.get('supersededBy')
@@ -62,6 +67,18 @@ class BankStore:
                 item['canonicalId'] = previous['canonicalId']
             # Links are never cleared by a replay.
             self.put("bank_observations", item["id"], item)
+
+    @staticmethod
+    def _other_shape_twin(item, existing, items):
+        """Unique, still unclaimed booked observation of the same operation, else None."""
+        from bank_reconciliation import same_operation_other_shape
+        claimed = {o['supersededBy'] for o in existing
+                   if o['source'] == 'enable_banking' and o.get('bankStatus') == 'booked' and o.get('supersededBy')}
+        twins = [o for o in existing if o['source'] == 'enable_banking' and o.get('bankStatus') == 'booked'
+                 and not o.get('supersededBy') and o['id'] not in claimed and same_operation_other_shape(item, o)]
+        if len(twins) == 1 and sum(same_operation_other_shape(other, twins[0]) for other in items) == 1:
+            return twins[0]
+        return None
 
     def balance(self, value):
         from bank_lock import banking_write_lock
