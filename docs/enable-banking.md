@@ -38,6 +38,11 @@ statuts et horaires, sans données financières individuelles. Son option
 - Identité bancaire : compte stable et `entry_reference`. `transaction_id` n'est
   jamais une identité durable. À défaut, empreinte originale et ordinal conservent
   les occurrences. Les transitions incertaines sont proposées à la vérification.
+  Une opération comptabilisée servie deux fois par la banque, avec référence et libellé
+  long puis sans référence (chaîne vide) et libellé court contenu dans le long, même
+  compte, montant et date, est reconnue : la nouvelle observation est conservée comme
+  preuve mais remplacée (`supersededBy`) par celle déjà publiée. Si plusieurs candidats
+  existent, rien n'est fusionné.
 - Rapprochement certain : compte, EUR, montant signé en centimes, référence fiable
   commune ou libellé original normalisé identique à ±7 jours, unique dans les deux
   sens. Chaque observation confirme au plus une opération. Le montant seul donne

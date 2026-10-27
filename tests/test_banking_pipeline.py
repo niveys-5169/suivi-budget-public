@@ -193,3 +193,62 @@ def test_rollback_to_linxo_preserves_old_canonical_and_imports_new_payments(stor
     assert store.all('transactions')[0]['id'] == previous['id']
     route_linxo(store, [linxo('next', False, libelle='AUTRE', montant=-13, date='2026-10-09')])
     assert len(store.all('transactions')) == 2
+
+
+LONG_FORM = 'PRELVT SEPA RECU D/O CONFRERE\n\nPRLV SEPA CAFE PARIS\nICS.FR00ZZZ000000\n.RUM.ABC\nSDR627876727445'
+
+
+def long_form(reference='uuid-1', **changes):
+    return raw(reference, **{'remittance_information': [LONG_FORM], **changes})
+
+
+def short_form(**changes):
+    """Same bank operation as long_form, served without entry_reference and with a padded short label."""
+    return raw('', **{'remittance_information': ['PRLV SEPA CAFE PARIS        '], **changes})
+
+
+@pytest.mark.parametrize('first', ['long', 'short'])
+def test_same_booked_operation_in_two_bank_representations_stays_one_row(store, first):
+    forms = {'long': long_form(), 'short': short_form()}
+    second = 'short' if first == 'long' else 'long'
+    store.observe(normalize_enable([forms[first]], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    row = store.all('transactions')[0]
+    store.put('transactions', row['id'], {'categorie': 'Mon choix', 'pointe': True})
+    ids = {o['id'] for o in store.all('bank_observations')}
+    store.observe(normalize_enable([forms[second]], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    rows = store.all('transactions')
+    assert len(rows) == 1 and rows[0]['id'] == row['id']
+    assert rows[0]['categorie'] == 'Mon choix' and rows[0]['pointe']
+    assert len(store.all('bank_observations')) == 2
+    twin = next(o for o in store.all('bank_observations') if o['id'] not in ids)
+    assert twin['supersededBy'] in ids and twin['canonicalId'] == row['id']
+
+
+def test_second_bank_representation_replay_is_idempotent(store):
+    store.observe(normalize_enable([long_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    for _ in range(2):
+        store.observe(normalize_enable([short_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    assert len(store.all('transactions')) == 1
+
+
+def test_same_amount_same_day_other_merchant_is_not_merged(store):
+    store.observe(normalize_enable([long_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    other = raw('', remittance_information=['PRLV SEPA AUTRE MARCHAND'])
+    store.observe(normalize_enable([other], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    assert len(store.all('transactions')) == 2
+
+
+def test_ambiguous_representation_is_not_merged_and_loses_nothing(store):
+    store.observe(normalize_enable([long_form('uuid-1'), long_form('uuid-2')], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    store.observe(normalize_enable([short_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    assert len(store.all('transactions')) == 3
+    assert not any(o.get('supersededBy') for o in store.all('bank_observations'))
+
+
+def test_one_long_form_is_claimed_by_a_single_short_form(store):
+    store.observe(normalize_enable([long_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    store.observe(normalize_enable([short_form()], ACCOUNT, NOW))
+    # Another payment with the same normalized label: the long form is already taken.
+    store.observe(normalize_enable([short_form(remittance_information=['PRLV SEPA CAFE PARIS'])], ACCOUNT, NOW))
+    run_reconciliation(store, NOW)
+    assert len(store.all('transactions')) == 2
