@@ -17,6 +17,7 @@ describe('transactionFormSchema', () => {
     moisAffectation: '2026-05',
     pointe: false,
     commentaire: '',
+    ventilation: [] as { montant: number | null; categorie: string; moisAffectation: string }[],
   };
 
   it('accepts a valid transaction', () => {
@@ -50,6 +51,35 @@ describe('transactionFormSchema', () => {
   it('rejects non-numeric montant', () => {
     const result = transactionFormSchema.safeParse({ ...baseValid, montant: NaN });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts parts whose total stays within the amount, whatever its sign', () => {
+    const ventilation = [{ montant: 45.5, categorie: 'Maison', moisAffectation: '' }];
+    expect(transactionFormSchema.safeParse({ ...baseValid, ventilation }).success).toBe(true);
+    expect(
+      transactionFormSchema.safeParse({ ...baseValid, montant: 45.5, ventilation }).success,
+    ).toBe(true);
+  });
+
+  it('rejects parts exceeding the amount', () => {
+    const ventilation = [{ montant: 45.51, categorie: 'Maison', moisAffectation: '' }];
+    const result = transactionFormSchema.safeParse({ ...baseValid, ventilation });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]!.path).toEqual(['ventilation']);
+    }
+  });
+
+  it('requires a positive amount and a category for each part', () => {
+    const ventilation = [{ montant: null, categorie: '', moisAffectation: '' }];
+    const result = transactionFormSchema.safeParse({ ...baseValid, ventilation });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((i) => i.path.join('.'))).toEqual([
+        'ventilation.0.montant',
+        'ventilation.0.categorie',
+      ]);
+    }
   });
 
   it('rejects missing compte', () => {
