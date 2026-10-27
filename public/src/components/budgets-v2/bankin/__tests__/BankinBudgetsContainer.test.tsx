@@ -233,7 +233,14 @@ describe('BankinBudgetsContainer', () => {
   });
 
   describe('solde prévu', () => {
+    beforeEach(() => {
+      // Le solde prévu n'existe que pour le mois courant ou futur : on se place dans le mois du mock (2026-04).
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-04-15T12:00:00Z'));
+    });
+
     afterEach(() => {
+      vi.useRealTimers();
       mockRavConfig = null;
     });
 
