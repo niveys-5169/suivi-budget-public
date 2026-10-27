@@ -15,16 +15,34 @@ const monthKey = z
 const finiteNumber = (msg = 'Montant invalide') =>
   z.number({ message: msg }).refine((v) => Number.isFinite(v), { message: msg });
 
-export const transactionFormSchema = z.object({
-  date: dateISO,
-  compte: requiredString('Compte requis'),
-  libelle: requiredString('Libellé requis'),
-  montant: finiteNumber('Montant requis'),
-  categorie: z.string(),
+/** Part ventilée saisie en valeur absolue : elle prend le signe de la transaction. */
+const ventilationPartSchema = z.object({
+  montant: z
+    .number()
+    .nullable()
+    .refine((v) => v !== null && Number.isFinite(v) && v > 0, { message: 'Montant requis' }),
+  categorie: requiredString('Catégorie requise'),
   moisAffectation: monthKey,
-  pointe: z.boolean(),
-  commentaire: z.string(),
 });
+
+export const transactionFormSchema = z
+  .object({
+    date: dateISO,
+    compte: requiredString('Compte requis'),
+    libelle: requiredString('Libellé requis'),
+    montant: finiteNumber('Montant requis'),
+    categorie: z.string(),
+    moisAffectation: monthKey,
+    pointe: z.boolean(),
+    commentaire: z.string(),
+    ventilation: z.array(ventilationPartSchema),
+  })
+  .refine(
+    (v) =>
+      Math.round(v.ventilation.reduce((sum, p) => sum + (p.montant ?? 0), 0) * 100) <=
+      Math.round(Math.abs(v.montant) * 100),
+    { message: 'Les parts dépassent le montant de la transaction', path: ['ventilation'] },
+  );
 
 export type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 

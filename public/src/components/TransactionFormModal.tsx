@@ -7,10 +7,12 @@ import { Save, AlertCircle, Repeat, Trash2, Plus, Minus } from 'lucide-react';
 import { createRecurrenceFromTransaction } from '../hooks/recurrencesService';
 import { MoneyInput } from './shared/MoneyInput';
 import { RecurrenceLinkField } from './shared/RecurrenceLinkField';
+import { VentilationField } from './transactions/VentilationField';
 import { Button, Field, IconButton, Input, Select, Sheet, Stack, Switch, Text } from '../ui';
 import { transactionFormSchema, type TransactionFormValues } from '../lib/schemas/forms';
 import { useFirestoreErrorHandler } from '../hooks/useFirestoreErrorHandler';
 import { confirm } from '../lib/confirm';
+import { toVentilationParts } from '../utils/ventilation';
 
 type TransactionFormModalProps = {
   isOpen: boolean;
@@ -36,6 +38,11 @@ const buildDefaults = (
   commentaire: transaction?.commentaire ?? '',
   pointe: transaction?.pointe ?? false,
   moisAffectation: transaction?.moisAffectation ?? '',
+  ventilation: (transaction?.ventilation ?? []).map((p) => ({
+    montant: Math.abs(p.montant),
+    categorie: p.categorie,
+    moisAffectation: p.moisAffectation ?? '',
+  })),
 });
 
 export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
@@ -43,10 +50,12 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   onClose,
   onSave,
   onDelete,
-  transaction,
+  transaction: shown,
   categories,
   accounts,
 }) => {
+  // Ouverte depuis une part ventilée, la fiche édite la transaction stockée.
+  const transaction = shown?.ventilationParent ?? shown;
   const {
     register,
     control,
@@ -138,8 +147,13 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const onSubmit = async (values: TransactionFormValues) => {
     setSubmitError(null);
     try {
-      const dataToSave: Partial<Transaction> & { id?: string } = { ...values };
+      const { ventilation, ...fields } = values;
+      const dataToSave: Partial<Transaction> & { id?: string } = { ...fields };
       if (transaction?.id) dataToSave.id = transaction.id;
+      // Une liste vide efface une ventilation existante ; rien n'est écrit sinon.
+      if (ventilation.length || transaction?.ventilation?.length) {
+        dataToSave.ventilation = toVentilationParts(values.montant, ventilation);
+      }
       if (!values.categorie) delete dataToSave.categorie;
       if (!values.commentaire) delete dataToSave.commentaire;
       if (!values.moisAffectation) delete dataToSave.moisAffectation;
@@ -278,6 +292,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
               <Field label={t({ id: 'tx.form.month' })}>
                 {(p) => <Input {...p} type="month" {...register('moisAffectation')} />}
               </Field>
+
+              <div className="sm:col-span-2">
+                <VentilationField control={control} errors={errors} categories={categories} />
+              </div>
 
               <Stack gap="sm" justify="center">
                 <Text variant="footnote" tone="secondary">

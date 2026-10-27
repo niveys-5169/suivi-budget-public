@@ -15,11 +15,13 @@ interface Props {
 }
 
 export const AurumTransactionDetail: React.FC<Props> = ({
-  transaction,
+  transaction: shown,
   onClose,
   onSave,
   onDelete,
 }) => {
+  // Ouverte depuis une part ventilée, la fiche édite la transaction stockée.
+  const transaction = shown.ventilationParent ?? shown;
   const {
     mappings: { linkedTxToRecurrence, candidateTxToRecurrence },
     link,

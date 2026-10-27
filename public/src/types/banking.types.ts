@@ -139,6 +139,13 @@ export interface Account {
  * merchantName, category, accountId, sourceAccount, isReconciled, status,
  * currency, sourceDate) ont été supprimés — la source de vérité est en français.
  */
+/** Part d'une transaction ventilée : montant signé comme la transaction. */
+export interface VentilationPart {
+  montant: number;
+  categorie: string;
+  moisAffectation?: string;
+}
+
 export interface Transaction {
   id: string;
   date: string;
@@ -165,6 +172,13 @@ export interface Transaction {
   edfCompte?: string;
   /** Crédit EDF : id de la recharge Tronity qui l'a généré (au pointage). */
   rechargeId?: string;
+  /**
+   * Parts ventilées vers d'autres catégories. Le reste du montant garde la
+   * catégorie et le mois d'affectation de la transaction elle-même.
+   */
+  ventilation?: VentilationPart[];
+  /** Transaction stockée dont cette ligne est une part ventilée. Jamais persisté. */
+  ventilationParent?: Transaction;
   /** Marqueur enrichi côté UI (récurrence détectée). Jamais persisté. */
   isSubscription?: boolean;
   /** URL de logo enrichie côté UI pour les vues "Private". Jamais persisté. */

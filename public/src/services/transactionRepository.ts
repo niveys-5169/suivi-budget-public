@@ -36,6 +36,18 @@ const toDateOrUndefined = (value: unknown): Date | undefined => {
   return undefined;
 };
 
+/** Parts ventilées : une ventilation malformée est ignorée, pas la transaction. */
+const VentilationDocZ = z
+  .array(
+    z.object({
+      montant: z.number().finite(),
+      categorie: z.string().trim().min(1),
+      moisAffectation: z.string().optional(),
+    }),
+  )
+  .optional()
+  .catch(undefined);
+
 /**
  * Schéma canonique d'un document `transactions` Firestore → `Transaction`.
  * Source de vérité unique de la frontière de désérialisation : les champs
@@ -63,6 +75,7 @@ export const TransactionDocZ = z
     firstBookedAt: z.unknown().optional(),
     edf_compte: z.unknown().optional(),
     rechargeId: z.unknown().optional(),
+    ventilation: VentilationDocZ,
   })
   .transform((d, ctx): Transaction => {
     const date = toIsoDate(d.date);
@@ -94,6 +107,7 @@ export const TransactionDocZ = z
       firstBookedAt: toDateOrUndefined(d.firstBookedAt),
       edfCompte: d.edf_compte ? String(d.edf_compte).trim() || undefined : undefined,
       rechargeId: d.rechargeId ? String(d.rechargeId) : undefined,
+      ventilation: d.ventilation,
     };
   });
 

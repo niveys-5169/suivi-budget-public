@@ -11,6 +11,7 @@ import { onSnapshot, FirestoreError } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { state } from '../store';
 import { filterTransactions } from '../utils/filterTransactions';
+import { expandVentilations } from '../utils/ventilation';
 import { useFirestoreErrorHandler } from '../hooks/useFirestoreErrorHandler';
 import { Transaction } from '../types/banking.types';
 import {
@@ -67,7 +68,7 @@ export const TransactionContext = createContext<TransactionContextProps | undefi
 export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, loading: authLoading } = useAuth();
   const { handle: handleFsError } = useFirestoreErrorHandler();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [stored, setStored] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -97,7 +98,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     if (!user) {
       // Synchro avec Firebase Auth/Firestore (système externe) : état vidé sans utilisateur.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTransactions([]);
+      setStored([]);
       setLoading(false);
       setError(null);
       return;
@@ -118,7 +119,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
               .map((doc) => normalizeTransaction({ id: doc.id, ...doc.data() }))
               .filter((tx): tx is Transaction => tx !== null && tx.bankStatus !== 'cancelled');
 
-            setTransactions(txData);
+            setStored(txData);
 
             setHasMore(!state.TX_LOAD_ALL);
             setLoading(false);
@@ -146,6 +147,25 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
       return;
     }
   }, [user, authLoading, version]);
+
+  // Lignes d'analyse : une transaction ventilée y apparaît en plusieurs parts.
+  const transactions = useMemo(() => expandVentilations(stored), [stored]);
+
+  // Les écritures visent la transaction stockée, jamais une part (`<id>#vN`).
+  const storedIds = useCallback(
+    (ids: string[]) => {
+      const byId = new Map(transactions.map((t) => [t.id, t.ventilationParent?.id ?? t.id]));
+      return [...new Set(ids.map((id) => byId.get(id) ?? id))];
+    },
+    [transactions],
+  );
+  const storedOf = useCallback(
+    (txs: Transaction[]) => {
+      const ids = new Set(storedIds(txs.map((t) => t.id)));
+      return stored.filter((t) => ids.has(t.id));
+    },
+    [stored, storedIds],
+  );
 
   const requestFullLoad = useCallback(() => {
     if (!state.TX_LOAD_ALL) {
@@ -187,8 +207,9 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
   const togglePointe = useCallback(
     async (id: string, checked: boolean) => {
       try {
-        await updatePointe(id, checked);
-        const tx = transactions.find((t) => t.id === id);
+        const [storedId = id] = storedIds([id]);
+        await updatePointe(storedId, checked);
+        const tx = stored.find((t) => t.id === storedId);
         if (tx) await syncEdfCredit(tx, checked);
       } catch (err) {
         handleFsError(err, {
@@ -199,13 +220,14 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw err;
       }
     },
-    [handleFsError, transactions, syncEdfCredit],
+    [handleFsError, stored, storedIds, syncEdfCredit],
   );
 
   const deleteTransaction = useCallback(
     async (id: string) => {
       try {
-        await removeTransaction(id);
+        const [storedId = id] = storedIds([id]);
+        await removeTransaction(storedId);
       } catch (err) {
         handleFsError(err, {
           context: 'tx.deleteTransaction',
@@ -215,13 +237,14 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw err;
       }
     },
-    [handleFsError],
+    [handleFsError, storedIds],
   );
 
   const saveTransaction = useCallback(
     async (transaction: Partial<Transaction> & { id?: string }) => {
       try {
-        await persistTransaction(transaction);
+        const [storedId] = transaction.id ? storedIds([transaction.id]) : [];
+        await persistTransaction(storedId ? { ...transaction, id: storedId } : transaction);
       } catch (err) {
         handleFsError(err, {
           context: 'tx.saveTransaction',
@@ -231,7 +254,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw err;
       }
     },
-    [handleFsError],
+    [handleFsError, storedIds],
   );
 
   const updateFilters = useCallback((newFilters: Partial<TransactionFilters>) => {
@@ -253,7 +276,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const pointAll = useCallback(async () => {
     try {
-      const toPoint = filteredTransactions.filter((tx) => !tx.pointe);
+      const toPoint = storedOf(filteredTransactions.filter((tx) => !tx.pointe));
       await batchSetPointe(toPoint, true);
       for (const tx of toPoint.filter(isRechargeDomicile)) {
         await syncEdfCredit(tx, true);
@@ -265,11 +288,11 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
       });
       throw err;
     }
-  }, [filteredTransactions, handleFsError, syncEdfCredit]);
+  }, [filteredTransactions, handleFsError, storedOf, syncEdfCredit]);
 
   const unpointAll = useCallback(async () => {
     try {
-      const toUnpoint = filteredTransactions.filter((tx) => tx.pointe);
+      const toUnpoint = storedOf(filteredTransactions.filter((tx) => tx.pointe));
       await batchSetPointe(toUnpoint, false);
       for (const tx of toUnpoint.filter(isRechargeDomicile)) {
         await syncEdfCredit(tx, false);
@@ -281,13 +304,13 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
       });
       throw err;
     }
-  }, [filteredTransactions, handleFsError, syncEdfCredit]);
+  }, [filteredTransactions, handleFsError, storedOf, syncEdfCredit]);
 
   const bulkUpdate = useCallback(
     async (ids: string[], patch: Partial<Transaction>) => {
       if (ids.length === 0) return;
       try {
-        await batchUpdateTransactions(ids, patch);
+        await batchUpdateTransactions(storedIds(ids), patch);
       } catch (err) {
         handleFsError(err, {
           context: 'tx.bulkUpdate',
@@ -297,14 +320,14 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw err;
       }
     },
-    [handleFsError],
+    [handleFsError, storedIds],
   );
 
   const bulkDelete = useCallback(
     async (ids: string[]) => {
       if (ids.length === 0) return;
       try {
-        await batchRemoveTransactions(ids);
+        await batchRemoveTransactions(storedIds(ids));
       } catch (err) {
         handleFsError(err, {
           context: 'tx.bulkDelete',
@@ -314,15 +337,15 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw err;
       }
     },
-    [handleFsError],
+    [handleFsError, storedIds],
   );
 
   const bulkSetPointe = useCallback(
     async (ids: string[], pointe: boolean) => {
       if (ids.length === 0) return;
       try {
-        const idSet = new Set(ids);
-        const targets = transactions.filter((tx) => idSet.has(tx.id) && tx.pointe !== pointe);
+        const idSet = new Set(storedIds(ids));
+        const targets = stored.filter((tx) => idSet.has(tx.id) && tx.pointe !== pointe);
         await batchSetPointe(targets, pointe);
         for (const tx of targets.filter(isRechargeDomicile)) {
           await syncEdfCredit(tx, pointe);
@@ -336,7 +359,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw err;
       }
     },
-    [transactions, handleFsError, syncEdfCredit],
+    [stored, storedIds, handleFsError, syncEdfCredit],
   );
 
   const contextValue = useMemo(
