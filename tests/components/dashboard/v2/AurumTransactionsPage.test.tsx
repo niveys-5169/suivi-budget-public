@@ -9,7 +9,6 @@ const mockIgnoreTxMatch = vi.fn();
 const mockLink = vi.fn();
 let mockLinkedTxToRecurrence: any = {};
 let mockCandidateTxToRecurrence: any = {};
-let mockIgnoredTxIds: string[] = [];
 
 vi.mock('../../../../public/src/hooks/useRecurrences', () => ({
   useRecurrences: () => ({
@@ -17,7 +16,6 @@ vi.mock('../../../../public/src/hooks/useRecurrences', () => ({
       linkedTxToRecurrence: mockLinkedTxToRecurrence,
       candidateTxToRecurrence: mockCandidateTxToRecurrence,
     },
-    ignoredTxIds: mockIgnoredTxIds,
     ignoreTxMatch: mockIgnoreTxMatch,
     link: mockLink,
   }),
@@ -62,7 +60,6 @@ describe('AurumTransactionsPage', () => {
     vi.clearAllMocks();
     mockLinkedTxToRecurrence = {};
     mockCandidateTxToRecurrence = {};
-    mockIgnoredTxIds = [];
   });
 
   it('renders correctly with transactions grouped by date', () => {

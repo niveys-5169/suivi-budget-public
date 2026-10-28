@@ -42,13 +42,7 @@ class BankStore:
                            and not o.get("supersededBy") and strong_match(item, o) and
                            (not o.get('reference') or not item.get('reference'))]
                 if len(pending) == 1 and sum(strong_match(other, pending[0]) for other in items) == 1:
-                    previous = pending[0]
-                    self.put("bank_observations", previous["id"], {"supersededBy": item["id"]})
-                    for key in ("canonicalId", "linxoObservationId", "distinctFrom"):
-                        if key in previous:
-                            item[key] = previous[key]
-                    if previous.get('linxoObservationId'):
-                        self.put('bank_observations', previous['linxoObservationId'], {'enableObservationId': item['id']})
+                    previous = self._take_over(pending[0], item)
                 elif (twin := self._other_shape_twin(item, existing, items)):
                     # Same booked operation, other bank representation: keep the row already published.
                     item['supersededBy'] = twin['id']
@@ -59,6 +53,9 @@ class BankStore:
                         and o.get('bankStatus') == 'pending' and o.get('canonicalId') and not o.get('supersededBy')
                         and compatible(item, o) and (not o.get('reference') or not item.get('reference'))
                         and o['id'] not in item.get('distinctFrom', [])]
+            elif not previous and item["source"] == "enable_banking" and item["bankStatus"] == "pending" and not item.get("reference"):
+                if (moved := self._moved_pending(item, existing, items)):
+                    previous = self._take_over(moved, item)
             item = {**item, "firstSeenAt": previous.get("firstSeenAt") or item["receivedAt"],
                     "firstBookedAt": previous.get("firstBookedAt") or item.get("firstBookedAt")}
             if previous.get('bankStatus') == 'booked' and item['bankStatus'] == 'pending':
@@ -67,6 +64,29 @@ class BankStore:
                 item['canonicalId'] = previous['canonicalId']
             # Links are never cleared by a replay.
             self.put("bank_observations", item["id"], item)
+
+    def _take_over(self, previous, item):
+        """`item` replaces `previous`: same canonical row, same Linxo link, `previous` is never published again."""
+        self.put("bank_observations", previous["id"], {"supersededBy": item["id"]})
+        for key in ("canonicalId", "linxoObservationId", "distinctFrom"):
+            if key in previous:
+                item[key] = previous[key]
+        if previous.get('linxoObservationId'):
+            self.put('bank_observations', previous['linxoObservationId'], {'enableObservationId': item['id']})
+        return previous
+
+    @staticmethod
+    def _moved_pending(item, existing, items):
+        """Unique pending observation, no longer served by the bank, that `item` re-dates (no reference, so the
+        date is part of the identity and the bank re-dates a pending operation to the current day)."""
+        from bank_reconciliation import strong_match
+        served = {other['id'] for other in items}
+        moved = [o for o in existing if o['source'] == 'enable_banking' and o.get('bankStatus') == 'pending'
+                 and not o.get('supersededBy') and not o.get('reference') and o['id'] not in served
+                 and strong_match(item, o)]
+        if len(moved) == 1 and sum(strong_match(other, moved[0]) for other in items) == 1:
+            return moved[0]
+        return None
 
     @staticmethod
     def _other_shape_twin(item, existing, items):

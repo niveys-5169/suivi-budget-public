@@ -1,5 +1,5 @@
 import { resolveRecurrencePeriods } from '../utils/resolveRecurrencePeriods';
-import { useCallback, useContext, useMemo, useState } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { useGlobalData } from '../context/GlobalDataContext';
 import { useTransactions } from './useTransactions';
 import { AppStateContext } from '../context/AppStateContext';
@@ -21,6 +21,7 @@ import {
 import {
   addRecurrenceAlias,
   approveRecurrenceMatch,
+  rejectRecurrenceMatch,
   removeRecurrence,
   setRecurrenceActive,
   skipRecurrencePeriod,
@@ -226,16 +227,6 @@ export function useRecurrences(monthKeyOverride?: string) {
     return { linkedTxToRecurrence, candidateTxToRecurrence };
   }, [activeRecurrences, items]);
 
-  /**
-   * Suggestions de rattachement écartées à la main, le temps de la session.
-   * État de vue volontairement non persisté : la suggestion réapparaîtra au
-   * prochain chargement, tant que la transaction n'est pas liée.
-   */
-  const [ignoredTxIds, setIgnoredTxIds] = useState<string[]>([]);
-  const ignoreTxMatch = useCallback((txId: string) => {
-    setIgnoredTxIds((prev) => (prev.includes(txId) ? prev : [...prev, txId]));
-  }, []);
-
   /** Transactions proposées pour un rattachement manuel, classées. */
   const linkCandidates = useCallback(
     (rec: Recurrence, limit?: number) =>
@@ -337,6 +328,23 @@ export function useRecurrences(monthKeyOverride?: string) {
     [run],
   );
 
+  /**
+   * « Ignorer » sur une suggestion de rattachement. Le refus est enregistré sur la
+   * récurrence suggérée (`rejectedTxIds`) : le matcher ne reproposera plus cette
+   * transaction, y compris après un rechargement ou sur un autre appareil.
+   */
+  const ignoreTxMatch = useCallback(
+    (txId: string) => {
+      const rec = mappings.candidateTxToRecurrence[txId];
+      if (!rec) return Promise.resolve();
+      return run(
+        () => rejectRecurrenceMatch(rec.id, txId),
+        'Erreur lors du refus de la suggestion',
+      );
+    },
+    [run, mappings],
+  );
+
   const edit = useCallback(
     (
       id: string,
@@ -390,7 +398,6 @@ export function useRecurrences(monthKeyOverride?: string) {
     linkCandidates,
     recurrenceCandidates,
     needsAction,
-    ignoredTxIds,
     ignoreTxMatch,
 
     // Commandes

@@ -252,3 +252,39 @@ def test_one_long_form_is_claimed_by_a_single_short_form(store):
     store.observe(normalize_enable([short_form(remittance_information=['PRLV SEPA CAFE PARIS'])], ACCOUNT, NOW))
     run_reconciliation(store, NOW)
     assert len(store.all('transactions')) == 2
+
+
+def instant_transfer(day, **changes):
+    """Virement instantané provisoire : pas de référence, la banque date l'opération du jour."""
+    return raw(None, 'PDNG', **{'booking_date': day, 'credit_debit_indicator': 'CRDT',
+               'transaction_amount': {'amount': '10', 'currency': 'EUR'},
+               'remittance_information': ['VIREMENT INSTANTANE'], **changes})
+
+
+def test_pending_operation_reissued_with_a_later_date_stays_one_row(store):
+    store.observe(normalize_enable([instant_transfer('2026-10-27')], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    row = store.all('transactions')[0]
+    store.put('transactions', row['id'], {'categorie': 'Mon choix'})
+    first = store.all('bank_observations')[0]['id']
+    for _ in range(2):
+        store.observe(normalize_enable([instant_transfer('2026-10-28')], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    rows = store.all('transactions')
+    assert len(rows) == 1 and rows[0]['id'] == row['id']
+    assert rows[0]['date'] == '2026-10-28' and rows[0]['categorie'] == 'Mon choix'
+    old = store.get('bank_observations', first)
+    assert old['supersededBy'] in {o['id'] for o in store.all('bank_observations')} - {first}
+
+
+def test_two_pending_operations_served_together_are_both_kept(store):
+    store.observe(normalize_enable([instant_transfer('2026-10-27')], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    both = [instant_transfer('2026-10-27'), instant_transfer('2026-10-28')]
+    store.observe(normalize_enable(both, ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    assert len(store.all('transactions')) == 2
+    assert not any(o.get('supersededBy') for o in store.all('bank_observations'))
+
+
+def test_pending_operation_with_other_amount_is_not_merged(store):
+    store.observe(normalize_enable([instant_transfer('2026-10-27')], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    other = instant_transfer('2026-10-28', transaction_amount={'amount': '11', 'currency': 'EUR'})
+    store.observe(normalize_enable([other], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    assert len(store.all('transactions')) == 2

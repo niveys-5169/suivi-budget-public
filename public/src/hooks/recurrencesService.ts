@@ -97,6 +97,20 @@ export async function skipRecurrencePeriod(id: string, periodKey: string) {
 }
 
 /**
+ * Enregistre le refus d'un rattachement suggéré : la transaction ne sera plus
+ * proposée à cette récurrence.
+ */
+export async function rejectRecurrenceMatch(id: string, txId: string) {
+  try {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await withRetry(() => updateDoc(docRef, { rejectedTxIds: arrayUnion(txId) }));
+  } catch (error) {
+    console.error('Erreur lors du refus du rattachement suggéré:', error);
+    throw error;
+  }
+}
+
+/**
  * Rétablit une récurrence précédemment ignorée pour une période donnée.
  */
 export async function unskipRecurrencePeriod(id: string, periodKey: string) {

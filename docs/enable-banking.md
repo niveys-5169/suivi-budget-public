@@ -43,6 +43,11 @@ statuts et horaires, sans données financières individuelles. Son option
   compte, montant et date, est reconnue : la nouvelle observation est conservée comme
   preuve mais remplacée (`supersededBy`) par celle déjà publiée. Si plusieurs candidats
   existent, rien n'est fusionné.
+  Une opération **provisoire** sans référence réémise par la banque avec une autre date
+  (celle du jour) est la même opération si l'ancienne n'est plus servie : même compte,
+  montant et libellé, un seul candidat. L'ancienne observation est remplacée
+  (`supersededBy`) et la ligne publiée est conservée, avec la nouvelle date. Deux
+  provisoires servies ensemble ne sont jamais fusionnées.
 - Rapprochement certain : compte, EUR, montant signé en centimes, référence fiable
   commune ou libellé original normalisé identique à ±7 jours, unique dans les deux
   sens. Chaque observation confirme au plus une opération. Le montant seul donne
