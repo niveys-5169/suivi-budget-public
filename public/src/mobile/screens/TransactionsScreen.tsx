@@ -60,7 +60,6 @@ export const TransactionsScreen: React.FC = () => {
   const { sync, isSyncing } = useSyncTransactions();
   const {
     mappings: { linkedTxToRecurrence, candidateTxToRecurrence },
-    ignoredTxIds,
     ignoreTxMatch,
     link,
   } = useRecurrences();
@@ -249,7 +248,7 @@ export const TransactionsScreen: React.FC = () => {
                       onToggleSelect={selection.toggleSelect}
                       isRecurrent={!!linkedTxToRecurrence[tx.id]}
                     />
-                    {candidateTxToRecurrence[tx.id] && !ignoredTxIds.includes(tx.id) && (
+                    {candidateTxToRecurrence[tx.id] && (
                       <div className="mx-4 mb-2 p-4 rounded-lg bg-gold/5 border border-gold/20">
                         <div className="flex items-start gap-2 mb-2">
                           <span className="text-sm mt-1">🔗</span>

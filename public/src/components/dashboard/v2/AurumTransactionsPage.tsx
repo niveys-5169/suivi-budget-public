@@ -39,7 +39,6 @@ export const AurumTransactionsPage: React.FC = () => {
   const { setMonthKey } = useAppState();
   const {
     mappings: { linkedTxToRecurrence, candidateTxToRecurrence },
-    ignoredTxIds,
     ignoreTxMatch,
     link,
   } = useRecurrences();
@@ -267,7 +266,7 @@ export const AurumTransactionsPage: React.FC = () => {
                   </motion.div>
 
                   {/* Suggestion banner */}
-                  {candidateTxToRecurrence[tx.id] && !ignoredTxIds.includes(tx.id) && (
+                  {candidateTxToRecurrence[tx.id] && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}

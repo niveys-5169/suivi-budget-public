@@ -7,6 +7,7 @@ import { useTransactions } from '../useTransactions';
 import {
   addRecurrenceAlias,
   approveRecurrenceMatch,
+  rejectRecurrenceMatch,
   skipRecurrencePeriod,
   unapproveRecurrenceMonth,
   unlinkRecurrenceTx,
@@ -22,6 +23,7 @@ vi.mock('../../lib/toast', () => ({
 vi.mock('../recurrencesService', () => ({
   addRecurrenceAlias: vi.fn(),
   approveRecurrenceMatch: vi.fn(),
+  rejectRecurrenceMatch: vi.fn(),
   removeRecurrence: vi.fn(),
   setRecurrenceActive: vi.fn(),
   skipRecurrencePeriod: vi.fn(),
@@ -367,5 +369,33 @@ describe('useRecurrences — badges et candidats', () => {
 
     const ids = result.current.linkCandidates(rec({})).map((t) => t.id);
     expect(ids).toContain('tx-prev');
+  });
+});
+
+describe('useRecurrences — suggestions refusées', () => {
+  it('« Ignorer » enregistre le refus sur la récurrence suggérée', async () => {
+    const { result } = setup([rec({})], [tx({})]);
+
+    await act(async () => {
+      await result.current.ignoreTxMatch('tx-1');
+    });
+
+    expect(rejectRecurrenceMatch).toHaveBeenCalledExactlyOnceWith('rec-1', 'tx-1');
+  });
+
+  it('ne repropose plus une transaction refusée, même après rechargement', () => {
+    const { result } = setup([rec({ rejectedTxIds: ['tx-1'] })], [tx({})]);
+
+    expect(result.current.mappings.candidateTxToRecurrence['tx-1']).toBeUndefined();
+    expect(result.current.items[0]!.state).not.toBe('matched');
+  });
+
+  it('propose une autre transaction quand la première a été refusée', () => {
+    const { result } = setup(
+      [rec({ rejectedTxIds: ['tx-1'] })],
+      [tx({}), tx({ id: 'tx-2', date: '2026-06-16' })],
+    );
+
+    expect(result.current.items[0]!.match?.id).toBe('tx-2');
   });
 });

@@ -40,6 +40,7 @@ import {
   updateRecurrence,
   skipRecurrencePeriod,
   unskipRecurrencePeriod,
+  rejectRecurrenceMatch,
   addRecurrenceAlias,
 } from '../recurrencesService';
 import type { Transaction } from '../../types/banking.types';
@@ -351,6 +352,21 @@ describe('skipRecurrencePeriod / unskipRecurrencePeriod', () => {
     expect(arrayRemoveMock).toHaveBeenCalledWith('2026-07');
     expect(updateDocMock).toHaveBeenCalledWith(fakeDocRef, {
       skippedPeriods: { __arrayRemove__: ['2026-07'] },
+    });
+  });
+});
+
+describe('rejectRecurrenceMatch', () => {
+  beforeEach(() => {
+    updateDocMock.mockClear();
+    arrayUnionMock.mockClear();
+  });
+
+  it('calls updateDoc with arrayUnion(txId) on rejectedTxIds', async () => {
+    await rejectRecurrenceMatch('rec-1', 'tx-9');
+    expect(arrayUnionMock).toHaveBeenCalledWith('tx-9');
+    expect(updateDocMock).toHaveBeenCalledWith(fakeDocRef, {
+      rejectedTxIds: { __arrayUnion__: ['tx-9'] },
     });
   });
 });

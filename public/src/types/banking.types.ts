@@ -550,6 +550,8 @@ export interface Recurrence {
   source?: 'manual' | 'auto';
   /** Périodes explicitement ignorées ("pas ce mois-ci"), même format de clé que approvedMonths. */
   skippedPeriods?: string[];
+  /** Transactions dont le rattachement suggéré a été refusé (« Ignorer ») : le matcher ne les reproposera plus. */
+  rejectedTxIds?: string[];
 }
 
 export interface Alert {

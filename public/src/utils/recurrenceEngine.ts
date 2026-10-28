@@ -234,6 +234,7 @@ export function matchTransaction(
 
   for (const tx of txs) {
     if (tx.id && excludeTxIds?.has(tx.id)) continue;
+    if (tx.id && rec.rejectedTxIds?.includes(tx.id)) continue;
     if (Math.sign(tx.montant ?? 0) !== Math.sign(rec.expectedAmount)) continue;
 
     const txAmount = Math.abs(tx.montant ?? 0);

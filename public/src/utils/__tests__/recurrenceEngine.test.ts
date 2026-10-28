@@ -5,8 +5,9 @@ import {
   getApprovalAmount,
   getApprovedTxIds,
   computePeriodState,
+  matchTransaction,
 } from '../recurrenceEngine';
-import type { Recurrence, RecurrenceApproval } from '../../types/banking.types';
+import type { Recurrence, RecurrenceApproval, Transaction } from '../../types/banking.types';
 
 const legacyApproval: RecurrenceApproval = {
   txId: 'tx-1',
@@ -78,5 +79,39 @@ describe('computePeriodState (multi-tx)', () => {
     expect(state.state).toBe('approved');
     expect(state.effectiveAmount).toBe(-2000);
     expect(state.monthOverride?.linkedAmount).toBe(-2000);
+  });
+});
+
+describe('matchTransaction — suggestions refusées', () => {
+  const netflix = (over: Partial<Recurrence> = {}): Recurrence => ({
+    ...makeRec({}),
+    label: 'Netflix',
+    category: 'Abonnement',
+    expectedAmount: -13.99,
+    anchorDate: '2026-01-15',
+    aliases: ['netflix'],
+    ...over,
+  });
+  const netflixTx = (id: string, date: string): Transaction =>
+    ({
+      id,
+      date,
+      libelle: 'Netflix',
+      categorie: 'Abonnement',
+      montant: -13.99,
+      pointe: false,
+    }) as Transaction;
+
+  it('écarte une transaction refusée pour cette récurrence', () => {
+    const txs = [netflixTx('tx-1', '2026-06-15')];
+
+    expect(matchTransaction(netflix(), txs)?.tx.id).toBe('tx-1');
+    expect(matchTransaction(netflix({ rejectedTxIds: ['tx-1'] }), txs)).toBeNull();
+  });
+
+  it('retient la meilleure transaction restante', () => {
+    const txs = [netflixTx('tx-1', '2026-06-15'), netflixTx('tx-2', '2026-06-18')];
+
+    expect(matchTransaction(netflix({ rejectedTxIds: ['tx-1'] }), txs)?.tx.id).toBe('tx-2');
   });
 });

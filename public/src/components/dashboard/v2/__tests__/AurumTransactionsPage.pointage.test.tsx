@@ -30,7 +30,6 @@ vi.mock('../../../../context/TransactionContext', () => ({
 vi.mock('../../../../hooks/useRecurrences', () => ({
   useRecurrences: () => ({
     mappings: { linkedTxToRecurrence: {}, candidateTxToRecurrence: {} },
-    ignoredTxIds: [],
     ignoreTxMatch: vi.fn(),
     link: vi.fn(),
   }),
