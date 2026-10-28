@@ -66,6 +66,15 @@ describe('TransactionFormModal — ventilation', () => {
     });
   });
 
+  it('place la ventilation en dernier, après les actions de récurrence', () => {
+    renderModal(solde);
+    const recurring = screen.getByRole('button', { name: /abonnement récurrent/i });
+    const ventiler = screen.getByRole('button', { name: 'Ventiler une part' });
+    expect(
+      recurring.compareDocumentPosition(ventiler) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('retirer toutes les parts efface la ventilation', async () => {
     const onSave = renderModal(solde);
 

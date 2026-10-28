@@ -293,10 +293,6 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                 {(p) => <Input {...p} type="month" {...register('moisAffectation')} />}
               </Field>
 
-              <div className="sm:col-span-2">
-                <VentilationField control={control} errors={errors} categories={categories} />
-              </div>
-
               <Stack gap="sm" justify="center">
                 <Text variant="footnote" tone="secondary">
                   {t({ id: 'tx.form.certified' })}
@@ -358,6 +354,10 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
                     ? t({ id: 'tx.form.recurring.loading' })
                     : t({ id: 'tx.form.recurring' })}
                 </Button>
+              </div>
+
+              <div className="sm:col-span-2">
+                <VentilationField control={control} errors={errors} categories={categories} />
               </div>
             </div>
           </Stack>
