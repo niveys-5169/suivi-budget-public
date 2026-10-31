@@ -6,7 +6,11 @@ Génère et expédie par email le bilan de la semaine selon les préférences :
 1. Soldes des comptes courants et statut de rapprochement (optionnel)
 2. Soldes des livrets d'épargne (optionnel)
 3. Dépenses des 7 derniers jours et top opérations (optionnel)
-4. Budgets du mois en cours dépassés (> 100 %) ou sous tension (≥ seuil) (optionnel)
+4. Budgets variables du mois (vs mois précédent à date) et enveloppes annuelles (optionnel)
+
+Les charges fixes (catégories couvertes par des récurrences : crédits, internet,
+assurances…) ne sont pas mises en avant : elles ne comptent que dans la
+consommation de leur budget.
 
 Module partagé maintenu byte-identique entre src/ et functions/.
 Garde-fou : tests/test_shared_backend_sync.py échoue si les copies divergent.
@@ -16,6 +20,7 @@ from __future__ import annotations
 
 from html import escape as html_escape
 import logging
+from urllib.parse import quote
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
@@ -37,6 +42,11 @@ IGNORED_FLOW_CATEGORIES = {
 }
 
 
+# Une catégorie est une charge fixe si ses récurrences actives couvrent au moins
+# cette part de son budget mensuel (ou si elle n'a pas de budget).
+FIXED_CHARGE_COVERAGE = 0.8
+
+
 def normalize_category(cat: Optional[str]) -> str:
     """Normalise une catégorie pour comparaison (suppression accents, casse, espaces)."""
     if not cat:
@@ -52,6 +62,38 @@ def format_eur(amount: float) -> str:
     return f"{val} €"
 
 
+def _assigned_month(tx: Dict[str, Any]) -> str:
+    return str(tx.get("moisAffectation") or str(tx.get("date") or "")[:7])
+
+
+def _dedupe_budgets(budgets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Une fiche par catégorie, comme `dedupeBudgetsByCategory` côté app :
+    financée (montant > 0) d'abord, puis ID déterministe (nom de catégorie)."""
+    def score(b: Dict[str, Any]) -> int:
+        cat = str(b.get("categorie") or b.get("id") or "")
+        doc_key = "__enc__" + quote(cat, safe="-_.!~*'()") if "/" in cat else cat
+        return (2 if float(b.get("montant") or 0) > 0 else 0) + (1 if b.get("id") == doc_key else 0)
+
+    unique: Dict[str, Dict[str, Any]] = {}
+    for b in budgets:
+        key = normalize_category(b.get("categorie") or b.get("nom") or b.get("id"))
+        if not key:
+            continue
+        current = unique.get(key)
+        if current is None or score(current) <= score(b):
+            unique[key] = b
+    return list(unique.values())
+
+
+def _envelope_cycle(mois_echeance: int, month_key: str) -> tuple:
+    """Bornes (YYYY-MM, incluses) du cycle de 12 mois finissant au mois de l'échéance."""
+    year, month = (int(x) for x in month_key.split("-"))
+    fin_year = year if month <= mois_echeance else year + 1
+    debut_month = mois_echeance % 12 + 1
+    debut_year = fin_year if debut_month == 1 else fin_year - 1
+    return f"{debut_year}-{debut_month:02d}", f"{fin_year}-{mois_echeance:02d}"
+
+
 def build_weekly_recap_data(
     balances: List[Dict[str, Any]],
     transactions: List[Dict[str, Any]],
@@ -65,6 +107,7 @@ def build_weekly_recap_data(
     include_expenses: bool = True,
     include_budgets: bool = True,
     warning_threshold: float = 80.0,
+    recurrences: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Construit les données structurées du récapitulatif hebdomadaire.
@@ -141,7 +184,45 @@ def build_weekly_recap_data(
             })
         savings_accounts.sort(key=lambda a: a["solde"], reverse=True)
 
-    # 2. Dépenses de la semaine (7 derniers jours)
+    # Budgets du mois (montant mensuel effectif) et charges fixes
+    monthly_overrides_map: Dict[str, float] = {}
+    for mo in monthly_overrides or []:
+        m = str(mo.get("mois") or mo.get("month") or "")
+        if m == current_month_key:
+            c_norm = normalize_category(mo.get("categorie") or mo.get("id"))
+            if c_norm and "budget" in mo:
+                monthly_overrides_map[c_norm] = float(mo["budget"])
+            elif c_norm and "montant" in mo:
+                monthly_overrides_map[c_norm] = float(mo["montant"])
+
+    expense_budgets: Dict[str, Dict[str, Any]] = {}
+    for b in _dedupe_budgets(budgets):
+        if b.get("actif") is False or b.get("isIncome") is True or b.get("type") == "revenu":
+            continue
+        norm_cat = normalize_category(b.get("categorie") or b.get("nom") or b.get("id"))
+        if norm_cat in excluded_set:
+            continue
+        is_envelope = b.get("type") == "annuel"
+        if is_envelope:
+            monthly_amount = float(b.get("montant", 0.0)) / 12
+        else:
+            monthly_amount = monthly_overrides_map.get(norm_cat, float(b.get("montant", 0.0)))
+        expense_budgets[norm_cat] = {"budget": b, "envelope": is_envelope, "monthly": monthly_amount}
+
+    recurring_by_cat: Dict[str, float] = {}
+    for r in recurrences or []:
+        if r.get("active") is False:
+            continue
+        c_norm = normalize_category(r.get("category"))
+        recurring_by_cat[c_norm] = recurring_by_cat.get(c_norm, 0.0) + abs(float(r.get("expectedAmount") or 0.0))
+
+    fixed_cats: Set[str] = set()
+    for c_norm, recurring in recurring_by_cat.items():
+        eb = expense_budgets.get(c_norm)
+        if eb is None or (eb["monthly"] > 0 and recurring >= FIXED_CHARGE_COVERAGE * eb["monthly"]):
+            fixed_cats.add(c_norm)
+
+    # 2. Dépenses variables de la semaine (7 derniers jours, hors charges fixes)
     weekly_expenses_by_cat: Dict[str, float] = {}
     weekly_expenses_txs: List[Dict[str, Any]] = []
     total_weekly_expenses = 0.0
@@ -157,7 +238,7 @@ def build_weekly_recap_data(
 
             raw_cat = str(tx.get("categorie") or "Non catégorisé").strip()
             norm_cat = normalize_category(raw_cat)
-            if norm_cat in excluded_set:
+            if norm_cat in excluded_set or norm_cat in fixed_cats:
                 continue
 
             montant = float(tx.get("montant", 0.0))
@@ -189,64 +270,65 @@ def build_weekly_recap_data(
     ]
     category_breakdown.sort(key=lambda c: c["montant"], reverse=True)
 
-    # 3. Budgets mensuels dépassés (>100%) ou sous tension (≥ seuil)
+    # 3. Budgets variables du mois (vs mois précédent à date) et enveloppes annuelles
+    variable_budgets: List[Dict[str, Any]] = []
     exceeded_budgets: List[Dict[str, Any]] = []
     warning_budgets: List[Dict[str, Any]] = []
+    envelopes: List[Dict[str, Any]] = []
 
     if include_budgets:
+        prev_month_last_day = reference_date.replace(day=1) - timedelta(days=1)
+        prev_month_key = prev_month_last_day.strftime("%Y-%m")
+        prev_cutoff = prev_month_last_day.replace(day=min(reference_date.day, prev_month_last_day.day)).strftime("%Y-%m-%d")
+
         current_month_net: Dict[str, float] = {}
+        prev_month_net: Dict[str, float] = {}
+        net_by_cat_month: Dict[str, Dict[str, float]] = {}
         for tx in transactions:
             if tx.get("bankStatus") == "cancelled":
                 continue
-            tx_month = str(tx.get("moisAffectation") or tx.get("date", "")[:7])
-            if tx_month != current_month_key:
+            norm_cat = normalize_category(str(tx.get("categorie") or "Non catégorisé").strip())
+            if norm_cat not in expense_budgets:
                 continue
-            raw_cat = str(tx.get("categorie") or "Non catégorisé").strip()
-            norm_cat = normalize_category(raw_cat)
-            if norm_cat in excluded_set:
-                continue
+            tx_month = _assigned_month(tx)
             montant = float(tx.get("montant", 0.0))
-            current_month_net[norm_cat] = current_month_net.get(norm_cat, 0.0) + montant
+            by_month = net_by_cat_month.setdefault(norm_cat, {})
+            by_month[tx_month] = by_month.get(tx_month, 0.0) + montant
+            if tx_month == current_month_key:
+                current_month_net[norm_cat] = current_month_net.get(norm_cat, 0.0) + montant
+            elif tx_month == prev_month_key and str(tx.get("date") or "") <= prev_cutoff:
+                prev_month_net[norm_cat] = prev_month_net.get(norm_cat, 0.0) + montant
 
-        monthly_overrides_map: Dict[str, float] = {}
-        if monthly_overrides:
-            for mo in monthly_overrides:
-                m = str(mo.get("mois") or mo.get("month") or "")
-                if m == current_month_key:
-                    c_norm = normalize_category(mo.get("categorie") or mo.get("id"))
-                    if c_norm and "budget" in mo:
-                        monthly_overrides_map[c_norm] = float(mo["budget"])
-                    elif c_norm and "montant" in mo:
-                        monthly_overrides_map[c_norm] = float(mo["montant"])
-
-        seen_budget_keys: Set[str] = set()
-
-        for b in budgets:
-            if b.get("actif") is False:
+        for norm_cat, eb in expense_budgets.items():
+            if norm_cat in fixed_cats:
                 continue
-            if b.get("isIncome") is True or b.get("type") == "revenu":
-                continue
-            if b.get("type") == "annuel":
-                continue
-
+            b = eb["budget"]
             raw_cat = str(b.get("categorie") or b.get("nom") or b.get("id") or "")
-            norm_cat = normalize_category(raw_cat)
-            if not norm_cat or norm_cat in seen_budget_keys or norm_cat in excluded_set:
+
+            if eb["envelope"]:
+                montant = float(b.get("montant", 0.0))
+                if montant <= 0:
+                    continue
+                mois_attendus = [int(m) for m in (b.get("moisAttendus") or [])]
+                debut, fin = _envelope_cycle(max(mois_attendus) if mois_attendus else 12, current_month_key)
+                net = sum(v for m, v in net_by_cat_month.get(norm_cat, {}).items() if debut <= m <= fin)
+                depense = 0.0 - net  # évite « -0,00 € »
+                envelopes.append({
+                    "categorie": raw_cat,
+                    "budget": montant,
+                    "depense": depense,
+                    "reste": round(montant - depense, 2),
+                    "pourcentage": round(depense / montant * 100, 1),
+                    "echeance": fin,
+                })
                 continue
-            seen_budget_keys.add(norm_cat)
 
-            if norm_cat in monthly_overrides_map:
-                budget_amount = monthly_overrides_map[norm_cat]
-            else:
-                budget_amount = float(b.get("montant", 0.0))
-
+            budget_amount = eb["monthly"]
             if budget_amount <= 0:
                 continue
-
-            net_flow = current_month_net.get(norm_cat, 0.0)
-            spent = max(0.0, -net_flow)
+            spent = max(0.0, -current_month_net.get(norm_cat, 0.0))
+            prev_spent = max(0.0, -prev_month_net.get(norm_cat, 0.0))
             pct = round((spent / budget_amount) * 100, 1)
-
             budget_item = {
                 "categorie": raw_cat,
                 "budget": budget_amount,
@@ -254,15 +336,19 @@ def build_weekly_recap_data(
                 "pourcentage": pct,
                 "depassement": round(spent - budget_amount, 2),
                 "reste": round(budget_amount - spent, 2),
+                "depense_mois_precedent": prev_spent,
+                "ecart_mois_precedent": round(spent - prev_spent, 2),
             }
-
+            variable_budgets.append(budget_item)
             if pct > 100.0:
                 exceeded_budgets.append(budget_item)
             elif pct >= warning_threshold:
                 warning_budgets.append(budget_item)
 
+        variable_budgets.sort(key=lambda b: b["pourcentage"], reverse=True)
         exceeded_budgets.sort(key=lambda b: b["depassement"], reverse=True)
         warning_budgets.sort(key=lambda b: b["pourcentage"], reverse=True)
+        envelopes.sort(key=lambda e: (e["echeance"], e["categorie"]))
 
     return {
         "period": {
@@ -291,8 +377,10 @@ def build_weekly_recap_data(
             "top_transactions": top_expenses,
         },
         "budgets": {
+            "variables": variable_budgets,
             "exceeded": exceeded_budgets,
             "warning": warning_budgets,
+            "envelopes": envelopes,
         },
     }
 
@@ -394,7 +482,7 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
 
         expenses_section_html = f"""
         <div style="margin-bottom: 24px;">
-          <div style="color: #9E9EA7; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Dépenses des 7 derniers jours</div>
+          <div style="color: #9E9EA7; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Dépenses variables des 7 derniers jours</div>
           <div style="color: #F5F5F7; font-size: 24px; font-weight: 600; margin-bottom: 14px;">{total_depenses}</div>
           
           {f'''
@@ -417,64 +505,74 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
         </div>
         """
 
-    # 3. Section Budgets
+    # 3. Section Budgets variables + Enveloppes
     budgets_section_html = ""
+    envelopes_section_html = ""
     if include_budgets:
-        exceeded_html = ""
-        if data["budgets"]["exceeded"]:
-            rows = ""
-            for b in data["budgets"]["exceeded"]:
-                rows += f"""
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                  <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{_esc(b['categorie'])}</td>
-                  <td style="padding: 8px 0; text-align: right; color: #9E9EA7; font-size: 12px;">{format_eur(b['depense'])} / {format_eur(b['budget'])}</td>
-                  <td style="padding: 8px 0; text-align: right; color: #EF4444; font-size: 13px; font-weight: 600;">
-                    +{format_eur(b['depassement'])} ({b['pourcentage']}%)
-                  </td>
-                </tr>
-                """
-            exceeded_html = f"""
-            <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-              <div style="color: #EF4444; font-weight: 600; font-size: 14px; margin-bottom: 10px;">⚠️ Budgets dépassés ce mois</div>
-              <table style="width: 100%; border-collapse: collapse;">
-                {rows}
-              </table>
-            </div>
+        variables = data["budgets"]["variables"]
+        rows = ""
+        for b in variables:
+            if b["pourcentage"] > 100.0:
+                tone = "#EF4444"
+            elif b["pourcentage"] >= warning_threshold:
+                tone = "#F59E0B"
+            else:
+                tone = "#10B981"
+            details = f"reste {format_eur(b['reste'])}" if b["reste"] >= 0 else f"dépassé de {format_eur(b['depassement'])}"
+            if "depense_mois_precedent" in b:
+                ecart = b["ecart_mois_precedent"]
+                ecart_str = f"+{format_eur(ecart)}" if ecart >= 0 else f"-{format_eur(-ecart)}"
+                details += f" · M-1 à date : {format_eur(b['depense_mois_precedent'])} ({ecart_str})"
+            rows += f"""
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">
+                {_esc(b['categorie'])}
+                <div style="font-size: 11px; color: #9E9EA7;">{_esc(details)}</div>
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: #9E9EA7; font-size: 12px;">{format_eur(b['depense'])} / {format_eur(b['budget'])}</td>
+              <td style="padding: 8px 0; text-align: right; color: {tone}; font-size: 13px; font-weight: 600;">{b['pourcentage']}%</td>
+            </tr>
             """
 
-        warning_html = ""
-        if data["budgets"]["warning"]:
-            rows = ""
-            for b in data["budgets"]["warning"]:
-                rows += f"""
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                  <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">{_esc(b['categorie'])}</td>
-                  <td style="padding: 8px 0; text-align: right; color: #9E9EA7; font-size: 12px;">reste {format_eur(b['reste'])}</td>
-                  <td style="padding: 8px 0; text-align: right; color: #F59E0B; font-size: 13px; font-weight: 600;">{b['pourcentage']}%</td>
-                </tr>
-                """
-            warning_html = f"""
-            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-              <div style="color: #F59E0B; font-weight: 600; font-size: 14px; margin-bottom: 10px;">⚡ Budgets sous tension (≥ {warning_threshold:.0f} %)</div>
-              <table style="width: 100%; border-collapse: collapse;">
-                {rows}
-              </table>
-            </div>
-            """
-
-        if not data["budgets"]["exceeded"] and not data["budgets"]["warning"]:
-            budget_status_box = """
-            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; color: #10B981; font-size: 13px;">
-              ✨ Tous vos budgets sont sous contrôle ce mois-ci !
-            </div>
-            """
+        n_exceeded = len(data["budgets"]["exceeded"])
+        n_warning = len(data["budgets"]["warning"])
+        if n_exceeded or n_warning:
+            summary = f"⚠️ {n_exceeded} dépassé(s) · ⚡ {n_warning} sous tension (≥ {warning_threshold:.0f} %)"
+            summary_color = "#EF4444" if n_exceeded else "#F59E0B"
         else:
-            budget_status_box = exceeded_html + warning_html
+            summary = "✨ Tous vos budgets variables sont sous contrôle ce mois-ci !"
+            summary_color = "#10B981"
 
         budgets_section_html = f"""
         <div style="margin-bottom: 24px;">
-          <div style="color: #9E9EA7; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">Alertes Budgets</div>
-          {budget_status_box}
+          <div style="color: #9E9EA7; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Budgets variables du mois</div>
+          <div style="color: {summary_color}; font-size: 13px; margin-bottom: 10px;">{summary}</div>
+          {f'<table style="width: 100%; border-collapse: collapse;">{rows}</table>' if rows else ''}
+        </div>
+        """
+
+        env_rows = ""
+        for e in data["budgets"].get("envelopes", []):
+            y, m = e["echeance"].split("-")
+            reste_color = "#EF4444" if e["reste"] < 0 else "#F5F5F7"
+            env_rows += f"""
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+              <td style="padding: 8px 0; color: #F5F5F7; font-size: 13px;">
+                {_esc(e['categorie'])}
+                <div style="font-size: 11px; color: #9E9EA7;">échéance {m}/{y} · {format_eur(e['depense'])} / {format_eur(e['budget'])}</div>
+              </td>
+              <td style="padding: 8px 0; text-align: right; color: {reste_color}; font-size: 13px; font-weight: 600;">
+                reste {format_eur(e['reste'])}
+              </td>
+            </tr>
+            """
+        if env_rows:
+            envelopes_section_html = f"""
+        <div style="margin-bottom: 24px;">
+          <div style="color: #9E9EA7; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">Enveloppes annuelles</div>
+          <table style="width: 100%; border-collapse: collapse;">
+            {env_rows}
+          </table>
         </div>
         """
 
@@ -498,6 +596,7 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
     {checking_section_html}
     {savings_section_html}
     {budgets_section_html}
+    {envelopes_section_html}
     {expenses_section_html}
 
     <!-- Footer -->
@@ -540,21 +639,29 @@ def render_weekly_recap_text(data: Dict[str, Any]) -> str:
 
     if include_budgets:
         lines.append("")
-        lines.append("BUDGETS DU MOIS :")
-        if data["budgets"]["exceeded"]:
-            lines.append("⚠️ Budgets dépassés :")
-            for b in data["budgets"]["exceeded"]:
-                lines.append(f"  - {b['categorie']} : {format_eur(b['depense'])} / {format_eur(b['budget'])} (+{format_eur(b['depassement'])}, {b['pourcentage']}%)")
-        elif data["budgets"]["warning"]:
-            lines.append(f"⚡ Budgets sous tension (≥ {opts.get('warning_threshold', 80):.0f} %) :")
-            for b in data["budgets"]["warning"]:
-                lines.append(f"  - {b['categorie']} : {b['pourcentage']}% consommé (reste {format_eur(b['reste'])})")
-        else:
-            lines.append("✨ Tous vos budgets sont sous contrôle !")
+        lines.append("BUDGETS VARIABLES DU MOIS :")
+        variables = data["budgets"]["variables"]
+        if not data["budgets"]["exceeded"] and not data["budgets"]["warning"]:
+            lines.append("✨ Tous vos budgets variables sont sous contrôle !")
+        for b in variables:
+            flag = "⚠️ " if b["pourcentage"] > 100.0 else ("⚡ " if b in data["budgets"]["warning"] else "")
+            line = f"  - {flag}{b['categorie']} : {format_eur(b['depense'])} / {format_eur(b['budget'])} ({b['pourcentage']}%)"
+            if "depense_mois_precedent" in b:
+                ecart = b["ecart_mois_precedent"]
+                ecart_str = f"+{format_eur(ecart)}" if ecart >= 0 else f"-{format_eur(-ecart)}"
+                line += f" | M-1 à date : {format_eur(b['depense_mois_precedent'])} ({ecart_str})"
+            lines.append(line)
+
+        if data["budgets"].get("envelopes"):
+            lines.append("")
+            lines.append("ENVELOPPES ANNUELLES :")
+            for e in data["budgets"]["envelopes"]:
+                y, m = e["echeance"].split("-")
+                lines.append(f"  - {e['categorie']} (échéance {m}/{y}) : {format_eur(e['depense'])} / {format_eur(e['budget'])}, reste {format_eur(e['reste'])}")
 
     if include_expenses:
         lines.append("")
-        lines.append(f"DÉPENSES 7 DERNIERS JOURS : {format_eur(data['expenses']['total_expenses'])}")
+        lines.append(f"DÉPENSES VARIABLES 7 DERNIERS JOURS : {format_eur(data['expenses']['total_expenses'])}")
         if data["expenses"]["categories"]:
             lines.append("Catégories principales :")
             for cat in data["expenses"]["categories"][:5]:
@@ -624,18 +731,20 @@ def run_weekly_recap(
     if include_savings:
         savings_balances = [doc.to_dict() or {} for doc in db.collection("savings_balances").stream()]
 
-    # Transactions : 45 derniers jours pour couvrir la semaine + le mois courant
+    # Transactions : 13 mois pour couvrir la semaine, le mois précédent et le cycle des enveloppes
     transactions = []
     if include_expenses or include_budgets:
-        cutoff = (now_utc - timedelta(days=45)).strftime("%Y-%m-%d")
+        cutoff = (now_utc - timedelta(days=400)).strftime("%Y-%m-%d")
         tx_stream = db.collection("transactions").where("date", ">=", cutoff).stream()
         transactions = [doc.to_dict() or {} for doc in tx_stream]
 
     budgets = []
     monthly_overrides = []
-    if include_budgets:
-        budgets = [doc.to_dict() or {} for doc in db.collection("budgets").stream()]
+    recurrences = []
+    if include_expenses or include_budgets:
+        budgets = [{**(doc.to_dict() or {}), "id": doc.id} for doc in db.collection("budgets").stream()]
         monthly_overrides = [doc.to_dict() or {} for doc in db.collection("budgets_monthly").stream()]
+        recurrences = [doc.to_dict() or {} for doc in db.collection("recurrences").stream()]
 
     excluded_categories = []
     ex_doc = db.collection("metadata").document("budget_excluded_categories").get()
@@ -658,6 +767,7 @@ def run_weekly_recap(
         include_expenses=include_expenses,
         include_budgets=include_budgets,
         warning_threshold=warning_threshold,
+        recurrences=recurrences,
     )
 
     html_body = render_weekly_recap_html(data)
