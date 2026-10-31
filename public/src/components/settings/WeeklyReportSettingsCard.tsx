@@ -182,7 +182,7 @@ export const WeeklyReportSettingsCard: React.FC = () => {
             />
             <ListItem
               title="Dépenses des 7 derniers jours"
-              subtitle="Total dépensé, répartition par catégorie et top 5 des opérations"
+              subtitle="Hors charges fixes : total, répartition par catégorie et top 5 des opérations"
               trailing={
                 <Switch
                   label="Inclure les dépenses de la semaine"
@@ -193,8 +193,8 @@ export const WeeklyReportSettingsCard: React.FC = () => {
               }
             />
             <ListItem
-              title="Alertes budgets mensuels"
-              subtitle="Budgets dépassés (> 100 %) et sous tension"
+              title="Budgets variables et enveloppes"
+              subtitle="Budgets du mois vs mois dernier à date, et enveloppes annuelles (hors charges fixes)"
               trailing={
                 <Switch
                   label="Inclure les alertes budgets"
