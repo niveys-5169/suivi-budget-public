@@ -61,6 +61,11 @@ describe('taux, proratisation, pension', () => {
     expect(trimestresManquants(172, 100)).toBe(20);
   });
 
+  it('décote multiplicative : 0,5 × (1 − 1,25 % × trimestres manquants), pas 0,5 − 1,25 % × trimestres', () => {
+    expect(tauxLiquidation(4)).toBeCloseTo(0.5 * (1 - 0.0125 * 4), 10);
+    expect(tauxLiquidation(4)).not.toBeCloseTo(0.45, 10);
+  });
+
   it('taux plein automatique à 67 ans', () => {
     expect(tauxLiquidation(8, 67)).toBe(0.5);
     expect(tauxLiquidation(8, 66)).toBeCloseTo(0.45, 10);

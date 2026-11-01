@@ -111,6 +111,10 @@ describe.skipIf(!FILE)('parité projection calculée ↔ classeur (local)', () =
     params.revenusCommuns.pensions = [];
     for (const s of params.scenarios) Object.assign(s, { phases: [], pensions: [] });
     params.calculateurs!.actif = true;
+    // Le classeur compte deux fois les points de l'année du relevé (③c B57 = B16 + H50) ; l'app non : on aligne les entrées pour comparer.
+    const nom3c = wb.SheetNames.find((n) => n.startsWith('③c'));
+    if (!nom3c) throw new Error('Onglet ③c introuvable');
+    params.calculateurs!.retraite!.personnes[1]!.pointsAgircArrco += num(wb.Sheets[nom3c]!, 'H25');
     const inputs = resolveProjectionParams(params, SANS_OBSERVE);
     const ids = params.personnes.map((p) => p.id) as [string, string];
     const patrimoineEtCash = comparer(wb, inputs, ids);

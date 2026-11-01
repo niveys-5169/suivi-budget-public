@@ -2,9 +2,7 @@
 import type {
   ProjectionActiviteParams,
   ProjectionRetraiteCarriereAnnee,
-  ProjectionRetraitePersonneParams,
 } from '../../../types/banking.types';
-import { pointsAgircArrcoAnnee } from '../retraite/agircArrco';
 
 type Personne2 = NonNullable<ProjectionActiviteParams['personne2']>;
 
@@ -27,21 +25,4 @@ export function carriereP2(
     carriere.push({ annee, salaireRG: (brut * mois) / 12 });
   }
   return carriere;
-}
-
-/**
- * Paramètres retraite de la personne 2 : ③c ajoute les points de l'année du relevé (estimée) aux points
- * déjà acquis à la fin de cette année (③c B57 = B16 + H50, dont H25).
- */
-export function paramsRetraiteP2(
-  params: ProjectionRetraitePersonneParams,
-  carriere: ProjectionRetraiteCarriereAnnee[],
-): ProjectionRetraitePersonneParams {
-  const releve = carriere.find((c) => c.annee === params.anneeReleve);
-  if (!releve) return params;
-  const points = pointsAgircArrcoAnnee(releve.salaireRG ?? 0, releve.annee, {
-    ...params,
-    prixPoint: params.prixPointAgircArrco,
-  });
-  return { ...params, pointsAgircArrco: params.pointsAgircArrco + points };
 }

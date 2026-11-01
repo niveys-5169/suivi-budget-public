@@ -5,7 +5,7 @@ import type {
 } from '../../../types/banking.types';
 import { computeRetraitePersonne } from '../retraite/computeRetraite';
 import { carriereP1 } from './carriere';
-import { carriereP2, paramsRetraiteP2 } from './carriereP2';
+import { carriereP2 } from './carriereP2';
 
 export interface RetraitesScenario {
   p1: ProjectionRetraiteResultat;
@@ -31,7 +31,7 @@ export function retraitesScenario(
     ...(carriere2 && params2
       ? {
           p2: computeRetraitePersonne({
-            params: paramsRetraiteP2(params2, carriere2),
+            params: params2,
             carriere: carriere2,
           }),
         }

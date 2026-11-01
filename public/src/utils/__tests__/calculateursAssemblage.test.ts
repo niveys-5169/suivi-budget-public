@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectionValeursObservees } from '../../types/banking.types';
 import { computeActivitePersonne1 } from '../projection/activite/computeActivite';
+import { carriereP2 } from '../projection/calculateurs/carriereP2';
 import {
   blocsManquants,
   computeScenarioCalcule,
 } from '../projection/calculateurs/computeScenarioCalcule';
+import { retraitesScenario } from '../projection/calculateurs/retraiteScenario';
+import { pointsAgircArrcoAnnee } from '../projection/retraite/agircArrco';
 import { resolveProjectionParams } from '../projection/resolveParams';
 import { makeCalculateursParams } from './calculateursFixtures';
 
@@ -172,6 +175,36 @@ describe('computeScenarioCalcule', () => {
     delete seul.calculateurs!.activite!.personne2;
     const calcul = computeScenarioCalcule(seul, 's1')!;
     expect(Object.keys(calcul.revenusMensuels)).toEqual(['p1']);
+  });
+});
+
+describe('retraite de la personne 2 : points Agirc-Arrco', () => {
+  it('ajoute les points des seules années postérieures au relevé, pas ceux de l année du relevé', () => {
+    const params = makeCalculateursParams();
+    const activite = params.calculateurs!.activite!;
+    const p2 = params.calculateurs!.retraite!.personnes[1]!;
+    const resultat = retraitesScenario(
+      activite,
+      params.calculateurs!.retraite!,
+      { p1: 'p1', p2: 'p2' },
+      's1',
+    )!;
+    const options = {
+      croissancePass: p2.croissancePass,
+      revalorisationSalaires: p2.revalorisationSalaires,
+      prixPoint: p2.prixPointAgircArrco,
+    };
+    const carriere = carriereP2(activite.personne2!, p2.anneeReleve)!;
+    const pointsReleve = pointsAgircArrcoAnnee(
+      carriere[0]!.salaireRG ?? 0,
+      carriere[0]!.annee,
+      options,
+    );
+    const pointsPosterieurs = carriere
+      .filter((c) => c.annee > p2.anneeReleve)
+      .reduce((s, c) => s + pointsAgircArrcoAnnee(c.salaireRG ?? 0, c.annee, options), 0);
+    expect(pointsReleve).toBeGreaterThan(0);
+    expect(resultat.p2!.pointsAgircArrco).toBeCloseTo(p2.pointsAgircArrco + pointsPosterieurs, 8);
   });
 });
 
