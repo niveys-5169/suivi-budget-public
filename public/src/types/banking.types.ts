@@ -876,6 +876,8 @@ export interface ProjectionParams {
   };
   classesCategories: Record<string, ProjectionClasseCategorie>;
   aConfirmer: ProjectionPointAConfirmer[];
+  /** Paramètres des calculateurs détaillés (lot 2). Absent = comportement du lot 1. */
+  calculateurs?: { fiscal?: ProjectionFiscalParams; retraite?: ProjectionRetraiteParams };
 }
 
 /** Valeurs observées dans les données de l'app (sortie de utils/projection/autoValues.ts). */
@@ -1057,4 +1059,104 @@ export interface ProjectionRapport {
   annees: ProjectionAnneeDetail[];
   controles: ProjectionControle[];
   pointsAConfirmer: ProjectionPointAConfirmer[];
+}
+
+// ─── Projections — calculateurs (lot 2) ───
+/** Paramètres utilisateur du calculateur fiscal (IR du foyer et taux PAS par année). */
+export interface ProjectionFiscalParams {
+  /** Indexation annuelle du barème et de la grille : inflation du scénario ou taux saisi. */
+  indexationBareme: { mode: 'inflation' | 'manuel'; manuel?: number };
+  /** Âge limite de rattachement d'un enfant, au 1er janvier (½ part tant qu'il est plus jeune). */
+  ageLimiteRattachement: number;
+  /** true = taux individualisés par personne ; false = taux commun du foyer. */
+  tauxIndividualises: boolean;
+  /** Avant cette année, les taux réels saisis s'appliquent ; à partir d'elle, les taux sont recalculés. */
+  premiereAnneeRecalculee: number;
+  /** Taux de prélèvement à la source réellement appliqués aujourd'hui (décimaux, 0.07 = 7 %). */
+  tauxReelsActuels: { p1: number; p2: number };
+}
+
+/** Résultat fiscal d'une année civile du foyer. */
+export interface ProjectionFiscalAnnee {
+  annee: number;
+  /** Parts fiscales du foyer (2 + ½ par enfant rattaché au 1er janvier). */
+  parts: number;
+  /** Revenu net imposable du foyer, annualisé, après abattements de 10 %. */
+  revenuNetImposable: number;
+  /** Impôt sur le revenu net du foyer (après plafonnement du quotient familial et décote). */
+  irNet: number;
+  /** Taux moyen du foyer, arrondi au 1/1000. */
+  tauxFoyer: number;
+  /** Taux de prélèvement à la source appliqué à la personne 1 (décimal). */
+  tauxP1: number;
+  /** Taux de prélèvement à la source appliqué à la personne 2 (décimal). */
+  tauxP2: number;
+}
+
+/** Paramètres de retraite d'une personne (CNAV, Agirc-Arrco, Cipav, rente PER). Montants en € de l'année de référence. */
+export interface ProjectionRetraitePersonneParams {
+  personneId: string;
+  /** Trimestres validés (régime général) à la date du relevé. */
+  trimestresValides: number;
+  /** Dernière année civile entièrement couverte par le relevé (trimestres et points acquis). */
+  anneeReleve: number;
+  /** Trimestres requis pour le taux plein (selon la génération). */
+  trimestresRequis: number;
+  /** Points Agirc-Arrco acquis au relevé. */
+  pointsAgircArrco: number;
+  /** Valeur de service du point Agirc-Arrco (€). */
+  valeurPointAgircArrco: number;
+  /** Prix d'achat du point Agirc-Arrco = salaire de référence (€). */
+  prixPointAgircArrco: number;
+  /** Points Cipav acquis par an pour un BNC égal à `bncReferenceCipav`. */
+  pointsCipavParAn: number;
+  /** BNC annuel de référence correspondant à `pointsCipavParAn` (€). */
+  bncReferenceCipav: number;
+  /** Valeur du point Cipav (€). */
+  valeurPointCipav: number;
+  /** Rente PER / épargne retraite (€ brut par mois). */
+  rentePerMensuelle: number;
+  /** CSG/CRDS/CASA du retraité (décimal, 0.091 = 9,1 %). */
+  tauxPrelevementsSociaux: number;
+  /** Revalorisation annuelle des salaires portés au compte (décimal). */
+  revalorisationSalaires: number;
+  /** Croissance annuelle du PASS (décimal). */
+  croissancePass: number;
+  /** Nombre de meilleures années retenues pour le SAM (25). */
+  nombreMeilleuresAnnees: number;
+  /** Salaires bruts annuels connus (relevé), par année civile. Priment sur la carrière projetée. */
+  salairesPasses?: Record<string, number>;
+}
+
+/** Paramètres de retraite du foyer : une entrée par personne. */
+export interface ProjectionRetraiteParams {
+  personnes: ProjectionRetraitePersonneParams[];
+}
+
+/** Revenus de carrière d'une année civile (entrée du calculateur de retraite). */
+export interface ProjectionRetraiteCarriereAnnee {
+  annee: number;
+  /** Salaire brut annuel soumis au régime général (CNAV). */
+  salaireRG?: number;
+  /** Assiette Agirc-Arrco annuelle ; par défaut `salaireRG`. */
+  assietteAgircArrco?: number;
+  /** Points Agirc-Arrco calculés en amont (ex. congé de reclassement) : remplacent ceux de l'assiette. */
+  pointsAgircArrco?: number;
+  /** BNC annuel (affilié Cipav). */
+  bnc?: number;
+}
+
+/** Pension de retraite d'une personne à la liquidation (€ par mois, de l'année de référence). */
+export interface ProjectionRetraiteResultat {
+  detailBrut: { cnav: number; agircArrco: number; cipav: number; per: number };
+  totalBrut: number;
+  netAvantImpot: number;
+  trimestres: { regimeGeneral: number; autresRegimes: number; total: number; manquants: number };
+  /** Valeurs intermédiaires : SAM annuel, années retenues, taux, proratisation, points totaux. */
+  sam: number;
+  anneesRetenues: number;
+  tauxLiquidation: number;
+  coefficientProratisation: number;
+  pointsAgircArrco: number;
+  pointsCipav: number;
 }
