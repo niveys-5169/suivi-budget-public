@@ -1,6 +1,7 @@
 import type { WorkBook } from '@e965/xlsx';
 import type { ProjectionImportResult, ProjectionParams } from '../../types/banking.types';
 import { importCalcScenarios } from './importCalcScenarios';
+import { importCalculateurs } from './importCalculateurs';
 import { importHypotheses } from './importHypotheses';
 import { importRevenusFoyer } from './importRevenusFoyer';
 import { importTableauDeBord } from './importTableauDeBord';
@@ -20,6 +21,7 @@ export function importSimulationWorkbook(
   const finActivite = importRevenusFoyer(wb, ctx);
   const metas = importCalcScenarios(wb, ctx, finActivite);
   importTableauDeBord(wb, ctx, metas, finActivite);
+  importCalculateurs(wb, ctx);
   return { params: ctx.params, reconnus: ctx.reconnus, avertissements: ctx.avertissements };
 }
 

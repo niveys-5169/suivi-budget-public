@@ -878,6 +878,8 @@ export interface ProjectionParams {
   aConfirmer: ProjectionPointAConfirmer[];
   /** Paramètres des calculateurs détaillés (lot 2). Absent = comportement du lot 1. */
   calculateurs?: {
+    /** true = les revenus des personnes viennent des calculateurs (« Auto (calculé) »). */
+    actif?: boolean;
     fiscal?: ProjectionFiscalParams;
     retraite?: ProjectionRetraiteParams;
     activite?: ProjectionActiviteParams;
@@ -918,6 +920,14 @@ export interface ProjectionPhaseResolue extends Omit<ProjectionPhaseRevenu, 'net
 
 export interface ProjectionScenarioResolu extends Omit<ProjectionScenario, 'phases'> {
   phases: ProjectionPhaseResolue[];
+  /** Calculateurs : cash mensuel après PAS (€ courants) par personne ; remplace phases et pensions. */
+  revenusMensuels?: Record<string, Record<ProjectionMonth, number>>;
+  /** Calculateurs : détail de la retraite par personne (valeurs de l'année de référence des prix). */
+  retraiteDetail?: Record<string, ProjectionRetraiteResultat>;
+  /** Calculateurs : libellé de phase de chaque mois pour la personne de référence (colonne B de Calc). */
+  phasesMensuelles?: Record<ProjectionMonth, string>;
+  /** Calculateurs : 1er mois de pension de chaque personne partie à la retraite dans l'horizon. */
+  debutsRetraite?: Record<string, ProjectionMonth>;
 }
 
 /** Entrées numériques du moteur (sortie de resolveParams). */
@@ -936,6 +946,8 @@ export interface ProjectionInputs {
   patrimoineDepart: number;
   abondement?: ProjectionParams['capital']['abondement'];
   scenarios: ProjectionScenarioResolu[];
+  /** Messages non bloquants de la résolution des calculateurs (bloc manquant, scénario non calculable). */
+  messagesCalculateurs?: string[];
 }
 
 export interface ProjectionMoisResultat {
@@ -982,6 +994,8 @@ export interface ProjectionRetraitePersonne {
   prenom: string;
   netAvantImpot: number;
   netApresImpot: number;
+  /** Détail par régime (calculateur de retraite) ; absent pour une pension saisie. */
+  detail?: ProjectionRetraiteResultat;
 }
 
 export interface ProjectionRetraiteScenario {
@@ -1078,6 +1092,8 @@ export interface ProjectionFiscalParams {
   premiereAnneeRecalculee: number;
   /** Taux de prélèvement à la source réellement appliqués aujourd'hui (décimaux, 0.07 = 7 %). */
   tauxReelsActuels: { p1: number; p2: number };
+  /** true (défaut) : IR du libéral = taux PAS recalculé × BNC imposable ; false : IR imputé de ② (⑫ B15). */
+  irLiberalParTaux?: boolean;
 }
 
 /** Résultat fiscal d'une année civile du foyer. */
@@ -1135,6 +1151,8 @@ export interface ProjectionRetraitePersonneParams {
 /** Paramètres de retraite du foyer : une entrée par personne. */
 export interface ProjectionRetraiteParams {
   personnes: ProjectionRetraitePersonneParams[];
+  /** Part déductible de la CSG sur les pensions (décimal) ; défaut : constante légale. */
+  partCsgDeductible?: number;
 }
 
 /** Revenus de carrière d'une année civile (entrée du calculateur de retraite). */
@@ -1223,6 +1241,8 @@ export interface ProjectionActiviteParams {
     /** Coefficient appliqué aux postes « cfe » (années 1, 2 et 3+). */
     coefficientCfe: [number, number, number];
     perAnnuel: number;
+    /** true (défaut) : le PER TNS est une sortie de cash du mois (①b B84). */
+    perSortieDeCash?: boolean;
     /** Taux maladie-maternité par année de montée en charge ; défaut : constantes légales. */
     tauxMaladieMaternite?: [number, number, number];
   };
@@ -1236,6 +1256,8 @@ export interface ProjectionActiviteParams {
     ageFinActivite: number;
     netAvantPasMensuel: number;
     netImposableMensuel: number;
+    /** Salaire brut annuel à l'année de référence (①b B19) : sert à la carrière retraite ; absent = pas de pension. */
+    salaireBrutAnnuel?: number;
     revalorisationAnnuelle: number;
     /** Année de la paie de référence (indice = 1 cette année-là). */
     anneeReference: number;
@@ -1286,4 +1308,16 @@ export interface ProjectionActiviteMois {
   /** Personne 2 : net avant PAS et net imposable du salaire revalorisé (colonnes H et I, hors pension). */
   netAvantPasPersonne2: number;
   netImposablePersonne2: number;
+}
+
+/** Sortie de l'assemblage des calculateurs pour un scénario (utils/projection/calculateurs). */
+export interface ProjectionScenarioCalcule {
+  /** Cash mensuel après PAS (€ courants) par personne. */
+  revenusMensuels: Record<string, Record<ProjectionMonth, number>>;
+  retraiteDetail: Record<string, ProjectionRetraiteResultat>;
+  /** Libellé de phase de la personne 1 pour chaque mois. */
+  phasesMensuelles: Record<ProjectionMonth, string>;
+  /** 1er mois de pension par personne. */
+  debutsRetraite: Record<string, ProjectionMonth>;
+  fiscal: ProjectionFiscalAnnee[];
 }

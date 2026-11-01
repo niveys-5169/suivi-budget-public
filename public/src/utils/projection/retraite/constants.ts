@@ -22,6 +22,9 @@ export const SALAIRE_VALIDANT_TRIMESTRE = 1803;
 /** Maximum de trimestres validés par année civile. */
 export const TRIMESTRES_MAX_PAR_AN = 4;
 
+/** Part déductible de la CSG sur les pensions de retraite (5,9 % sur 9,1 % de prélèvements, ①b B146). */
+export const CSG_DEDUCTIBLE_PENSIONS_DEFAUT = 0.059;
+
 /** Prélèvements sociaux du retraité à taux plein : CSG 8,3 % + CRDS 0,5 % + CASA 0,3 %. */
 export const TAUX_PRELEVEMENTS_SOCIAUX_DEFAUT = 0.091;
 
