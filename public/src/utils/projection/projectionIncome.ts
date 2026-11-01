@@ -11,7 +11,7 @@ export interface ProjectionRevenusMois {
   activite: Record<string, number>;
   /** Pensions par personne (communes + scénario, indexées sur l'inflation). */
   pension: Record<string, number>;
-  /** Libellé de la phase de scénario active, 'Retraite' si une pension du scénario est active. */
+  /** Libellé de phase de la personne de référence (1re personne) : 'Retraite' si l'une de ses pensions est active. */
   phase: string;
 }
 
@@ -56,9 +56,12 @@ export function monthlyIncome(
   for (const p of pensionsActives)
     add(pension, p.personneId, p.montantsAnnuels?.[annee] ?? p.netApresImpot * indiceInflation);
 
-  const retraite = scenario.pensions.some((p) => monthIndex(mois) >= monthIndex(p.debut));
-  const phaseScenario = scenario.phases.find((p) => isActive(p, mois));
-  return { activite, pension, phase: retraite ? 'Retraite' : (phaseScenario?.libelle ?? '—') };
+  const ref = inputs.personnes[0]?.id;
+  const retraite = pensionsActives.some((p) => p.personneId === ref);
+  const phaseRef = [...scenario.phases, ...inputs.phasesCommunes].find(
+    (p) => p.personneId === ref && isActive(p, mois),
+  );
+  return { activite, pension, phase: retraite ? 'Retraite' : (phaseRef?.libelle ?? '—') };
 }
 
 /** Allocations familiales : montant × (1+évolution)^(année − année de référence), jusqu'à `dernierMois`. */

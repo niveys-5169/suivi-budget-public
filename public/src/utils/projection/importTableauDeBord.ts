@@ -1,5 +1,5 @@
 import type { WorkBook } from '@e965/xlsx';
-import type { ProjectionMonth, ProjectionPension } from '../../types/banking.types';
+import type { ProjectionMonth } from '../../types/banking.types';
 import type { ScenarioMeta } from './importCalcScenarios';
 import { recognized, warn, type ImportContext } from './importContext';
 import {
@@ -36,7 +36,7 @@ function pensionAt(
 
 /**
  * Onglet « Tableau de bord », section 2 : noms des scénarios (ligne « Poste », colonnes C…G)
- * et pensions (personne 1 par scénario, personne 2 commune = colonne C).
+ * et pensions (personne 1 par scénario ; personne 2 : nets de la colonne du scénario, montants annuels de l'onglet Calc du scénario).
  */
 export function importTableauDeBord(
   wb: WorkBook,
@@ -52,7 +52,10 @@ export function importTableauDeBord(
   const rows = readRows(ws, 1, 8);
   const header = findRow(rows, { starts: 'poste' });
   const p1 = ctx.params.personnes[0]?.id ?? 'p1';
-  for (const { scenario, numero, retraiteDebut, pensionAnnuelle } of metas) {
+  const p2 = ctx.params.personnes[1]?.id ?? 'p2';
+  const { revenusCommuns } = ctx.params;
+  revenusCommuns.pensions = revenusCommuns.pensions.filter((p) => p.personneId !== p2);
+  for (const { scenario, numero, retraiteDebut, pensionAnnuelle, pension2Annuelle } of metas) {
     const col = FIRST_SCENARIO_COL + numero - 1;
     const nom = header?.cells[col];
     if (typeof nom === 'string' && nom.trim()) scenario.nom = nom.trim();
@@ -68,16 +71,15 @@ export function importTableauDeBord(
         },
       ];
     } else warn(ctx, `Pension de la personne 1 introuvable pour « ${scenario.nom} ».`);
+    const net2 = pensionAt(rows, col, ['p2Avant', 'p2Apres'], ctx);
+    if (net2 && finActiviteP2) {
+      scenario.pensions.push({
+        id: `${scenario.id}-p2-pension`,
+        personneId: p2,
+        debut: finActiviteP2,
+        ...net2,
+        ...(pension2Annuelle ? { montantsAnnuels: pension2Annuelle } : {}),
+      });
+    } else warn(ctx, `Pension de la personne 2 introuvable pour « ${scenario.nom} ».`);
   }
-  const net = pensionAt(rows, FIRST_SCENARIO_COL, ['p2Avant', 'p2Apres'], ctx);
-  if (net && finActiviteP2) {
-    const pension: ProjectionPension = {
-      id: 'commun-pension-2',
-      personneId: ctx.params.personnes[1]?.id ?? 'p2',
-      debut: finActiviteP2,
-      ...net,
-      ...(metas[0]?.pension2Annuelle ? { montantsAnnuels: metas[0].pension2Annuelle } : {}),
-    };
-    ctx.params.revenusCommuns.pensions = [pension];
-  } else warn(ctx, 'Pension de la personne 2 introuvable : pensions communes conservées.');
 }

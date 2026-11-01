@@ -99,7 +99,7 @@ describe('simulateScenario : revenus et phases', () => {
     expect(mois[1]?.depensesCourantes).toBeCloseTo(1100, 6);
   });
 
-  it('pension indexée sur l inflation ; seule une pension de scénario donne la phase Retraite', () => {
+  it('pension indexée sur l inflation ; la phase Retraite suit la pension de la personne de référence', () => {
     const inputs = makeInputs({
       horizon: { debut: '2026-12', fin: '2028-01', anneeReferencePrix: 2026 },
       macro: { inflation: 0.02, rendementCapital: 0, rendementPatrimoine: 0 },
@@ -117,6 +117,42 @@ describe('simulateScenario : revenus et phases', () => {
     expect(mois[1]?.phase).toBe('Retraite');
     expect(mois[13]?.mois).toBe('2028-01');
     expect(mois[13]?.revenusParPersonne.a).toBeCloseTo(1040.4, 6);
+  });
+
+  it('phase et pension de la personne 2 dans le scénario n influencent pas le libellé de phase', () => {
+    const inputs = makeInputs({
+      horizon: { debut: '2026-01', fin: '2026-04', anneeReferencePrix: 2026 },
+      scenarios: [
+        {
+          id: 's1',
+          nom: 'S1',
+          phases: [
+            makePhase('b', 900, '2026-01', { libelle: 'Activité P2' }),
+            makePhase('a', 2000, '2026-01', { fin: '2026-02', libelle: 'Salarié' }),
+          ],
+          pensions: [makePension('b', 400, '2026-02'), makePension('a', 1000, '2026-04')],
+        },
+      ],
+    });
+    const mois = run(inputs);
+    expect(mois.map((m) => m.phase)).toEqual(['Salarié', 'Salarié', '—', 'Retraite']);
+    expect(mois[1]?.revenusParPersonne).toEqual({ a: 2000, b: 1300 });
+    expect(mois[3]?.revenusParPersonne).toEqual({ a: 1000, b: 1300 });
+  });
+
+  it('une pension commune de la personne de référence donne aussi la phase Retraite', () => {
+    const inputs = makeInputs({
+      pensionsCommunes: [makePension('a', 800, '2026-02')],
+      scenarios: [
+        {
+          id: 's1',
+          nom: 'S1',
+          phases: [makePhase('a', 2000, '2026-01', { libelle: 'Salarié' })],
+          pensions: [],
+        },
+      ],
+    });
+    expect(run(inputs).map((m) => m.phase)).toEqual(['Salarié', 'Retraite', 'Retraite']);
   });
 
   it('CAF indexée selon son évolution annuelle puis arrêtée après dernierMois', () => {

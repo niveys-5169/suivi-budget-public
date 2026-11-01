@@ -178,6 +178,8 @@ function makeBase(): ProjectionParams {
 describe('importSimulationWorkbook', () => {
   const base = makeBase();
   const { params, reconnus, avertissements } = importSimulationWorkbook(buildWorkbook(), base);
+  const pension = (scenario: number, personneId: string) =>
+    params.scenarios[scenario]!.pensions.find((p) => p.personneId === personneId);
 
   it("ne modifie pas `base` et n'émet aucun avertissement sur un classeur complet", () => {
     expect(base).toEqual(makeBase());
@@ -280,7 +282,7 @@ describe('importSimulationWorkbook', () => {
   });
 
   it('découpe les phases par séries, hors Retraite, avec montant du 2e mois et croissance', () => {
-    const phases = params.scenarios[0]!.phases;
+    const phases = params.scenarios[0]!.phases.filter((p) => p.personneId === 'p1');
     expect(phases.map((p) => [p.libelle, p.debut, p.fin])).toEqual([
       ['Situation actuelle', '2026-09', '2027-02'],
       ['Association', '2027-03', '2029-12'],
@@ -292,7 +294,7 @@ describe('importSimulationWorkbook', () => {
     });
     expect(phases[1]?.netMensuel).toEqual({ mode: 'manuel', manuel: 2000 });
     expect(phases[1]?.revalorisationAnnuelle).toBeCloseTo(0.05, 10);
-    const [single] = params.scenarios[1]!.phases.slice(1);
+    const single = params.scenarios[1]!.phases[1];
     expect(single).toMatchObject({
       libelle: 'Libéral — 10 mesures',
       debut: '2027-03',
@@ -309,63 +311,95 @@ describe('importSimulationWorkbook', () => {
     expect(association?.montantsAnnuels?.['2029']).toBeCloseTo(2205, 6);
     // 1er mois seul de son année : conservé
     expect(params.scenarios[1]!.phases[1]?.montantsAnnuels).toEqual({ '2027': 1234 });
-    const [commune] = params.revenusCommuns.phases;
-    expect(commune?.montantsAnnuels?.['2026']).toBe(1500);
-    expect(commune?.montantsAnnuels?.['2027']).toBe(1600);
-    expect(commune?.montantsAnnuels?.['2031']).toBeCloseTo(1600 * 1.02 ** 4, 6);
+    const activite = params.scenarios[0]!.phases.find((p) => p.id === 's1-p2-activite');
+    expect(activite?.montantsAnnuels?.['2026']).toBe(1500);
+    expect(activite?.montantsAnnuels?.['2027']).toBe(1600);
+    expect(activite?.montantsAnnuels?.['2031']).toBeCloseTo(1600 * 1.02 ** 4, 6);
   });
 
   it('renseigne montantsAnnuels des pensions (tous les mois de retraite comptent)', () => {
-    expect(params.scenarios[0]!.pensions[0]?.montantsAnnuels).toEqual({
+    expect(pension(0, 'p1')?.montantsAnnuels).toEqual({
       '2030': 3500,
       '2031': 3500,
     });
-    expect(params.scenarios[1]!.pensions[0]?.montantsAnnuels).toEqual({
+    expect(pension(1, 'p1')?.montantsAnnuels).toEqual({
       '2027': 3000,
       '2028': 3000,
       '2029': 3000,
       '2030': 3000,
       '2031': 3000,
     });
-    expect(params.revenusCommuns.pensions[0]?.montantsAnnuels).toEqual({
-      '2031': 1600 * 1.02 ** 4,
-    });
+    expect(pension(0, 'p2')?.montantsAnnuels).toEqual({ '2031': 1600 * 1.02 ** 4 });
+    expect(pension(1, 'p2')?.montantsAnnuels).toEqual({ '2031': 1600 * 1.02 ** 4 + 30 });
   });
 
-  it('ajoute une phase d écart pour la personne 2 quand son cash dépend du scénario', () => {
-    expect(params.scenarios[0]!.phases.some((p) => p.id.endsWith('ecart-p2'))).toBe(false);
-    const ecart = params.scenarios[1]!.phases.find((p) => p.id === 's2-ecart-p2');
-    expect(ecart).toMatchObject({ personneId: 'p2', debut: '2026-09', fin: '2031-12' });
-    expect(ecart?.netMensuel).toEqual({ mode: 'manuel', manuel: 0 });
-    expect(ecart?.montantsAnnuels).toEqual({
-      '2026': 0,
-      '2027': 0,
-      '2028': 30,
-      '2029': 30,
-      '2030': 30,
-      '2031': 30,
+  it('crée une phase Activité de la personne 2 par scénario, lue dans son onglet Calc', () => {
+    const [s1, s2] = params.scenarios;
+    for (const [scenario, id, cash2031] of [
+      [s1, 's1-p2-activite', 1600 * 1.02 ** 4],
+      [s2, 's2-p2-activite', 1600 * 1.02 ** 4 + 30],
+    ] as const) {
+      const phase = scenario!.phases.find((p) => p.id === id);
+      expect(phase).toMatchObject({
+        personneId: 'p2',
+        libelle: 'Activité',
+        debut: '2026-09',
+        fin: '2031-06',
+      });
+      expect(phase?.netMensuel).toEqual({ mode: 'manuel', manuel: 1500 });
+      expect(phase?.montantsAnnuels?.['2031']).toBeCloseTo(cash2031, 6);
+    }
+    expect(s2!.phases.find((p) => p.id === 's2-p2-activite')?.montantsAnnuels).toMatchObject({
+      '2027': 1600,
+      '2028': 1600 * 1.02 + 30,
     });
+    expect(s1!.phases.find((p) => p.id === 's1-p2-activite')?.revalorisationAnnuelle).toBeCloseTo(
+      0.02,
+      10,
+    );
   });
 
-  it('crée la phase Activité de la personne 2 jusqu au mois précédant la fin d activité', () => {
-    const [phase] = params.revenusCommuns.phases;
-    expect(phase).toMatchObject({
-      personneId: 'p2',
-      libelle: 'Activité',
-      debut: '2026-09',
-      fin: '2031-06',
-    });
-    expect(phase?.netMensuel).toEqual({ mode: 'manuel', manuel: 1500 });
-    expect(phase?.revalorisationAnnuelle).toBeCloseTo(0.02, 10);
+  it('n écrit plus de phase d écart ni de phase ou pension commune pour la personne 2', () => {
+    const ids = params.scenarios.flatMap((s) => s.phases.map((p) => p.id));
+    expect(ids.some((id) => id.includes('ecart'))).toBe(false);
+    expect(params.revenusCommuns.phases).toEqual([]);
+    expect(params.revenusCommuns.pensions).toEqual([]);
   });
 
-  it('importe les pensions par scénario (personne 1) et la pension commune (personne 2)', () => {
+  it('retire les phases et pensions communes de la personne 2 d un import précédent', () => {
+    const old = makeBase();
+    const commun = { personneId: 'p2', debut: '2026-01', netAvantImpot: 1, netApresImpot: 1 };
+    old.revenusCommuns.pensions = [{ id: 'commun-pension-2', ...commun }];
+    old.revenusCommuns.phases = [
+      {
+        id: 'commun-activite',
+        personneId: 'p2',
+        libelle: 'Activité',
+        debut: '2026-01',
+        netMensuel: { mode: 'manuel', manuel: 1 },
+        revalorisationAnnuelle: 0,
+      },
+    ];
+    const result = importSimulationWorkbook(buildWorkbook(), old).params.revenusCommuns;
+    expect(result.phases).toEqual([]);
+    expect(result.pensions).toEqual([]);
+  });
+
+  it('importe la pension de la personne 1 et celle de la personne 2 dans chaque scénario', () => {
     expect(params.scenarios[0]!.pensions).toEqual([
       expect.objectContaining({
+        id: 's1-pension-1',
         personneId: 'p1',
         debut: '2030-01',
         netAvantImpot: 2500,
         netApresImpot: 2400,
+      }),
+      expect.objectContaining({
+        id: 's1-p2-pension',
+        personneId: 'p2',
+        debut: '2031-07',
+        netAvantImpot: 2000,
+        netApresImpot: 1900,
       }),
     ]);
     expect(params.scenarios[1]!.pensions[0]).toMatchObject({
@@ -373,14 +407,13 @@ describe('importSimulationWorkbook', () => {
       netAvantImpot: 2200,
       netApresImpot: 2100,
     });
-    expect(params.revenusCommuns.pensions).toEqual([
-      expect.objectContaining({
-        personneId: 'p2',
-        debut: '2031-07',
-        netAvantImpot: 2000,
-        netApresImpot: 1900,
-      }),
-    ]);
+    expect(params.scenarios[1]!.pensions[1]).toMatchObject({
+      id: 's2-p2-pension',
+      personneId: 'p2',
+      debut: '2031-07',
+      netAvantImpot: 2010,
+      netApresImpot: 1950,
+    });
   });
 
   it('avertit et conserve base quand des onglets manquent', () => {

@@ -934,7 +934,7 @@ export interface ProjectionInputs {
 
 export interface ProjectionMoisResultat {
   mois: ProjectionMonth;
-  phase: string; // libellé de la phase de scénario active ('Retraite' si pension, '—' sinon)
+  phase: string; // phase de la personne de référence (1re personne) : 'Retraite' si pension, '—' sinon
   revenusParPersonne: Record<string, number>; // activité + pension
   caf: number;
   revenus: number; // Σ personnes + CAF

@@ -1,8 +1,8 @@
 import type { WorkBook, WorkSheet } from '@e965/xlsx';
 import type { ProjectionMonth, ProjectionScenario } from '../../types/banking.types';
 import { PROJECTION_MAX_SCENARIOS } from './defaults';
-import { cash2Points, ecartPersonne2, pensionAmounts } from './importCalcPensions';
-import { groupSeries, seriesToPhase, type MonthPoint, type PhaseSeries } from './importPhases';
+import { pensionAmounts } from './importCalcPensions';
+import { groupSeries, seriesToPhase, type PhaseSeries } from './importPhases';
 import { recognized, warn, type ImportContext } from './importContext';
 import { asDate, asMonth, asNumber, normalizeLabel, readCell, shiftMonth } from './xlsxSheetReader';
 
@@ -13,7 +13,7 @@ export interface ScenarioMeta {
   retraiteDebut?: ProjectionMonth;
   /** Cash moyen par année de la pension de la personne 1 (mois de retraite de l'onglet). */
   pensionAnnuelle?: Record<string, number>;
-  /** Idem pour la pension de la personne 2 (premier onglet uniquement). */
+  /** Idem pour la pension de la personne 2 (colonne cash personne 2 de l'onglet). */
   pension2Annuelle?: Record<string, number>;
 }
 
@@ -68,8 +68,8 @@ function calcSheets(wb: WorkBook): { name: string; numero: number }[] {
   }).sort((a, b) => a.numero - b.numero);
 }
 
-/** Phase « Activité » de la personne 2 : 1er mois → mois précédant sa fin d'activité. */
-function commonPhase(lines: CalcLine[], ctx: ImportContext, finActivite?: ProjectionMonth) {
+/** Phase « Activité » de la personne 2 d'un onglet : 1er mois → mois précédant sa fin d'activité. */
+function p2Phase(id: string, lines: CalcLine[], ctx: ImportContext, finActivite?: ProjectionMonth) {
   const kept = lines.filter((l) => !finActivite || l.mois < finActivite);
   if (kept.length === 0) return undefined;
   const series: PhaseSeries = {
@@ -77,13 +77,13 @@ function commonPhase(lines: CalcLine[], ctx: ImportContext, finActivite?: Projec
     points: kept.map((l) => ({ mois: l.mois, value: l.cash2 })),
   };
   const personneId = ctx.params.personnes[1]?.id ?? 'p2';
-  const { fin: _fin, ...phase } = seriesToPhase('commun-activite', personneId, series);
+  const { fin: _fin, ...phase } = seriesToPhase(`${id}-p2-activite`, personneId, series);
   return finActivite ? { ...phase, fin: shiftMonth(finActivite, -1) } : phase;
 }
 
 /**
- * Onglets « Calc S1 » … « Calc S5 » : un scénario par onglet (phases de la personne 1),
- * phase commune de la personne 2 d'après le premier onglet.
+ * Onglets « Calc S1 » … « Calc S5 » : un scénario par onglet, avec les phases de la personne 1
+ * et la phase « Activité » de la personne 2 lues dans cet onglet.
  */
 export function importCalcScenarios(
   wb: WorkBook,
@@ -92,7 +92,6 @@ export function importCalcScenarios(
 ): ScenarioMeta[] {
   const metas: ScenarioMeta[] = [];
   const personneId = ctx.params.personnes[0]?.id ?? 'p1';
-  let refCash2: MonthPoint[] = [];
   for (const { name, numero } of calcSheets(wb).slice(0, PROJECTION_MAX_SCENARIOS)) {
     const lines = readCalcLines(wb.Sheets[name]!);
     if (lines.length === 0) {
@@ -106,6 +105,8 @@ export function importCalcScenarios(
     const phases = series
       .filter((s) => normalizeLabel(s.libelle) !== 'retraite')
       .map((s, i) => seriesToPhase(`${id}-phase-${i + 1}`, personneId, s));
+    const activiteP2 = p2Phase(id, lines, ctx, finActiviteP2);
+    if (activiteP2) phases.push(activiteP2);
     const scenario: ProjectionScenario = { id, nom: `Scénario ${numero}`, phases, pensions: [] };
     const retraiteDebut = lines.find((l) => normalizeLabel(l.phase) === 'retraite')?.mois;
     const meta: ScenarioMeta = {
@@ -113,24 +114,18 @@ export function importCalcScenarios(
       numero,
       retraiteDebut,
       pensionAnnuelle: pensionAmounts(lines, retraiteDebut, 1),
+      pension2Annuelle: pensionAmounts(lines, finActiviteP2, 2),
     };
     metas.push(meta);
     recognized(ctx, name);
-    if (metas.length > 1) {
-      const p2 = ctx.params.personnes[1]?.id ?? 'p2';
-      const ecart = ecartPersonne2(id, p2, lines, refCash2);
-      if (ecart) phases.push(ecart);
-    } else {
-      refCash2 = cash2Points(lines);
-      const phase = commonPhase(lines, ctx, finActiviteP2);
-      if (phase) ctx.params.revenusCommuns.phases = [phase];
-      meta.pension2Annuelle = pensionAmounts(lines, finActiviteP2, 2);
-    }
   }
   if (metas.length === 0) {
     warn(ctx, 'Onglets « Calc S1 » … « Calc S5 » introuvables : scénarios conservés.');
     return metas;
   }
+  const p2 = ctx.params.personnes[1]?.id ?? 'p2';
+  const { revenusCommuns } = ctx.params;
+  revenusCommuns.phases = revenusCommuns.phases.filter((p) => p.personneId !== p2);
   ctx.params.scenarios = metas.map((m) => m.scenario);
   ctx.params.scenarioAfficheId = metas[0]!.scenario.id;
   return metas;

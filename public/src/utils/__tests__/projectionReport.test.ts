@@ -180,6 +180,26 @@ describe('buildProjectionReport : phases du scénario affiché', () => {
     ]);
   });
 
+  it('ignore la phase de la personne 2 dans le découpage par phase', () => {
+    const avecP2 = makeInputs({
+      budgetReference: 1000,
+      scenarios: [
+        {
+          id: 's1',
+          nom: 'S1',
+          phases: [
+            makePhase('a', 2000, '2026-01', { libelle: 'Actif' }),
+            makePhase('b', 700, '2026-01', { libelle: 'Activité P2' }),
+          ],
+          pensions: [makePension('b', 300, '2026-03')],
+        },
+      ],
+    });
+    const phases = report(avecP2, 's1').phases;
+    expect(phases.map((p) => [p.phase, p.nbMois])).toEqual([['Actif', 3]]);
+    expect(phases[0]?.revenusParPersonne).toEqual({ a: 2000, b: 800 });
+  });
+
   it('suit le scénario affiché', () => {
     const rapport = report(inputs, 's2');
     expect(rapport.scenarioAfficheId).toBe('s2');
