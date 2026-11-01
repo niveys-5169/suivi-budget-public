@@ -305,6 +305,7 @@ export const AurumDashboard: React.FC = () => {
                           >
                             <AurumAccountsList
                               onAccountClick={handleAccountClick}
+                              onConnect={() => navigate('/connexions')}
                               accounts={
                                 Array.isArray(checkingBalances)
                                   ? checkingBalances.map((b) => ({

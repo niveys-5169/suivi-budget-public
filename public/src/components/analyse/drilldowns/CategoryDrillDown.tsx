@@ -1,4 +1,6 @@
 import React from 'react';
+import { Receipt } from 'lucide-react';
+import { EmptyState } from '../../../ui';
 import { CHART_COLORS } from '../../../lib/colors';
 import { fmt } from '../../../utils/format';
 import { formatPercent } from '../../../lib/formatters';
@@ -108,7 +110,11 @@ export const CategoryDrillDown: React.FC<Props> = ({
             </button>
           ))}
           {sorted.length === 0 && (
-            <div className="py-12 text-center text-label-tertiary text-sm">Aucune transaction</div>
+            <EmptyState
+              icon={<Receipt size={24} />}
+              title="Aucune transaction dans cette catégorie"
+              description="Aucune opération de cette catégorie n'est enregistrée sur la période."
+            />
           )}
         </div>
       </div>

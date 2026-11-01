@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { CHART_COLORS } from '../lib/colors';
+import { EmptyState } from '../ui';
 import { motion } from 'framer-motion';
 import { ChevronRight, Home, Shield, TrendingUp, Wallet, PiggyBank, Briefcase } from 'lucide-react';
 
@@ -14,6 +15,8 @@ interface Account {
 interface WealthAccountsListProps {
   rows: Account[];
   onOpenAsset: (id: string) => void;
+  /** Ouvre le formulaire d'ajout d'actif. */
+  onAddAsset?: () => void;
 }
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -40,7 +43,11 @@ export const OWNER_COLORS: Record<string, string> = {
   commun: '#E2E8F0',
 };
 
-export const WealthAccountsList: React.FC<WealthAccountsListProps> = ({ rows, onOpenAsset }) => {
+export const WealthAccountsList: React.FC<WealthAccountsListProps> = ({
+  rows,
+  onOpenAsset,
+  onAddAsset,
+}) => {
   const grouped = useMemo(() => {
     const groups: Record<string, Account[]> = {
       cash: [],
@@ -57,6 +64,17 @@ export const WealthAccountsList: React.FC<WealthAccountsListProps> = ({ rows, on
   }, [rows]);
 
   const activeGroups = Object.entries(grouped).filter(([_, items]) => items.length > 0);
+
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon={<Wallet size={24} />}
+        title="Aucun actif à afficher"
+        description="Aucun actif n'est enregistré, ou aucun ne correspond au périmètre sélectionné."
+        action={onAddAsset ? { label: 'Ajouter un actif', onClick: onAddAsset } : undefined}
+      />
+    );
+  }
 
   return (
     <div className="space-y-12">

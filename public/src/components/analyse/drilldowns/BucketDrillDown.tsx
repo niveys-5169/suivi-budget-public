@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Layers } from 'lucide-react';
+import { EmptyState } from '../../../ui';
 import { fmt } from '../../../utils/format';
 import { formatPercent } from '../../../lib/formatters';
 import { BUCKET_COLORS } from '../../../utils/simplifiedBuckets';
@@ -50,6 +51,13 @@ export const BucketDrillDown: React.FC<Props> = ({
       <div>
         <h3 className="text-caption font-bold text-label-tertiary px-2 mb-4">Catégories</h3>
         <div className="divide-y divide-separator">
+          {categories.length === 0 && (
+            <EmptyState
+              icon={<Layers size={24} />}
+              title="Aucune catégorie"
+              description={`Aucune dépense n'est classée dans « ${bucket} » sur la période.`}
+            />
+          )}
           {categories.map((cat) => {
             const meta = getCategoryMeta(cat.name);
             return (

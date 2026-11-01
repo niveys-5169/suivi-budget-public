@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft,
   Euro,
@@ -30,20 +31,24 @@ import { Recurrence, Transaction } from '../../../types/banking.types';
 import { RecurrenceEditModal } from './RecurrenceEditModal';
 import { RecurrenceReadjustModal } from './RecurrenceReadjustModal';
 import { useBudget } from '../../../hooks/useBudget';
+import { useGlobalData } from '../../../context/GlobalDataContext';
 import { updateBudget } from '../../../api/budgets';
 import { budgetDocKey } from '../../../utils/budgetKey';
 import { computeBudgetAdjustment } from '../../../utils/recurrenceBudget';
 import { toast } from '../../../lib/toast';
 import { LinkRecurrenceModal } from '../../shared/LinkRecurrenceModal';
 
-import { IconButton } from '../../../ui';
+import { EmptyState, IconButton } from '../../../ui';
 import { formatCurrency } from '../../../lib/formatters';
 import { confirm } from '../../../lib/confirm';
 
 const fmt = (n: number) => formatCurrency(n);
 
 export const AurumRecurringPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const navigate = useNavigate();
   const { transactions } = useTransactions();
+  // useRecurrences n'expose pas de `loading` : on prend celui de sa source.
+  const { loading: globalLoading } = useGlobalData();
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -331,16 +336,13 @@ export const AurumRecurringPage: React.FC<{ onBack: () => void }> = ({ onBack })
           </section>
         )}
 
-        {!hasRecurrences && (
-          <div className="py-20 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-white/5 mx-auto flex items-center justify-center text-label-tertiary">
-              <RefreshCw size={32} />
-            </div>
-            <p className="text-sm font-bold text-label-tertiary">Aucune récurrence configurée</p>
-            <p className="text-xs text-label-tertiary">
-              Ajoutez-en une depuis une transaction existante.
-            </p>
-          </div>
+        {!hasRecurrences && !globalLoading && (
+          <EmptyState
+            icon={<RefreshCw size={24} />}
+            title="Aucune récurrence configurée"
+            description="Une récurrence se crée depuis une transaction existante : ouvrez-en une pour la déclarer."
+            action={{ label: 'Voir les transactions', onClick: () => navigate('/transactions') }}
+          />
         )}
 
         {/* Archivées (récurrences en pause) — sinon introuvables, donc ni

@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Clock, Globe, BarChart2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Globe, BarChart2, LineChart } from 'lucide-react';
+import { EmptyState } from '../ui';
 import { Holding } from '../hooks/usePortfolio';
 import { fmt } from '../utils/format';
 import { formatPercent } from '../lib/formatters';
@@ -9,6 +10,8 @@ import { Skeleton } from './shared/Skeleton';
 interface WealthPortfolioTableProps {
   holdings: Holding[];
   loading?: boolean;
+  /** Vrai quand le filtre propriétaire restreint déjà la liste (donc qu'on peut l'élargir). */
+  ownerFiltered?: boolean;
   /** Ouvre le détail d'une position (ligne cliquable quand fourni). */
   onSelectHolding?: (holding: Holding) => void;
 }
@@ -16,6 +19,7 @@ interface WealthPortfolioTableProps {
 export const WealthPortfolioTable: React.FC<WealthPortfolioTableProps> = ({
   holdings,
   loading,
+  ownerFiltered = false,
   onSelectHolding,
 }) => {
   if (loading && holdings.length === 0) {
@@ -31,9 +35,15 @@ export const WealthPortfolioTable: React.FC<WealthPortfolioTableProps> = ({
 
   if (holdings.length === 0) {
     return (
-      <div className="p-12 text-center bg-surface rounded-xl border-dashed border-separator">
-        <p className="text-label/20 text-caption">Aucune position boursière identifiée</p>
-      </div>
+      <EmptyState
+        icon={<LineChart size={24} />}
+        title="Aucune position boursière"
+        description={
+          ownerFiltered
+            ? "Aucun titre n'est détenu sur le périmètre sélectionné. Élargissez le filtre par propriétaire pour en voir davantage."
+            : "Aucun titre n'est détenu pour le moment."
+        }
+      />
     );
   }
 

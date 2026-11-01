@@ -5,6 +5,7 @@ import { Search, Filter, ArrowUpDown, Check, Repeat2, Download } from 'lucide-re
 import { exportTransactionsToExcel } from '../../../utils/exportTransactionsExcel';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { IconButton } from '../../../ui';
+import { TransactionsEmptyState } from '../../transactions/TransactionsEmptyState';
 import { CategoryIcon } from '../../CategoryIcon';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { formatCurrency } from '../../../lib/formatters';
@@ -21,6 +22,7 @@ export const AurumTransactionsPage: React.FC = () => {
     filteredTransactions,
     filters,
     updateFilters,
+    resetFilters,
     saveTransaction,
     deleteTransaction,
     togglePointe,
@@ -307,12 +309,7 @@ export const AurumTransactionsPage: React.FC = () => {
         ))}
 
         {filteredTransactions.length === 0 && (
-          <div className="py-20 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-white/5 mx-auto flex items-center justify-center text-label-tertiary">
-              <Search size={32} />
-            </div>
-            <p className="text-sm font-bold text-label-tertiary">Aucun flux trouvé</p>
-          </div>
+          <TransactionsEmptyState filters={filters} onResetFilters={resetFilters} />
         )}
       </motion.main>
 

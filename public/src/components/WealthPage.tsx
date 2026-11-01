@@ -441,6 +441,7 @@ export const WealthPage: React.FC = () => {
             </Button>
           </div>
           <WealthAccountsList
+            onAddAsset={() => setIsAddingAsset(true)}
             rows={displayedAssets.map((a) => ({
               id: a.id,
               name: a.name,
@@ -583,6 +584,7 @@ export const WealthPage: React.FC = () => {
                       )
                 }
                 loading={portfolioLoading}
+                ownerFiltered={ownerScope !== 'all'}
                 onSelectHolding={(h) =>
                   setDetailTarget({
                     kind: 'holding',

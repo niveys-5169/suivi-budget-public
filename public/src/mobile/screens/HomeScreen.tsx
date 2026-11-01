@@ -1,6 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { FormattedNumber } from 'react-intl';
-import { Eye, EyeOff, Plus, ChevronRight, Settings, Sparkles, RefreshCw } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Plus,
+  ChevronRight,
+  Settings,
+  Sparkles,
+  RefreshCw,
+  Landmark,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { useBalances } from '../../hooks/useBalances';
@@ -18,11 +27,11 @@ import { AurumCashflowCard } from '../../components/dashboard/v2/AurumCashflowCa
 import { SafeToSpendPill } from '../../components/shared/SafeToSpendPill';
 import { BankBalanceStatus } from '../../components/banking/BankBalanceStatus';
 import { FLAGS } from '../../lib/featureFlags';
-import { IconButton } from '../../ui';
+import { EmptyState, IconButton } from '../../ui';
 
 export const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
-  const { checkingBalances = [], checkingTotal = 0 } = useBalances();
+  const { checkingBalances = [], checkingTotal = 0, loading: balancesLoading } = useBalances();
   const { transactions, saveTransaction, deleteTransaction, updateFilters, togglePointe } =
     useTransactions();
   const { categories, accounts } = useFormOptions();
@@ -107,73 +116,82 @@ export const HomeScreen: React.FC = () => {
             Comptes Courants
           </h3>
         </div>
-        <div className="rounded-xl bg-surface border border-separator divide-y divide-separator overflow-hidden px-4">
-          {checkingBalances.map((account) => (
-            <div
-              key={account.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => {
-                updateFilters({ compte: account.compte });
-                navigate('/transactions');
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.currentTarget.click();
-                }
-              }}
-              className="py-4 flex flex-wrap gap-2 items-center justify-between text-body text-label active:bg-raised/40 cursor-pointer transition-colors"
-            >
-              <span className="flex items-center gap-2 min-w-0">
-                <span className="font-medium truncate">{account.compte}</span>
-                {(mouvementsParCompte.get(account.id)?.count ?? 0) > 0 ? (
-                  <span className="shrink-0 px-2 py-1 rounded-full text-caption font-semibold text-negative bg-negative/10 border border-negative/20 tabular-nums">
-                    Non à jour{' '}
+        {!balancesLoading && checkingBalances.length === 0 ? (
+          <EmptyState
+            icon={<Landmark size={24} />}
+            title="Aucun compte courant"
+            description="Connectez une banque pour suivre vos soldes et vos opérations."
+            action={{ label: 'Connecter une banque', onClick: () => navigate('/connexions') }}
+          />
+        ) : (
+          <div className="rounded-xl bg-surface border border-separator divide-y divide-separator overflow-hidden px-4">
+            {checkingBalances.map((account) => (
+              <div
+                key={account.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  updateFilters({ compte: account.compte });
+                  navigate('/transactions');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
+                className="py-4 flex flex-wrap gap-2 items-center justify-between text-body text-label active:bg-raised/40 cursor-pointer transition-colors"
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium truncate">{account.compte}</span>
+                  {(mouvementsParCompte.get(account.id)?.count ?? 0) > 0 ? (
+                    <span className="shrink-0 px-2 py-1 rounded-full text-caption font-semibold text-negative bg-negative/10 border border-negative/20 tabular-nums">
+                      Non à jour{' '}
+                      <FormattedNumber
+                        value={mouvementsParCompte.get(account.id)?.total ?? 0}
+                        style="currency"
+                        currency="EUR"
+                        signDisplay="always"
+                      />
+                    </span>
+                  ) : (
+                    needsBalanceReview(account) && (
+                      <span className="shrink-0 px-2 py-1 rounded-full text-caption font-semibold text-negative bg-negative/10 border border-negative/20 tabular-nums">
+                        {typeof account.ecart === 'number' ? (
+                          <>
+                            Écart{' '}
+                            <FormattedNumber
+                              value={account.ecart}
+                              style="currency"
+                              currency="EUR"
+                              signDisplay="always"
+                            />
+                          </>
+                        ) : (
+                          'À réviser'
+                        )}
+                      </span>
+                    )
+                  )}
+                </span>
+                <span className="font-semibold tabular-nums text-label">
+                  {showBalance ? (
                     <FormattedNumber
-                      value={mouvementsParCompte.get(account.id)?.total ?? 0}
+                      value={account.current_balance ?? account.solde ?? 0}
                       style="currency"
                       currency="EUR"
-                      signDisplay="always"
                     />
-                  </span>
-                ) : (
-                  needsBalanceReview(account) && (
-                    <span className="shrink-0 px-2 py-1 rounded-full text-caption font-semibold text-negative bg-negative/10 border border-negative/20 tabular-nums">
-                      {typeof account.ecart === 'number' ? (
-                        <>
-                          Écart{' '}
-                          <FormattedNumber
-                            value={account.ecart}
-                            style="currency"
-                            currency="EUR"
-                            signDisplay="always"
-                          />
-                        </>
-                      ) : (
-                        'À réviser'
-                      )}
-                    </span>
-                  )
-                )}
-              </span>
-              <span className="font-semibold tabular-nums text-label">
-                {showBalance ? (
-                  <FormattedNumber
-                    value={account.current_balance ?? account.solde ?? 0}
-                    style="currency"
-                    currency="EUR"
-                  />
-                ) : (
-                  '•••• €'
-                )}
-              </span>
-              <div className="w-full">
-                <BankBalanceStatus balance={account} />
+                  ) : (
+                    '•••• €'
+                  )}
+                </span>
+                <div className="w-full">
+                  <BankBalanceStatus balance={account} />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Auxiliary Cards & Shortcuts */}

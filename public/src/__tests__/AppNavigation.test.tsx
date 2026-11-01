@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MainApp } from '../MainApp';
 import React from 'react';
@@ -45,18 +45,18 @@ vi.mock('../components/settings/SettingsPage', () => ({
   SettingsPage: () => <div data-testid="settings">Settings</div>,
 }));
 
-// Mock feature flags
-vi.mock('../lib/featureFlags', () => ({
-  FLAGS: {
-    BOTTOMNAV_V2: true,
-    ANALYSE_PAGE: true,
-    BUDGET_BANKIN: true,
-  },
+// Mock feature flags (objet mutable : un test coupe ANALYSE_PAGE)
+const FLAGS = vi.hoisted(() => ({
+  BOTTOMNAV_V2: true,
+  ANALYSE_PAGE: true,
+  BUDGET_BANKIN: true,
 }));
+vi.mock('../lib/featureFlags', () => ({ FLAGS }));
 
 describe('App Navigation', () => {
   beforeEach(() => {
     window.scrollTo = vi.fn();
+    FLAGS.ANALYSE_PAGE = true;
   });
 
   it('renders correctly', async () => {
@@ -68,5 +68,45 @@ describe('App Navigation', () => {
     await waitFor(() => {
       expect(screen.getByRole('main')).toBeInTheDocument();
     });
+  });
+
+  it('rend une page introuvable dans le shell, avec retour au tableau de bord', async () => {
+    render(
+      <MemoryRouter initialEntries={['/route-inconnue']}>
+        <MainApp />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Page introuvable')).toBeInTheDocument();
+    // Le shell reste en place : la page vit dans <main>, pas à la place du layout.
+    expect(screen.getByRole('main')).toContainElement(screen.getByText('Page introuvable'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retour au tableau de bord' }));
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+  });
+
+  it.each(['/budget', '/budgets-v2'])(
+    'redirige l’ancienne route %s vers /budgets',
+    async (path) => {
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <MainApp />
+        </MemoryRouter>,
+      );
+
+      expect(await screen.findByTestId('budgets')).toBeInTheDocument();
+    },
+  );
+
+  it('redirige /analyse vers le tableau de bord quand la page est désactivée', async () => {
+    FLAGS.ANALYSE_PAGE = false;
+    render(
+      <MemoryRouter initialEntries={['/analyse']}>
+        <MainApp />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('dashboard')).toBeInTheDocument();
+    expect(screen.queryByText('Page introuvable')).toBeNull();
   });
 });

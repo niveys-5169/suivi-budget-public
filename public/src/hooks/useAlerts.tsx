@@ -61,11 +61,13 @@ export const useAlerts = (): {
   alerts: Alert[];
   errorCount: number;
   unreadErrorCount: number;
+  /** Vrai tant que les transactions ou les données globales n'ont pas leur premier snapshot. */
+  loading: boolean;
   markAllRead: () => void;
 } => {
   const { budgets } = useBudget();
-  const { transactions } = useTransactionContext();
-  const { recurrences } = useGlobalData();
+  const { transactions, loading: transactionsLoading } = useTransactionContext();
+  const { recurrences, loading: globalLoading } = useGlobalData();
   // Mois réel, indépendant du mois sélectionné dans l'UI (persisté en localStorage) :
   // sinon les alertes restent figées sur un ancien mois.
   const monthKey = currentMonthKey();
@@ -94,5 +96,11 @@ export const useAlerts = (): {
 
   const markAllRead = useCallback(() => markRead(alerts.map(alertKey)), [alerts]);
 
-  return { alerts, errorCount, unreadErrorCount, markAllRead };
+  return {
+    alerts,
+    errorCount,
+    unreadErrorCount,
+    loading: Boolean(transactionsLoading || globalLoading),
+    markAllRead,
+  };
 };

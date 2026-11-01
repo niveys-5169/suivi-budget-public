@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { PieChart } from 'lucide-react';
+import { EmptyState } from '../../ui';
 import { MScreenHeader } from '../components/MScreenHeader';
 import { MMonthNavigator } from '../components/MMonthNavigator';
 import { MSegmentedControl, AnalyseMode } from '../components/MSegmentedControl';
@@ -239,9 +241,11 @@ export const AnalyseScreen: React.FC = () => {
         ))}
 
         {categoryData.items.length === 0 && (
-          <div className="py-20 text-center">
-            <p className="text-body text-label-tertiary">Aucune opération en {mode}</p>
-          </div>
+          <EmptyState
+            icon={<PieChart size={24} />}
+            title={mode === 'entrees' ? 'Aucune entrée ce mois-ci' : 'Aucune sortie ce mois-ci'}
+            description="Aucune opération de ce type n'est enregistrée sur le mois sélectionné."
+          />
         )}
       </div>
     </div>

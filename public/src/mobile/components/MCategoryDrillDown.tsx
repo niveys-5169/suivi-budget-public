@@ -1,5 +1,6 @@
 import React from 'react';
-import { ChevronLeft, TrendingUp } from 'lucide-react';
+import { ChevronLeft, Receipt, TrendingUp } from 'lucide-react';
+import { EmptyState } from '../../ui';
 import { FormattedNumber } from 'react-intl';
 import { CategoryIcon } from '../../components/CategoryIcon';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
@@ -125,9 +126,11 @@ export const MCategoryDrillDown: React.FC<MCategoryDrillDownProps> = ({
           ))}
 
           {sorted.length === 0 && (
-            <div className="py-8 text-center">
-              <p className="text-footnote text-label-tertiary">Aucune transaction</p>
-            </div>
+            <EmptyState
+              icon={<Receipt size={24} />}
+              title="Aucune transaction dans cette catégorie"
+              description="Aucune opération de cette catégorie n'est enregistrée sur la période."
+            />
           )}
         </div>
 
