@@ -798,6 +798,7 @@ export interface ProjectionPhaseRevenu {
   netMensuel: ProjectionAutoValue; // auto = moyenne 12 mois des categoriesSource
   categoriesSource?: string[];
   revalorisationAnnuelle: number; // 0.015 = +1,5 %/an, appliquée chaque 1er janvier depuis l'année de `debut`
+  montantsAnnuels?: Record<string, number>; // clé = année 'YYYY' ; montant mensuel retenu cette année-là (prime sur netMensuel × revalorisation)
 }
 
 /** Pension de retraite, en € de l'année de référence des prix, indexée sur l'inflation. */
@@ -807,6 +808,7 @@ export interface ProjectionPension {
   debut: ProjectionMonth;
   netAvantImpot: number;
   netApresImpot: number; // c'est ce montant qui entre dans les revenus
+  montantsAnnuels?: Record<string, number>; // clé = année 'YYYY' ; montant mensuel courant retenu cette année-là (prime sur netApresImpot × inflation)
 }
 
 export interface ProjectionScenario {

@@ -64,6 +64,30 @@ describe('simulateScenario : revenus et phases', () => {
     expect(mois[3]?.depensesCourantes).toBeCloseTo(550, 6);
   });
 
+  it('montantsAnnuels prime sur netMensuel × revalorisation, repli sur le calcul sinon', () => {
+    const inputs = makeInputs({
+      horizon: { debut: '2026-12', fin: '2028-01', anneeReferencePrix: 2026 },
+      scenarios: [
+        {
+          id: 's1',
+          nom: 'S1',
+          phases: [
+            makePhase('a', 1000, '2026-12', {
+              revalorisationAnnuelle: 0.1,
+              montantsAnnuels: { '2027': 1234 },
+            }),
+          ],
+          pensions: [{ ...makePension('b', 500, '2026-12'), montantsAnnuels: { '2028': 777 } }],
+        },
+      ],
+    });
+    const mois = run(inputs);
+    const revenusA = mois.map((m) => m.revenusParPersonne['a']);
+    expect(revenusA.slice(0, 13)).toEqual([1000, ...Array(12).fill(1234)]);
+    expect(revenusA[13]).toBeCloseTo(1210, 6);
+    expect(mois.map((m) => m.revenusParPersonne['b'])).toEqual([500, ...Array(12).fill(500), 777]);
+  });
+
   it('inflation avant l année de référence : indice inférieur à 1', () => {
     const inputs = makeInputs({
       horizon: { debut: '2025-12', fin: '2026-01', anneeReferencePrix: 2026 },

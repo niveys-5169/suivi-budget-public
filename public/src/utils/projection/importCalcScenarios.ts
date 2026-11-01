@@ -1,7 +1,13 @@
 import type { WorkBook, WorkSheet } from '@e965/xlsx';
 import type { ProjectionMonth, ProjectionScenario } from '../../types/banking.types';
 import { PROJECTION_MAX_SCENARIOS } from './defaults';
-import { groupSeries, seriesToPhase, type PhaseSeries } from './importPhases';
+import {
+  differencePhase,
+  groupSeries,
+  seriesToPhase,
+  yearlyAmounts,
+  type PhaseSeries,
+} from './importPhases';
 import { recognized, warn, type ImportContext } from './importContext';
 import { asDate, asMonth, asNumber, normalizeLabel, readCell, shiftMonth } from './xlsxSheetReader';
 
@@ -10,6 +16,10 @@ export interface ScenarioMeta {
   scenario: ProjectionScenario;
   numero: number;
   retraiteDebut?: ProjectionMonth;
+  /** Cash moyen par année de la pension de la personne 1 (mois de retraite de l'onglet). */
+  pensionAnnuelle?: Record<string, number>;
+  /** Idem pour la pension de la personne 2 (premier onglet uniquement). */
+  pension2Annuelle?: Record<string, number>;
 }
 
 interface CalcLine {
@@ -87,6 +97,7 @@ export function importCalcScenarios(
 ): ScenarioMeta[] {
   const metas: ScenarioMeta[] = [];
   const personneId = ctx.params.personnes[0]?.id ?? 'p1';
+  let refCash2: { mois: ProjectionMonth; value: number }[] = [];
   for (const { name, numero } of calcSheets(wb).slice(0, PROJECTION_MAX_SCENARIOS)) {
     const lines = readCalcLines(wb.Sheets[name]!);
     if (lines.length === 0) {
@@ -102,11 +113,40 @@ export function importCalcScenarios(
       .map((s, i) => seriesToPhase(`${id}-phase-${i + 1}`, personneId, s));
     const scenario: ProjectionScenario = { id, nom: `Scénario ${numero}`, phases, pensions: [] };
     const retraiteDebut = lines.find((l) => normalizeLabel(l.phase) === 'retraite')?.mois;
-    metas.push({ scenario, numero, retraiteDebut });
+    const pensionAnnuelle = retraiteDebut
+      ? yearlyAmounts(
+          lines
+            .filter((l) => l.mois >= retraiteDebut)
+            .map((l) => ({ mois: l.mois, value: l.cash1 })),
+          false,
+        )
+      : undefined;
+    const meta: ScenarioMeta = { scenario, numero, retraiteDebut, pensionAnnuelle };
+    metas.push(meta);
     recognized(ctx, name);
+    if (metas.length > 1) {
+      const p2 = ctx.params.personnes[1]?.id ?? 'p2';
+      const ecart = differencePhase(
+        `${id}-ecart-p2`,
+        p2,
+        'Écart PAS personne 2',
+        lines.map((l) => ({ mois: l.mois, value: l.cash2 })),
+        refCash2,
+      );
+      if (ecart) phases.push(ecart);
+    }
     if (metas.length === 1) {
+      refCash2 = lines.map((l) => ({ mois: l.mois, value: l.cash2 }));
       const phase = commonPhase(lines, ctx, finActiviteP2);
       if (phase) ctx.params.revenusCommuns.phases = [phase];
+      if (finActiviteP2) {
+        const pointsP2 = lines.filter((l) => l.mois >= finActiviteP2);
+        if (pointsP2.length > 0)
+          meta.pension2Annuelle = yearlyAmounts(
+            pointsP2.map((l) => ({ mois: l.mois, value: l.cash2 })),
+            false,
+          );
+      }
     }
   }
   if (metas.length === 0) {

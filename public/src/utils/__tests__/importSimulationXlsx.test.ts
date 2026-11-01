@@ -130,6 +130,9 @@ function calcSheet(segments: Segment[], cash2: (year: number, month: number, i: 
 const cash2 = (y: number, m: number, i: number) =>
   i === 0 ? 1400 : y === 2026 ? 1500 : 1600 * 1.02 ** (y - 2027);
 
+// Cash 2 du scénario 2 : +30 €/mois dès 2028 (taux de PAS propre au scénario).
+const cash2S2 = (y: number, m: number, i: number) => cash2(y, m, i) + (y >= 2028 ? 30 : 0);
+
 // Alex, scénario 1 : phase « Association » (1er mois partiel puis 2000 en 2027, +5 %/an).
 const association = (y: number, m: number, i: number) =>
   i === 0 ? 1000 : y === 2027 ? 2000 : 2100 * 1.05 ** (y - 2028);
@@ -156,7 +159,7 @@ function buildWorkbook(skip: string[] = []): XLSX.WorkBook {
     ['Hypothèses', toSheet(HYPOTHESES)],
     ['①b Revenus foyer & PAS', toSheet(REVENUS_FOYER)],
     ['Calc S1', calcSheet(SEGMENTS_S1, cash2)],
-    ['Calc S2', calcSheet(SEGMENTS_S2, cash2)],
+    ['Calc S2', calcSheet(SEGMENTS_S2, cash2S2)],
   ];
   const wb = XLSX.utils.book_new();
   for (const [name, ws] of sheets)
@@ -295,6 +298,52 @@ describe('importSimulationWorkbook', () => {
       debut: '2027-03',
       fin: '2027-03',
       netMensuel: { manuel: 1234 },
+    });
+  });
+
+  it('renseigne montantsAnnuels : moyenne par année civile, 1er mois partiel exclu', () => {
+    const [situation, association] = params.scenarios[0]!.phases;
+    expect(situation?.montantsAnnuels).toEqual({ '2026': 3000, '2027': 3000 });
+    expect(association?.montantsAnnuels?.['2027']).toBe(2000); // le 1er mois (1000) est ignoré
+    expect(association?.montantsAnnuels?.['2028']).toBeCloseTo(2100, 6);
+    expect(association?.montantsAnnuels?.['2029']).toBeCloseTo(2205, 6);
+    // 1er mois seul de son année : conservé
+    expect(params.scenarios[1]!.phases[1]?.montantsAnnuels).toEqual({ '2027': 1234 });
+    const [commune] = params.revenusCommuns.phases;
+    expect(commune?.montantsAnnuels?.['2026']).toBe(1500);
+    expect(commune?.montantsAnnuels?.['2027']).toBe(1600);
+    expect(commune?.montantsAnnuels?.['2031']).toBeCloseTo(1600 * 1.02 ** 4, 6);
+  });
+
+  it('renseigne montantsAnnuels des pensions (tous les mois de retraite comptent)', () => {
+    expect(params.scenarios[0]!.pensions[0]?.montantsAnnuels).toEqual({
+      '2030': 3500,
+      '2031': 3500,
+    });
+    expect(params.scenarios[1]!.pensions[0]?.montantsAnnuels).toEqual({
+      '2027': 3000,
+      '2028': 3000,
+      '2029': 3000,
+      '2030': 3000,
+      '2031': 3000,
+    });
+    expect(params.revenusCommuns.pensions[0]?.montantsAnnuels).toEqual({
+      '2031': 1600 * 1.02 ** 4,
+    });
+  });
+
+  it('ajoute une phase d écart pour la personne 2 quand son cash dépend du scénario', () => {
+    expect(params.scenarios[0]!.phases.some((p) => p.id.endsWith('ecart-p2'))).toBe(false);
+    const ecart = params.scenarios[1]!.phases.find((p) => p.id === 's2-ecart-p2');
+    expect(ecart).toMatchObject({ personneId: 'p2', debut: '2026-09', fin: '2031-12' });
+    expect(ecart?.netMensuel).toEqual({ mode: 'manuel', manuel: 0 });
+    expect(ecart?.montantsAnnuels).toEqual({
+      '2026': 0,
+      '2027': 0,
+      '2028': 30,
+      '2029': 30,
+      '2030': 30,
+      '2031': 30,
     });
   });
 

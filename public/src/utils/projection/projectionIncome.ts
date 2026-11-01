@@ -47,13 +47,14 @@ export function monthlyIncome(
   );
   for (const phase of phasesActives) {
     const indice = Math.pow(1 + phase.revalorisationAnnuelle, annee - yearOf(phase.debut));
-    add(activite, phase.personneId, phase.netMensuel * indice);
+    add(activite, phase.personneId, phase.montantsAnnuels?.[annee] ?? phase.netMensuel * indice);
   }
   const indiceInflation = inflationIndex(inputs, mois);
   const pensionsActives = [...inputs.pensionsCommunes, ...scenario.pensions].filter(
     (p) => monthIndex(mois) >= monthIndex(p.debut),
   );
-  for (const p of pensionsActives) add(pension, p.personneId, p.netApresImpot * indiceInflation);
+  for (const p of pensionsActives)
+    add(pension, p.personneId, p.montantsAnnuels?.[annee] ?? p.netApresImpot * indiceInflation);
 
   const retraite = scenario.pensions.some((p) => monthIndex(mois) >= monthIndex(p.debut));
   const phaseScenario = scenario.phases.find((p) => isActive(p, mois));

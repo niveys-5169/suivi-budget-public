@@ -52,14 +52,20 @@ export function importTableauDeBord(
   const rows = readRows(ws, 1, 8);
   const header = findRow(rows, { starts: 'poste' });
   const p1 = ctx.params.personnes[0]?.id ?? 'p1';
-  for (const { scenario, numero, retraiteDebut } of metas) {
+  for (const { scenario, numero, retraiteDebut, pensionAnnuelle } of metas) {
     const col = FIRST_SCENARIO_COL + numero - 1;
     const nom = header?.cells[col];
     if (typeof nom === 'string' && nom.trim()) scenario.nom = nom.trim();
     const net = pensionAt(rows, col, ['p1Avant', 'p1Apres'], ctx);
     if (net && retraiteDebut) {
       scenario.pensions = [
-        { id: `${scenario.id}-pension-1`, personneId: p1, debut: retraiteDebut, ...net },
+        {
+          id: `${scenario.id}-pension-1`,
+          personneId: p1,
+          debut: retraiteDebut,
+          ...net,
+          ...(pensionAnnuelle ? { montantsAnnuels: pensionAnnuelle } : {}),
+        },
       ];
     } else warn(ctx, `Pension de la personne 1 introuvable pour « ${scenario.nom} ».`);
   }
@@ -70,6 +76,7 @@ export function importTableauDeBord(
       personneId: ctx.params.personnes[1]?.id ?? 'p2',
       debut: finActiviteP2,
       ...net,
+      ...(metas[0]?.pension2Annuelle ? { montantsAnnuels: metas[0].pension2Annuelle } : {}),
     };
     ctx.params.revenusCommuns.pensions = [pension];
   } else warn(ctx, 'Pension de la personne 2 introuvable : pensions communes conservées.');

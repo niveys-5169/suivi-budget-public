@@ -48,6 +48,30 @@ export function annualGrowth(points: MonthPoint[]): number {
 }
 
 /**
+ * Montant mensuel moyen par année civile : moyenne des mois de l'année dans la série,
+ * hors 1er mois de la série (souvent partiel) sauf s'il est le seul mois de son année
+ * (ou si `exclurePremier` vaut false, cas d'une pension : 1er mois complet).
+ */
+export function yearlyAmounts(points: MonthPoint[], exclurePremier = true): Record<string, number> {
+  const parAnnee: Record<string, number[]> = {};
+  points.forEach((p, i) => {
+    const annee = p.mois.slice(0, 4);
+    const valeurs = (parAnnee[annee] ??= []);
+    // 1er mois de la série : partiel, ignoré dès que l'année compte un autre mois.
+    if (i === 0) valeurs.unshift(p.value);
+    else valeurs.push(p.value);
+  });
+  const premiereAnnee = points[0]?.mois.slice(0, 4);
+  const out: Record<string, number> = {};
+  for (const [annee, valeurs] of Object.entries(parAnnee)) {
+    const retenues =
+      exclurePremier && annee === premiereAnnee && valeurs.length > 1 ? valeurs.slice(1) : valeurs;
+    out[annee] = retenues.reduce((a, b) => a + b, 0) / retenues.length;
+  }
+  return out;
+}
+
+/**
  * Phase de revenu d'une série : montant = 2e mois (le 1er est souvent partiel),
  * ou le 1er si la série ne compte qu'un mois.
  */
@@ -65,5 +89,43 @@ export function seriesToPhase(
     fin: points[points.length - 1]!.mois,
     netMensuel: { mode: 'manuel', manuel: (points[1] ?? points[0]!).value },
     revalorisationAnnuelle: annualGrowth(points),
+    montantsAnnuels: yearlyAmounts(points),
+  };
+}
+
+/** Écart de cash (€/mois) sous lequel deux séries sont considérées identiques. */
+const ECART_NEGLIGEABLE = 0.5;
+
+/**
+ * Correction d'une série par rapport à une série de référence : le cash d'une personne
+ * peut dépendre du scénario (taux de PAS) alors que sa phase importée est commune.
+ * Phase « écart » sur toute la série (montants annuels = écart moyen), ou undefined si négligeable.
+ */
+export function differencePhase(
+  id: string,
+  personneId: string,
+  libelle: string,
+  points: MonthPoint[],
+  reference: MonthPoint[],
+): ProjectionPhaseRevenu | undefined {
+  const ref = new Map(reference.map((p) => [p.mois, p.value]));
+  const ecarts = points.flatMap((p) =>
+    ref.has(p.mois) ? [{ mois: p.mois, value: p.value - ref.get(p.mois)! }] : [],
+  );
+  const montantsAnnuels = yearlyAmounts(ecarts, false);
+  if (
+    ecarts.length === 0 ||
+    Object.values(montantsAnnuels).every((v) => Math.abs(v) < ECART_NEGLIGEABLE)
+  )
+    return undefined;
+  return {
+    id,
+    personneId,
+    libelle,
+    debut: ecarts[0]!.mois,
+    fin: ecarts[ecarts.length - 1]!.mois,
+    netMensuel: { mode: 'manuel', manuel: 0 },
+    revalorisationAnnuelle: 0,
+    montantsAnnuels,
   };
 }
