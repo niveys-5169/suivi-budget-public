@@ -764,3 +764,196 @@ export interface WeeklyReportConfig {
   lastRecipients?: string[];
   updatedAt?: FirestoreDateLike;
 }
+
+// ─── Projections long terme (route /projections, desktop) ───
+/** Mois au format 'YYYY-MM'. */
+export type ProjectionMonth = string;
+
+/** Valeur qui peut être calculée depuis les données de l'app (auto) ou forcée (manuel). */
+export interface ProjectionAutoValue {
+  mode: 'auto' | 'manuel';
+  manuel?: number;
+}
+
+export interface ProjectionPersonne {
+  id: string;
+  prenom: string;
+  dateNaissance?: string; // YYYY-MM-DD
+  ageFinActivite?: number;
+}
+
+export interface ProjectionEnfant {
+  id: string;
+  prenom?: string;
+  dateNaissance: string; // YYYY-MM-DD
+}
+
+/** Phase de revenu d'une personne : cash après PAS, lissé sur 12 mois. */
+export interface ProjectionPhaseRevenu {
+  id: string;
+  personneId: string;
+  libelle: string;
+  debut: ProjectionMonth;
+  fin?: ProjectionMonth; // inclus ; absent = jusqu'à la fin de l'horizon
+  netMensuel: ProjectionAutoValue; // auto = moyenne 12 mois des categoriesSource
+  categoriesSource?: string[];
+  revalorisationAnnuelle: number; // 0.015 = +1,5 %/an, appliquée chaque 1er janvier depuis l'année de `debut`
+}
+
+/** Pension de retraite, en € de l'année de référence des prix, indexée sur l'inflation. */
+export interface ProjectionPension {
+  id: string;
+  personneId: string;
+  debut: ProjectionMonth;
+  netAvantImpot: number;
+  netApresImpot: number; // c'est ce montant qui entre dans les revenus
+}
+
+export interface ProjectionScenario {
+  id: string;
+  nom: string;
+  phases: ProjectionPhaseRevenu[]; // phases propres au scénario (carrière qui varie)
+  pensions: ProjectionPension[];
+}
+
+export interface ProjectionMontantDate {
+  id: string;
+  libelle: string;
+  montant: number; // positif
+  mois: ProjectionMonth;
+}
+
+export interface ProjectionCreditParam {
+  id: string;
+  libelle: string;
+  creditId?: string; // lien vers la collection `credits`
+  mode: 'auto' | 'manuel';
+  mensualiteManuelle?: number;
+  finManuelle?: ProjectionMonth; // dernier mois payé
+  tauxAnnuelManuel?: number; // en %, ex. 4.17
+  remboursementAnticipe?: { mois: ProjectionMonth; frais?: number };
+}
+
+export type ProjectionClasseCategorie =
+  'depense' | 'fixe' | 'exclu' | 'tresorerie' | 'interne' | 'revenu' | 'ponctuel';
+
+export interface ProjectionPointAConfirmer {
+  id: string;
+  libelle: string;
+  commentaire?: string;
+}
+
+export interface ProjectionParams {
+  version: 1;
+  horizon: { debut: ProjectionMonth; fin: ProjectionMonth; anneeReferencePrix: number };
+  personnes: ProjectionPersonne[];
+  enfants: ProjectionEnfant[];
+  macro: { inflation: number; rendementCapital: number; rendementPatrimoine: number }; // taux annuels décimaux
+  revenusCommuns: {
+    phases: ProjectionPhaseRevenu[];
+    pensions: ProjectionPension[];
+    caf: {
+      montant: ProjectionAutoValue;
+      categoriesSource?: string[];
+      evolutionAnnuelle: number;
+      arretAuxAnsAine?: number; // ex. 20 : plus de CAF à partir du mois où l'aîné atteint cet âge
+    };
+  };
+  scenarios: ProjectionScenario[]; // 1 à 5
+  scenarioAfficheId: string;
+  depenses: {
+    budgetReference: ProjectionAutoValue; // €/mois, prix de l'année de référence, crédits inclus
+    credits: ProjectionCreditParam[];
+    exceptionnelles: ProjectionMontantDate[];
+  };
+  capital: {
+    capitalInitial: number;
+    encaissements: ProjectionMontantDate[];
+    patrimoineDepart: ProjectionAutoValue; // patrimoine hors PER
+    abondement?: { montantAnnuel: number; mois: number; finMois?: ProjectionMonth };
+  };
+  classesCategories: Record<string, ProjectionClasseCategorie>;
+  aConfirmer: ProjectionPointAConfirmer[];
+}
+
+/** Valeurs observées dans les données de l'app (sortie de utils/projection/autoValues.ts). */
+export interface ProjectionValeursObservees {
+  periode: { debut: string; fin: string } | null; // YYYY-MM-DD, 12 mois glissants
+  budgetReference: number | null;
+  detailCategories: {
+    categorie: string;
+    classe: ProjectionClasseCategorie;
+    soldeNet: number;
+    retenuAnnuel: number;
+  }[];
+  moyenneMensuelleParCategorie: Record<string, number>; // solde net / 12, signé
+  credits: Record<
+    string,
+    { mensualite: number; fin: ProjectionMonth; tauxAnnuel: number; libelle: string }
+  >; // clé = creditId
+  patrimoineHorsPer: number | null;
+  epargneNetteMensuelle: number | null;
+}
+
+export interface ProjectionCreditResolu {
+  id: string;
+  libelle: string;
+  mensualite: number;
+  fin?: ProjectionMonth;
+  tauxAnnuel: number; // %
+  remboursementAnticipe?: { mois: ProjectionMonth; frais?: number };
+}
+
+export interface ProjectionPhaseResolue extends Omit<ProjectionPhaseRevenu, 'netMensuel'> {
+  netMensuel: number;
+}
+
+export interface ProjectionScenarioResolu extends Omit<ProjectionScenario, 'phases'> {
+  phases: ProjectionPhaseResolue[];
+}
+
+/** Entrées numériques du moteur (sortie de resolveParams). */
+export interface ProjectionInputs {
+  horizon: ProjectionParams['horizon'];
+  macro: ProjectionParams['macro'];
+  personnes: ProjectionPersonne[];
+  phasesCommunes: ProjectionPhaseResolue[];
+  pensionsCommunes: ProjectionPension[];
+  caf: { montant: number; evolutionAnnuelle: number; dernierMois?: ProjectionMonth };
+  budgetReference: number;
+  credits: ProjectionCreditResolu[];
+  exceptionnelles: ProjectionMontantDate[];
+  capitalInitial: number;
+  encaissements: ProjectionMontantDate[];
+  patrimoineDepart: number;
+  abondement?: ProjectionParams['capital']['abondement'];
+  scenarios: ProjectionScenarioResolu[];
+}
+
+export interface ProjectionMoisResultat {
+  mois: ProjectionMonth;
+  phase: string; // libellé de la phase de scénario active ('Retraite' si pension, '—' sinon)
+  revenusParPersonne: Record<string, number>; // activité + pension
+  caf: number;
+  revenus: number; // Σ personnes + CAF
+  creditsFixes: number;
+  depensesCourantes: number;
+  depenses: number; // fixes + courantes (hors exceptionnelles)
+  capacite: number; // revenus − depenses
+  depensesExceptionnelles: number;
+  encaissements: number;
+  remboursementsAnticipes: number; // positif = sortie de capital (CRD + frais)
+  rendementCapital: number;
+  capital: number; // jamais < 0
+  prelevementPatrimoine: number; // déficit non couvert par le capital
+  rendementPatrimoine: number;
+  abondement: number;
+  patrimoineHorsPer: number;
+  patrimoineTotal: number;
+}
+
+export interface ProjectionScenarioResultat {
+  scenarioId: string;
+  nom: string;
+  mois: ProjectionMoisResultat[];
+}
