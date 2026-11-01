@@ -122,14 +122,14 @@ describe('resolveProjectionParams', () => {
     expect(resolveProjectionParams(p, observed()).caf.montant).toBe(80);
   });
 
-  it('CAF dernierMois : mois précédant les 20 ans de l’aîné', () => {
+  it('CAF dernierMois : mois des 20 ans de l’aîné (versé), sauf né un 1er', () => {
     const p = params();
     p.enfants = [
       { id: 'e2', dateNaissance: '2015-01-10' },
       { id: 'e1', dateNaissance: '2010-05-20' },
     ];
     p.revenusCommuns.caf.arretAuxAnsAine = 20;
-    expect(resolveProjectionParams(p, observed()).caf.dernierMois).toBe('2030-04');
+    expect(resolveProjectionParams(p, observed()).caf.dernierMois).toBe('2030-05');
     p.revenusCommuns.caf.arretAuxAnsAine = undefined;
     expect(resolveProjectionParams(p, observed()).caf.dernierMois).toBeUndefined();
     p.revenusCommuns.caf.arretAuxAnsAine = 20;
@@ -137,11 +137,21 @@ describe('resolveProjectionParams', () => {
     expect(resolveProjectionParams(p, observed()).caf.dernierMois).toBeUndefined();
   });
 
-  it('CAF dernierMois : naissance en janvier recule sur décembre', () => {
+  it('CAF dernierMois : naissance en janvier (jour > 1) : le mois anniversaire est versé', () => {
     const p = params();
     p.enfants = [{ id: 'e1', dateNaissance: '2012-01-05' }];
     p.revenusCommuns.caf.arretAuxAnsAine = 18;
+    expect(resolveProjectionParams(p, observed()).caf.dernierMois).toBe('2030-01');
+  });
+
+  it('CAF dernierMois : né le 1er du mois, le mois anniversaire n’est plus versé', () => {
+    const p = params();
+    p.enfants = [{ id: 'e1', dateNaissance: '2012-01-01' }];
+    p.revenusCommuns.caf.arretAuxAnsAine = 18;
     expect(resolveProjectionParams(p, observed()).caf.dernierMois).toBe('2029-12');
+    p.enfants = [{ id: 'e1', dateNaissance: '2010-05-01' }];
+    p.revenusCommuns.caf.arretAuxAnsAine = 20;
+    expect(resolveProjectionParams(p, observed()).caf.dernierMois).toBe('2030-04');
   });
 
   it('crédit auto lié : valeurs observées ; remboursement anticipé recopié', () => {

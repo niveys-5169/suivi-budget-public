@@ -3,6 +3,7 @@ import { Badge, Button, Stack } from '../../../ui';
 import { toast } from '../../../lib/toast';
 import type { UseProjectionResult } from '../../../hooks/useProjection';
 import { AConfirmerEditor } from './AConfirmerEditor';
+import { CalculateursSection } from './calculateurs/CalculateursSection';
 import { DepensesSection } from './DepensesSection';
 import { HorizonFoyerSection } from './HorizonFoyerSection';
 import { HypothesesSection } from './HypothesesSection';
@@ -16,7 +17,7 @@ import { useParamsDraft } from './useParamsDraft';
 export const ProjectionHypotheses: React.FC<{ projection: UseProjectionResult }> = ({
   projection,
 }) => {
-  const { params, exists, save, observed, categories, credits } = projection;
+  const { params, exists, save, observed, inputs, categories, credits } = projection;
   const { draft, setDraft, dirty, reset } = useParamsDraft(params);
   const [saving, setSaving] = useState(false);
   const section = { draft, onChange: setDraft };
@@ -59,6 +60,9 @@ export const ProjectionHypotheses: React.FC<{ projection: UseProjectionResult }>
       </HypothesesSection>
       <HypothesesSection title="Scénarios et revenus">
         <ScenariosSection {...withCtx} />
+      </HypothesesSection>
+      <HypothesesSection title="Calculateurs">
+        <CalculateursSection {...section} messages={inputs.messagesCalculateurs ?? []} />
       </HypothesesSection>
       <HypothesesSection title="Dépenses et crédits">
         <DepensesSection {...withCtx} />

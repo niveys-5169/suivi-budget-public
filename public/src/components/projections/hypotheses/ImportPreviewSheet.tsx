@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Modal, Sheet, Stack, Text, Badge } from '../../../ui';
 import type { ProjectionImportResult } from '../../../types/banking.types';
+import { CALCULATEURS_RECONNUS } from '../../../utils/projection/importCalculateurs';
 
 interface Props {
   result: ProjectionImportResult | null;
@@ -23,6 +24,8 @@ export const ImportPreviewSheet: React.FC<Props> = ({ result, onApply, onCancel 
       ]
     : [];
 
+  const calculateursReconnus = result?.reconnus.includes(CALCULATEURS_RECONNUS) ?? false;
+
   return (
     <Modal
       isOpen={result !== null}
@@ -43,6 +46,16 @@ export const ImportPreviewSheet: React.FC<Props> = ({ result, onApply, onCancel 
               </Text>
             </Stack>
           ))}
+          {result && (
+            <Stack direction="row" justify="between" align="center">
+              <Text variant="callout" tone="secondary">
+                Paramètres des calculateurs
+              </Text>
+              <Badge tone={calculateursReconnus ? 'positive' : 'warning'}>
+                {calculateursReconnus ? 'Reconnus' : 'Non reconnus'}
+              </Badge>
+            </Stack>
+          )}
           {result && result.avertissements.length > 0 && (
             <Stack gap="sm">
               <Badge tone="warning">{`${result.avertissements.length} avertissements`}</Badge>

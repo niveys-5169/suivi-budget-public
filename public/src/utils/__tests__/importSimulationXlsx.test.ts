@@ -33,6 +33,35 @@ const HYPOTHESES = [
   ['', 'Patrimoine hors PER de départ (observé) — pour info', 100000],
   ['', 'Rendement annuel du patrimoine hors PER', 0.03],
   ['', 'Abondement annuel employeur de Sam (€/an, en mars)', 3500],
+  ['', 'Date de bascule en libéral (scénarios 2 à 5)', d(2036, 1)],
+  ['', "Début de l'activité MJPM en association", d(2031, 3)],
+  ['', 'Montée en charge libéral — année 1 (% des mesures cibles)', 0.5],
+  ['', 'Montée en charge libéral — année 2', 0.75],
+  ['', 'Montée en charge libéral — année 3 et suivantes', 1],
+  ['', 'Tarif moyen par mesure (€/mois)', 100],
+  ['', 'Versement PER TNS annuel en libéral (€/an)', 1200],
+  ['', 'Coefficient CCN 66 de départ (association)', 400],
+  ['', 'Valeur du point CCN 66 (€)', 4],
+  ['', 'Progression annuelle du salaire en association', 0.02],
+  ['', 'Durée du congé de reclassement (mois, préavis inclus)', 12],
+  ['', "Taux de l'allocation de reclassement (% du brut)", 0.7],
+  ['', 'Revalorisation annuelle du salaire de Sam', 0.02],
+  ['', 'Âge limite de rattachement fiscal des enfants (âge au 1er janvier)', 21],
+  ['', 'Rente PER / épargne retraite de Alex (€/mois brut)', 100],
+  ['', 'Trimestres validés au 06/02/2026', 100],
+  ['', 'Trimestres requis pour le taux plein (génération 1980)', 172],
+  ['', 'Points Agirc-Arrco déjà acquis', 3000],
+  ['', 'Valeur de service du point Agirc-Arrco (€)', 1.4],
+  ['', 'Points Cipav acquis par an pour ~35 k€ de BNC', 380],
+  ['', 'Valeur du point Cipav (€)', 0.6],
+  ['', 'Prélèvements sociaux du retraité (CSG/CRDS/CASA)', 0.09],
+  ['', 'Revalorisation des salaires portés au compte (inflation hors tabac)', 0.015],
+  ['', 'Croissance annuelle du PASS', 0.02],
+  ['', 'Part déductible de la CSG sur les pensions', 0.06],
+  ['', 'Trimestres validés par Sam au 31/12/2025', 80],
+  ['', 'Points Agirc-Arrco acquis par Sam au 31/12/2025', 1500],
+  ['', 'Trimestres requis pour le taux plein — Sam (génération 1982)', 172],
+  ['', "Prix d'achat du point Agirc-Arrco (salaire de référence, €)", 20],
   ['', '6 · DÉPENSES EXCEPTIONNELLES'],
   ['', 'Libellé', 'Montant (€)', 'Mois de la dépense', 'Commentaire'],
   ['', 'Terrasse', 40000, d(2028, 6)],
@@ -66,6 +95,19 @@ const REVENUS_FOYER = [
   ["Fin de l'horizon (dernier mois projeté)", d(2030, 12)],
   ['Fin de projection (dernier mois compté)', d(2031, 12)],
   ["Date de naissance de l'enfant 1", d(2018, 2, 12)],
+  ['Net avant PAS (€)', 3000],
+  ['Net imposable (€)', 3300],
+  ['Taux PAS Alex 2026', 0.07],
+  ['Nombre de mois payés par an', 12],
+  ['Ratio net imposable / net versé — revenus de remplacement', 1],
+  ['Net avant PAS (€)', 2000],
+  ['Net imposable (€)', 2200],
+  ['Taux PAS Sam 2026', 0.04],
+  ['Nombre de mois rémunérés par an', 13],
+  ['Salaire brut annuel (€)', 30000],
+  ['N° scénario', 'Scénario', 'Mesures cibles'],
+  [1, 'Association', 0],
+  [2, 'Libéral', 20],
 ];
 
 const TABLEAU_DE_BORD = [
@@ -80,6 +122,56 @@ const TABLEAU_DE_BORD = [
   ['', '💶 Pension de Sam nette APRÈS impôt (PAS)', 1900, 1950],
   ['', '💶 Retraite du foyer nette APRÈS impôt', 4300, 4050],
   ['', 'Indicateur', 'S1 · Association', 'S2 · Libéral 30 mes.'],
+];
+
+const RUPTURE = [
+  ['① RUPTURE & CHÔMAGE'],
+  ['Nombre de parts fiscales (QF)', 2.5],
+  ['Revenu annuel imposable CONJOINT (net imposable du bulletin × 13,3)', 26000],
+  ['🟡 Date de NOTIFICATION du licenciement', d(2030, 1, 2)],
+  ['Délai de réflexion congé de reclassement (jours)', 8],
+  ['🟡 Durée du préavis (mois)', 3],
+  ['Base brut mensuel (récurrent avec 13è ÷12)', 5000],
+  ['Part SUPRA-LÉGALE au sens France Travail (supra + transac.)', 4472],
+  ['Indemnité compensatrice CP (brut)', 2000],
+  ['🟡 Clause Agirc-Arrco active — assiette maintenue (% du salaire)', 1],
+  ['Assiette mensuelle Agirc-Arrco (salaire annuel ÷ 12)', 4000],
+];
+
+const LIBERAL = [
+  ['② MJPM LIBÉRAL'],
+  ['🟡 Coef. CFE (création 0 % / 1re imposition 50 % / normal 100 %)', 0, 0.5, 1],
+  ['🟡 Nb de mesures de référence du budget charges', 10],
+  ['Maladie-maternité (0-6,5% dégressif)', 0.03, 0.04, 0.06],
+  ['Loyer du bureau', '', '', '', '', 1000, 'Fixe'],
+  ['Déplacements', '', '', '', '', 2000, 'Variable'],
+  ['CFE', '', '', '', '', 400, 'CFE'],
+  ['TOTAL CHARGES ANNUELLES', '', '', '', '', 3400],
+];
+
+const SALARIE = [
+  ['②b MJPM SALARIÉ'],
+  ['🟡 CTI / prime Ségur (€ brut)', 200],
+  ['🟡 Cotisations salariales (%)', 0.2],
+];
+
+const SAM = [
+  ['③b SAM PAR SCÉNARIO'],
+  ['🟡 Revenu BNC correspondant aux 380 points Cipav de ③ B45', 35000],
+  ['Année', "PASS de l'année", 'Coef.', 'Salaire brut du relevé', 'Salaire retenu'],
+  [2023, 43992, 1.085, 30000, 30000],
+  [2024, 46368, 1.031, undefined, 28000],
+  [2025, 47100, 1.009, 32000, 32000],
+  [2026, 48060, 1, undefined, 35000],
+];
+
+const ARE = [['⑥ ARE'], ['Salaire Journalier de Référence (SJR)', 200]];
+
+const PAS = [
+  ['⑫ CALCUL DES TAUX PAS'],
+  ['Première année recalculée', 2031],
+  ['Répartition (1 = taux individualisés, 0 = taux commun du foyer)', 1],
+  ['IR libéral dans ⑤b (1 = taux recalculé × BNC imposable, 0 = IR imputé de ②)', 0],
 ];
 
 interface Segment {
@@ -157,7 +249,13 @@ function buildWorkbook(skip: string[] = []): XLSX.WorkBook {
   const sheets: [string, XLSX.WorkSheet][] = [
     ['Tableau de bord', toSheet(TABLEAU_DE_BORD)],
     ['Hypothèses', toSheet(HYPOTHESES)],
+    ['① Rupture & chômage', toSheet(RUPTURE)],
     ['①b Revenus foyer & PAS', toSheet(REVENUS_FOYER)],
+    ['② MJPM Libéral', toSheet(LIBERAL)],
+    ['②b MJPM Salarié (Assoc.)', toSheet(SALARIE)],
+    ['③b SAM par scénario', toSheet(SAM)],
+    ['⑥ ARE — Calcul & Simulation', toSheet(ARE)],
+    ['⑫ Calcul taux PAS', toSheet(PAS)],
     ['Calc S1', calcSheet(SEGMENTS_S1, cash2)],
     ['Calc S2', calcSheet(SEGMENTS_S2, cash2S2)],
   ];
@@ -413,6 +511,131 @@ describe('importSimulationWorkbook', () => {
       debut: '2031-07',
       netAvantImpot: 2010,
       netApresImpot: 1950,
+    });
+  });
+
+  describe('paramètres des calculateurs', () => {
+    const calc = params.calculateurs!;
+
+    it('inactifs par défaut, reconnus, et sans avertissement', () => {
+      expect(calc.actif).toBe(false);
+      expect(reconnus).toContain('Calculateurs : fiscal, retraite et activité');
+    });
+
+    it('fiscal : ⑫, Hypothèses et ①b par libellé', () => {
+      expect(calc.fiscal).toEqual({
+        indexationBareme: { mode: 'inflation' },
+        ageLimiteRattachement: 21,
+        tauxIndividualises: true,
+        premiereAnneeRecalculee: 2031,
+        tauxReelsActuels: { p1: 0.07, p2: 0.04 },
+        irLiberalParTaux: false,
+      });
+    });
+
+    it('retraite : une entrée par personne, salaires du relevé (retenu à défaut)', () => {
+      expect(calc.retraite?.partCsgDeductible).toBe(0.06);
+      expect(calc.retraite?.personnes[0]).toEqual({
+        personneId: 'p1',
+        trimestresValides: 100,
+        anneeReleve: 2025,
+        trimestresRequis: 172,
+        pointsAgircArrco: 3000,
+        valeurPointAgircArrco: 1.4,
+        prixPointAgircArrco: 20,
+        pointsCipavParAn: 380,
+        bncReferenceCipav: 35000,
+        valeurPointCipav: 0.6,
+        rentePerMensuelle: 100,
+        tauxPrelevementsSociaux: 0.09,
+        revalorisationSalaires: 0.015,
+        croissancePass: 0.02,
+        nombreMeilleuresAnnees: 25,
+        salairesPasses: { '2023': 30000, '2024': 28000, '2025': 32000 },
+      });
+      expect(calc.retraite?.personnes[1]).toMatchObject({
+        personneId: 'p2',
+        trimestresValides: 80,
+        trimestresRequis: 172,
+        pointsAgircArrco: 1500,
+        pointsCipavParAn: 0,
+        rentePerMensuelle: 0,
+      });
+      expect(calc.retraite?.personnes[1]?.salairesPasses).toBeUndefined();
+    });
+
+    it('activité : paie, calendrier, reclassement, ARE, CCN 66, personne 2 et scénarios', () => {
+      const a = calc.activite!;
+      expect(a.personne1).toEqual({ dateNaissance: '1980-12-01', ageDepartRetraite: 64 });
+      expect(a.paie).toEqual({
+        netAvantPas: 3000,
+        netImposable: 3300,
+        moisPayesParAn: 12,
+        ratioImposableRemplacement: 1,
+      });
+      expect(a.calendrier).toEqual({
+        dateNotification: '2030-01-02',
+        delaiReflexionJours: 8,
+        dureePreavisMois: 3,
+        dureeCongeMois: 12,
+        debutAssociation: '2031-03-01',
+        dateBasculeLiberal: '2036-01-01',
+      });
+      expect(a.reclassement).toEqual({
+        tauxAllocation: 0.7,
+        brutMensuelReference: 5000,
+        assietteAgircArrcoMensuelle: 4000,
+      });
+      expect(a.are).toEqual({ sjr: 200, assietteSupralegale: 4472, iccpBrute: 2000 });
+      expect(a.ccn66).toEqual({
+        coefficient: 400,
+        valeurPoint: 4,
+        cti: 200,
+        tauxCotisationsSalariales: 0.2,
+        progressionAnnuelle: 0.02,
+      });
+      expect(a.scenarios).toEqual({ s1: 0, s2: 20 });
+      expect(a.irImpute).toEqual({ revenuImposableAutrePersonne: 26000, parts: 2.5 });
+      expect(a.personne2).toEqual({
+        dateNaissance: '1982-11-08',
+        ageFinActivite: 63,
+        netAvantPasMensuel: (2000 * 13) / 12,
+        netImposableMensuel: (2200 * 13) / 12,
+        salaireBrutAnnuel: 30000,
+        revalorisationAnnuelle: 0.02,
+        anneeReference: 2026,
+      });
+    });
+
+    it('libéral : tarif, montée en charge, charges classées par nature, cotisations, PER', () => {
+      expect(calc.activite?.liberal).toEqual({
+        tarifMesure: 100,
+        monteeEnCharge: [0.5, 0.75, 1],
+        mesuresReference: 10,
+        charges: [
+          { libelle: 'Loyer du bureau', montantReference: 1000, nature: 'fixe' },
+          { libelle: 'Déplacements', montantReference: 2000, nature: 'variable' },
+          { libelle: 'CFE', montantReference: 400, nature: 'cfe' },
+        ],
+        coefficientCfe: [0, 0.5, 1],
+        perAnnuel: 1200,
+        perSortieDeCash: true,
+        tauxMaladieMaternite: [0.03, 0.04, 0.06],
+      });
+    });
+
+    it('conserve le choix d activation de base et avertit quand des onglets manquent', () => {
+      const actif = makeBase();
+      actif.calculateurs = { actif: true };
+      const complet = importSimulationWorkbook(buildWorkbook(), actif);
+      expect(complet.params.calculateurs?.actif).toBe(true);
+      const sans = importSimulationWorkbook(
+        buildWorkbook(['② MJPM Libéral', '⑫ Calcul taux PAS']),
+        makeBase(),
+      );
+      expect(sans.avertissements.join('\n')).toContain('Calculateurs : onglets introuvables');
+      expect(sans.avertissements.join('\n')).toContain('mjpm liberal');
+      expect(sans.params.calculateurs).toBeUndefined();
     });
   });
 

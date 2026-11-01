@@ -42,8 +42,15 @@ export function monthlyIncome(
     pension[personne.id] = 0;
   }
   const annee = yearOf(mois);
-  const phasesActives = [...inputs.phasesCommunes, ...scenario.phases].filter((p) =>
-    isActive(p, mois),
+  // Calculateurs : le cash calculé d'une personne remplace ses phases et ses pensions pour ce mois.
+  const calcule = (personneId: string): number | undefined =>
+    scenario.revenusMensuels?.[personneId]?.[mois];
+  const remplacees = new Set(
+    inputs.personnes.filter((p) => calcule(p.id) !== undefined).map((p) => p.id),
+  );
+  for (const id of remplacees) activite[id] = calcule(id) ?? 0;
+  const phasesActives = [...inputs.phasesCommunes, ...scenario.phases].filter(
+    (p) => !remplacees.has(p.personneId) && isActive(p, mois),
   );
   for (const phase of phasesActives) {
     const indice = Math.pow(1 + phase.revalorisationAnnuelle, annee - yearOf(phase.debut));
@@ -51,12 +58,14 @@ export function monthlyIncome(
   }
   const indiceInflation = inflationIndex(inputs, mois);
   const pensionsActives = [...inputs.pensionsCommunes, ...scenario.pensions].filter(
-    (p) => monthIndex(mois) >= monthIndex(p.debut),
+    (p) => !remplacees.has(p.personneId) && monthIndex(mois) >= monthIndex(p.debut),
   );
   for (const p of pensionsActives)
     add(pension, p.personneId, p.montantsAnnuels?.[annee] ?? p.netApresImpot * indiceInflation);
 
   const ref = inputs.personnes[0]?.id;
+  const phaseCalculee = ref && remplacees.has(ref) ? scenario.phasesMensuelles?.[mois] : undefined;
+  if (phaseCalculee !== undefined) return { activite, pension, phase: phaseCalculee };
   const retraite = pensionsActives.some((p) => p.personneId === ref);
   const phaseRef = [...scenario.phases, ...inputs.phasesCommunes].find(
     (p) => p.personneId === ref && isActive(p, mois),

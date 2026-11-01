@@ -876,6 +876,14 @@ export interface ProjectionParams {
   };
   classesCategories: Record<string, ProjectionClasseCategorie>;
   aConfirmer: ProjectionPointAConfirmer[];
+  /** Paramètres des calculateurs détaillés (lot 2). Absent = comportement du lot 1. */
+  calculateurs?: {
+    /** true = les revenus des personnes viennent des calculateurs (« Auto (calculé) »). */
+    actif?: boolean;
+    fiscal?: ProjectionFiscalParams;
+    retraite?: ProjectionRetraiteParams;
+    activite?: ProjectionActiviteParams;
+  };
 }
 
 /** Valeurs observées dans les données de l'app (sortie de utils/projection/autoValues.ts). */
@@ -912,6 +920,14 @@ export interface ProjectionPhaseResolue extends Omit<ProjectionPhaseRevenu, 'net
 
 export interface ProjectionScenarioResolu extends Omit<ProjectionScenario, 'phases'> {
   phases: ProjectionPhaseResolue[];
+  /** Calculateurs : cash mensuel après PAS (€ courants) par personne ; remplace phases et pensions. */
+  revenusMensuels?: Record<string, Record<ProjectionMonth, number>>;
+  /** Calculateurs : détail de la retraite par personne (valeurs de l'année de référence des prix). */
+  retraiteDetail?: Record<string, ProjectionRetraiteResultat>;
+  /** Calculateurs : libellé de phase de chaque mois pour la personne de référence (colonne B de Calc). */
+  phasesMensuelles?: Record<ProjectionMonth, string>;
+  /** Calculateurs : 1er mois de pension de chaque personne partie à la retraite dans l'horizon. */
+  debutsRetraite?: Record<string, ProjectionMonth>;
 }
 
 /** Entrées numériques du moteur (sortie de resolveParams). */
@@ -930,6 +946,8 @@ export interface ProjectionInputs {
   patrimoineDepart: number;
   abondement?: ProjectionParams['capital']['abondement'];
   scenarios: ProjectionScenarioResolu[];
+  /** Messages non bloquants de la résolution des calculateurs (bloc manquant, scénario non calculable). */
+  messagesCalculateurs?: string[];
 }
 
 export interface ProjectionMoisResultat {
@@ -976,6 +994,8 @@ export interface ProjectionRetraitePersonne {
   prenom: string;
   netAvantImpot: number;
   netApresImpot: number;
+  /** Détail par régime (calculateur de retraite) ; absent pour une pension saisie. */
+  detail?: ProjectionRetraiteResultat;
 }
 
 export interface ProjectionRetraiteScenario {
@@ -1057,4 +1077,247 @@ export interface ProjectionRapport {
   annees: ProjectionAnneeDetail[];
   controles: ProjectionControle[];
   pointsAConfirmer: ProjectionPointAConfirmer[];
+}
+
+// ─── Projections — calculateurs (lot 2) ───
+/** Paramètres utilisateur du calculateur fiscal (IR du foyer et taux PAS par année). */
+export interface ProjectionFiscalParams {
+  /** Indexation annuelle du barème et de la grille : inflation du scénario ou taux saisi. */
+  indexationBareme: { mode: 'inflation' | 'manuel'; manuel?: number };
+  /** Âge limite de rattachement d'un enfant, au 1er janvier (½ part tant qu'il est plus jeune). */
+  ageLimiteRattachement: number;
+  /** true = taux individualisés par personne ; false = taux commun du foyer. */
+  tauxIndividualises: boolean;
+  /** Avant cette année, les taux réels saisis s'appliquent ; à partir d'elle, les taux sont recalculés. */
+  premiereAnneeRecalculee: number;
+  /** Taux de prélèvement à la source réellement appliqués aujourd'hui (décimaux, 0.07 = 7 %). */
+  tauxReelsActuels: { p1: number; p2: number };
+  /** true (défaut) : IR du libéral = taux PAS recalculé × BNC imposable ; false : IR imputé de ② (⑫ B15). */
+  irLiberalParTaux?: boolean;
+}
+
+/** Résultat fiscal d'une année civile du foyer. */
+export interface ProjectionFiscalAnnee {
+  annee: number;
+  /** Parts fiscales du foyer (2 + ½ par enfant rattaché au 1er janvier). */
+  parts: number;
+  /** Revenu net imposable du foyer, annualisé, après abattements de 10 %. */
+  revenuNetImposable: number;
+  /** Impôt sur le revenu net du foyer (après plafonnement du quotient familial et décote). */
+  irNet: number;
+  /** Taux moyen du foyer, arrondi au 1/1000. */
+  tauxFoyer: number;
+  /** Taux de prélèvement à la source appliqué à la personne 1 (décimal). */
+  tauxP1: number;
+  /** Taux de prélèvement à la source appliqué à la personne 2 (décimal). */
+  tauxP2: number;
+}
+
+/** Paramètres de retraite d'une personne (CNAV, Agirc-Arrco, Cipav, rente PER). Montants en € de l'année de référence. */
+export interface ProjectionRetraitePersonneParams {
+  personneId: string;
+  /** Trimestres validés (régime général) à la date du relevé. */
+  trimestresValides: number;
+  /** Dernière année civile entièrement couverte par le relevé (trimestres et points acquis). */
+  anneeReleve: number;
+  /** Trimestres requis pour le taux plein (selon la génération). */
+  trimestresRequis: number;
+  /** Points Agirc-Arrco acquis au relevé. */
+  pointsAgircArrco: number;
+  /** Valeur de service du point Agirc-Arrco (€). */
+  valeurPointAgircArrco: number;
+  /** Prix d'achat du point Agirc-Arrco = salaire de référence (€). */
+  prixPointAgircArrco: number;
+  /** Points Cipav acquis par an pour un BNC égal à `bncReferenceCipav`. */
+  pointsCipavParAn: number;
+  /** BNC annuel de référence correspondant à `pointsCipavParAn` (€). */
+  bncReferenceCipav: number;
+  /** Valeur du point Cipav (€). */
+  valeurPointCipav: number;
+  /** Rente PER / épargne retraite (€ brut par mois). */
+  rentePerMensuelle: number;
+  /** CSG/CRDS/CASA du retraité (décimal, 0.091 = 9,1 %). */
+  tauxPrelevementsSociaux: number;
+  /** Revalorisation annuelle des salaires portés au compte (décimal). */
+  revalorisationSalaires: number;
+  /** Croissance annuelle du PASS (décimal). */
+  croissancePass: number;
+  /** Nombre de meilleures années retenues pour le SAM (25). */
+  nombreMeilleuresAnnees: number;
+  /** Salaires bruts annuels connus (relevé), par année civile. Priment sur la carrière projetée. */
+  salairesPasses?: Record<string, number>;
+}
+
+/** Paramètres de retraite du foyer : une entrée par personne. */
+export interface ProjectionRetraiteParams {
+  personnes: ProjectionRetraitePersonneParams[];
+  /** Part déductible de la CSG sur les pensions (décimal) ; défaut : constante légale. */
+  partCsgDeductible?: number;
+}
+
+/** Revenus de carrière d'une année civile (entrée du calculateur de retraite). */
+export interface ProjectionRetraiteCarriereAnnee {
+  annee: number;
+  /** Salaire brut annuel soumis au régime général (CNAV). */
+  salaireRG?: number;
+  /** Assiette Agirc-Arrco annuelle ; par défaut `salaireRG`. */
+  assietteAgircArrco?: number;
+  /** Points Agirc-Arrco calculés en amont (ex. congé de reclassement) : remplacent ceux de l'assiette. */
+  pointsAgircArrco?: number;
+  /** BNC annuel (affilié Cipav). */
+  bnc?: number;
+}
+
+/** Pension de retraite d'une personne à la liquidation (€ par mois, de l'année de référence). */
+export interface ProjectionRetraiteResultat {
+  detailBrut: { cnav: number; agircArrco: number; cipav: number; per: number };
+  totalBrut: number;
+  netAvantImpot: number;
+  trimestres: { regimeGeneral: number; autresRegimes: number; total: number; manquants: number };
+  /** Valeurs intermédiaires : SAM annuel, années retenues, taux, proratisation, points totaux. */
+  sam: number;
+  anneesRetenues: number;
+  tauxLiquidation: number;
+  coefficientProratisation: number;
+  pointsAgircArrco: number;
+  pointsCipav: number;
+}
+
+/** Nature d'un poste de charges libérales : proratisé au nombre de mesures, coefficient CFE ou fixe. */
+export type ProjectionChargeLiberaleNature = 'fixe' | 'variable' | 'cfe';
+
+/** Poste de charges du cabinet libéral, au budget de référence (€/an, `mesuresReference` mesures). */
+export interface ProjectionChargeLiberale {
+  libelle: string;
+  montantReference: number;
+  nature: ProjectionChargeLiberaleNature;
+}
+
+/** Paramètres utilisateur du calculateur d'activité de la personne 1 (salaire, congé, ARE, CCN 66, libéral). */
+export interface ProjectionActiviteParams {
+  personne1: { dateNaissance: string; ageDepartRetraite: number };
+  /** Paie validée d'un mois normal, versée `moisPayesParAn` fois par an (lissée sur 12 mois). */
+  paie: {
+    netAvantPas: number;
+    netImposable: number;
+    moisPayesParAn: number;
+    /** Ratio net imposable / net versé des revenus de remplacement (allocation de reclassement, ARE). */
+    ratioImposableRemplacement: number;
+  };
+  /** Dates en YYYY-MM-DD. Le préavis court dans le congé de reclassement (fin du contrat = fin du congé). */
+  calendrier: {
+    dateNotification: string;
+    delaiReflexionJours: number;
+    dureePreavisMois: number;
+    dureeCongeMois: number;
+    debutAssociation: string;
+    /** Bascule en libéral (scénarios avec mesures cibles > 0). */
+    dateBasculeLiberal: string;
+  };
+  reclassement: {
+    /** Part du brut mensuel de référence versée pendant le congé (0.7 = 70 %). */
+    tauxAllocation: number;
+    /** Brut mensuel de référence (13e mois inclus, ÷ 12). */
+    brutMensuelReference: number;
+    /** Assiette mensuelle Agirc-Arrco maintenue pendant le congé (clause de l'accord). */
+    assietteAgircArrcoMensuelle: number;
+  };
+  /** SJR et assiettes des différés d'indemnisation (supra-légal + transactionnel brut ; ICCP brute). */
+  are: { sjr: number; assietteSupralegale: number; iccpBrute: number };
+  ccn66: {
+    coefficient: number;
+    valeurPoint: number;
+    /** Complément de traitement indiciaire (€ brut/mois), exclu du test SMIC. */
+    cti: number;
+    tauxCotisationsSalariales: number;
+    progressionAnnuelle: number;
+  };
+  liberal: {
+    tarifMesure: number;
+    /** Part des mesures cibles atteinte aux années 1, 2 et 3+ de la montée en charge. */
+    monteeEnCharge: [number, number, number];
+    mesuresReference: number;
+    charges: ProjectionChargeLiberale[];
+    /** Coefficient appliqué aux postes « cfe » (années 1, 2 et 3+). */
+    coefficientCfe: [number, number, number];
+    perAnnuel: number;
+    /** true (défaut) : le PER TNS est une sortie de cash du mois (①b B84). */
+    perSortieDeCash?: boolean;
+    /** Taux maladie-maternité par année de montée en charge ; défaut : constantes légales. */
+    tauxMaladieMaternite?: [number, number, number];
+  };
+  /** Mesures cibles par id de scénario (0 ou absent = pas de libéral : association jusqu'à la retraite). */
+  scenarios: Record<string, number>;
+  /** Foyer pour l'IR imputé au libéral (②) : revenu imposable de l'autre personne et parts. */
+  irImpute?: { revenuImposableAutrePersonne: number; parts: number };
+  /** Personne 2 : salaire lissé revalorisé chaque 1er janvier jusqu'à la fin d'activité. */
+  personne2?: {
+    dateNaissance: string;
+    ageFinActivite: number;
+    netAvantPasMensuel: number;
+    netImposableMensuel: number;
+    /** Salaire brut annuel à l'année de référence (①b B19) : sert à la carrière retraite ; absent = pas de pension. */
+    salaireBrutAnnuel?: number;
+    revalorisationAnnuelle: number;
+    /** Année de la paie de référence (indice = 1 cette année-là). */
+    anneeReference: number;
+  };
+}
+
+/** Revenus d'activité de la personne 1 pour un mois (€/mois ; pensions de retraite exclues). */
+export interface ProjectionActiviteMois {
+  mois: ProjectionMonth;
+  /** Libellé de phase (colonne B des onglets Calc) ; « Retraite » une fois l'âge de départ passé. */
+  phase: string;
+  /** Code de phase (colonne AF) : 1 emploi, 2 congé, 3 association, 4 association sans ARE, 5 à 7 libéral, 8 retraite. */
+  codePhase: number;
+  /** Net avant PAS, libéral inclus (colonne C). */
+  netAvantPas: number;
+  /** Net imposable : salaires, remplacement et BNC imposable (colonne D = AY + BA). */
+  netImposable: number;
+  /** Net imposable hors libéral (colonne AY). */
+  netImposableHorsLiberal: number;
+  /** BNC imposable après cotisations et PER (colonne BA). */
+  bncImposable: number;
+  /** Libéral : BNC − cotisations (colonne AZ). */
+  liberalNetAvantImpot: number;
+  /** Libéral : IR imputé selon ② (colonne BB). */
+  liberalIrImpute: number;
+  /** Versement PER TNS du mois, positif (colonne BC = −per). */
+  per: number;
+  /** Revenu manquant avant PAS : complément ARE pendant le différé + salaire pendant le trou. */
+  revenuManquantNet: number;
+  /** Assiette imposable du revenu manquant. */
+  revenuManquantImposable: number;
+  /** Revenu manquant après PAS (colonne R), avec le taux PAS de l'année s'il est fourni, sinon 0 %. */
+  revenuManquant: number;
+  /** Fractions du mois (colonnes AI à AP) et année d'association (AQ). */
+  fractions: {
+    emploi: number;
+    conge: number;
+    trou: number;
+    association: number;
+    liberal: number;
+    arePlein: number;
+    areDegressif: number;
+    differeAre: number;
+  };
+  anneeAssociation: number;
+  /** Net mensuel du salaire d'association (colonne AR). */
+  netSalaireAssociation: number;
+  /** Personne 2 : net avant PAS et net imposable du salaire revalorisé (colonnes H et I, hors pension). */
+  netAvantPasPersonne2: number;
+  netImposablePersonne2: number;
+}
+
+/** Sortie de l'assemblage des calculateurs pour un scénario (utils/projection/calculateurs). */
+export interface ProjectionScenarioCalcule {
+  /** Cash mensuel après PAS (€ courants) par personne. */
+  revenusMensuels: Record<string, Record<ProjectionMonth, number>>;
+  retraiteDetail: Record<string, ProjectionRetraiteResultat>;
+  /** Libellé de phase de la personne 1 pour chaque mois. */
+  phasesMensuelles: Record<ProjectionMonth, string>;
+  /** 1er mois de pension par personne. */
+  debutsRetraite: Record<string, ProjectionMonth>;
+  fiscal: ProjectionFiscalAnnee[];
 }

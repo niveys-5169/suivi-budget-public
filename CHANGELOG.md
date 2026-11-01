@@ -15,6 +15,12 @@ Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
   `useProjectionParams` et `useProjection`, interface `components/projections/`.
   Sur mobile, la page affiche « Disponible sur ordinateur ». Voir
   [docs/ARCH_STATE.md](docs/ARCH_STATE.md).
+- **Projections long terme : calculateurs (lot 2)** : calculateurs purs
+  `utils/projection/` (IR et taux PAS `fiscal/`, retraite `retraite/`, activité
+  `activite/`, assemblage `calculateurs/` qui remplace phases et montants importés
+  quand `calculateurs.actif`), paramètres importés depuis le classeur, section
+  « Calculateurs » dans Hypothèses, tests de parité locaux. Voir
+  [docs/ARCH_STATE.md](docs/ARCH_STATE.md).
 
 ## [Unreleased] - Semaine du 21/09/2026
 

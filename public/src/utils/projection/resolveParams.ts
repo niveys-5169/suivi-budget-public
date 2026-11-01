@@ -9,6 +9,7 @@ import type {
   ProjectionPhaseRevenu,
   ProjectionValeursObservees,
 } from '../../types/banking.types';
+import { applyCalculateurs } from './calculateurs/applyCalculateurs';
 
 export type AutoValueSource = 'auto' | 'manuel' | 'auto-indisponible';
 
@@ -53,16 +54,23 @@ function resolveCredit(
   };
 }
 
-/** Mois précédant celui où l'aîné atteint `age` ans (undefined si non défini). */
+/**
+ * Dernier mois de CAF versé : le 1er du mois doit précéder l'anniversaire de l'aîné (⑤b M : mois <
+ * EDATE(naissance, 12 × âge)). Le mois anniversaire est donc versé, sauf si l'enfant est né un 1er.
+ */
 function lastCafMonth(params: ProjectionParams): ProjectionMonth | undefined {
   const age = params.revenusCommuns.caf.arretAuxAnsAine;
-  const naissances = params.enfants
-    .map((e) => /^(\d{4})-(\d{2})/.exec(e.dateNaissance))
+  const aine = params.enfants
+    .map((e) => /^(\d{4})-(\d{2})(?:-(\d{2}))?/.exec(e.dateNaissance))
     .filter((m): m is RegExpExecArray => m !== null)
-    .map((m) => Number(m[1]) * 12 + Number(m[2]) - 1)
-    .sort((a, b) => a - b);
-  if (age === undefined || naissances.length === 0) return undefined;
-  const index = naissances[0]! + age * 12 - 1;
+    .map((m) => ({
+      mois: Number(m[1]) * 12 + Number(m[2]) - 1,
+      jour: Number(m[3] ?? 1),
+      cle: m[0],
+    }))
+    .sort((a, b) => a.cle.localeCompare(b.cle))[0];
+  if (age === undefined || !aine) return undefined;
+  const index = aine.mois + age * 12 - (aine.jour === 1 ? 1 : 0);
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
 }
 
@@ -74,7 +82,7 @@ export function resolveProjectionParams(
   const { revenusCommuns, depenses, capital } = params;
   const dernierMois = lastCafMonth(params);
   const cafAuto = sumCategories(revenusCommuns.caf.categoriesSource, observed);
-  return {
+  const inputs: ProjectionInputs = {
     horizon: params.horizon,
     macro: params.macro,
     personnes: params.personnes,
@@ -98,4 +106,5 @@ export function resolveProjectionParams(
       phases: s.phases.map((p) => resolvePhase(p, observed)),
     })),
   };
+  return applyCalculateurs(params, inputs);
 }
