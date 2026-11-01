@@ -5,6 +5,9 @@ import { creerLecteur, ongletsManquants } from './importCalculateursReader';
 import { importRetraite } from './importCalculateursRetraite';
 import { recognized, warn, type ImportContext } from './importContext';
 
+/** Libellé ajouté aux paramètres reconnus quand les trois blocs ont été lus. */
+export const CALCULATEURS_RECONNUS = 'Calculateurs : fiscal, retraite et activité';
+
 /**
  * Lit les paramètres des trois calculateurs (fiscal, retraite, activité) par libellé dans les onglets
  * de saisie. Les calculateurs restent inactifs (`actif: false`) : l'utilisateur les active ensuite.
@@ -26,5 +29,5 @@ export function importCalculateurs(wb: WorkBook, ctx: ImportContext): void {
     retraite: importRetraite(l, [p1?.id ?? 'p1', p2?.id]),
     activite: importActivite(l, ctx.params.personnes),
   };
-  recognized(ctx, 'Calculateurs : fiscal, retraite et activité');
+  recognized(ctx, CALCULATEURS_RECONNUS);
 }

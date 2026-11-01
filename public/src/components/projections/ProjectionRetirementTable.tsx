@@ -3,6 +3,7 @@ import type { ProjectionRetraiteScenario } from '../../types/banking.types';
 import { Card, Section, Text } from '../../ui';
 import { formatPercent } from '../../lib/formatters';
 import { Money, ScenarioMatrix } from './ProjectionTable';
+import { retirementDetailRows } from './retirementDetailRows';
 
 type Retraite = ProjectionRetraiteScenario;
 
@@ -47,6 +48,7 @@ export const ProjectionRetirementTable: React.FC<{
         </Text>
       ),
     },
+    ...retirementDetailRows(retraite),
   ];
 
   return (

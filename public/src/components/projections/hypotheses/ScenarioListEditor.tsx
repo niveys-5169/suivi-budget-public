@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, Plus, Trash2 } from 'lucide-react';
 import { Button, SegmentedControl, Stack } from '../../../ui';
+import { CalculatedIncomeNotice } from './calculateurs/CalculatedIncomeNotice';
 import type { ContextSectionProps } from './editorTypes';
 import { TextField } from './FormFields';
 import { ScenarioPhasesEditor } from './ScenarioPhasesEditor';
@@ -68,6 +69,7 @@ export const ScenarioListEditor: React.FC<ContextSectionProps> = ({ draft, onCha
         value={scenario.nom}
         onChange={(nom) => patchScenario({ nom })}
       />
+      <CalculatedIncomeNotice params={draft} />
       <ScenarioPhasesEditor
         phases={scenario.phases}
         pensions={scenario.pensions}

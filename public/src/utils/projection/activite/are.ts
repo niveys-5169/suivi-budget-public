@@ -25,9 +25,11 @@ export function computeAre(sjr: number): AreResultat {
     : allocationJournaliere;
   const { participationRetraiteComplementaire, csgCrds, assietteCsgCrds } = PRELEVEMENTS_ARE;
   const tauxPrelevements =
-    (sjr * participationRetraiteComplementaire +
-      allocationJournaliere * csgCrds * assietteCsgCrds) /
-    allocationJournaliere;
+    allocationJournaliere > 0
+      ? (sjr * participationRetraiteComplementaire +
+          allocationJournaliere * csgCrds * assietteCsgCrds) /
+        allocationJournaliere
+      : 0;
   const net = (journalier: number) => journalier * JOURS_ARE_PAR_MOIS * (1 - tauxPrelevements);
   return {
     sjr,
@@ -58,6 +60,6 @@ export function computeDifferesJours({
     DIFFERES.plafondJoursSpecifique,
     assietteSupralegale / DIFFERES.diviseurSpecifique,
   );
-  const congesPayes = Math.min(DIFFERES.plafondJoursCongesPayes, iccpBrute / sjr);
+  const congesPayes = Math.min(DIFFERES.plafondJoursCongesPayes, sjr > 0 ? iccpBrute / sjr : 0);
   return specifique + congesPayes + DIFFERES.delaiAttenteJours;
 }

@@ -35,9 +35,11 @@ export function makeParams(): ProjectionParams {
 export function makeProjection(
   params: ProjectionParams,
   save = vi.fn().mockResolvedValue(undefined),
+  messagesCalculateurs?: string[],
 ): UseProjectionResult {
   return {
     params,
+    inputs: { messagesCalculateurs },
     exists: true,
     save,
     observed: {

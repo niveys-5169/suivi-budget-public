@@ -53,7 +53,7 @@ export function computeActivitePersonne1(
   const annees = computeLiberalAnnees(liberal, mesuresCibles, params.irImpute);
   const mesuresParAnnee = annees.map((a) => a.mesures);
   const allocation = allocationReclassementNette(params.reclassement);
-  const ratioActivite = paie.netImposable / paie.netAvantPas;
+  const ratioActivite = paie.netAvantPas > 0 ? paie.netImposable / paie.netAvantPas : 1;
   const ratioRemplacement = paie.ratioImposableRemplacement;
   const lissage = paie.moisPayesParAn / 12;
   const debutAssociation = civilFromDay(cal.debutAssociation);
