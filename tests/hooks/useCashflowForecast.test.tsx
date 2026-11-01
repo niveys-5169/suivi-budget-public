@@ -24,7 +24,7 @@ describe('useCashflowForecast hook', () => {
     vi.clearAllMocks();
   });
 
-  it('projects recurring incomes using dayOfMonth from recurrences collection', () => {
+  it('ne projette pas une récurrence de revenu sans salaire déclaré', () => {
     // Set system time to June 1st, 2026
     vi.setSystemTime(new Date(2026, 5, 1));
 
@@ -48,16 +48,7 @@ describe('useCashflowForecast hook', () => {
 
     const { result } = renderHook(() => useCashflowForecast(30, 0));
 
-    // Verify that the salary event is projected on June 10th (dayOfMonth: 10)
-    const dayWithSalary = result.current.days.find((d) => d.date === '2026-06-10');
-    expect(dayWithSalary).toBeDefined();
-    expect(dayWithSalary?.events).toHaveLength(1);
-    expect(dayWithSalary?.events[0]!.label).toBe('Salaire Romane');
-    expect(dayWithSalary?.events[0]!.amount).toBe(2000);
-
-    // Verify that there is no salary event on June 1st (default fallback)
-    const dayOne = result.current.days.find((d) => d.date === '2026-06-01');
-    expect(dayOne?.events).toHaveLength(0);
+    expect(result.current.days.flatMap((d) => d.events)).toHaveLength(0);
   });
 
   it('merges recurrences incomes with ravConfig incomes, avoiding duplicates', () => {
@@ -108,7 +99,7 @@ describe('useCashflowForecast hook', () => {
     expect(duplicateEvent).toBeUndefined();
   });
 
-  it('deduplicates identical recurrences and matches ravConfig by category', () => {
+  it('projette le salaire déclaré au montant déclaré, à la date de sa récurrence, sans la CAF', () => {
     vi.setSystemTime(new Date(2026, 4, 31));
 
     mockUseGlobalData.mockReturnValue({
@@ -143,11 +134,12 @@ describe('useCashflowForecast hook', () => {
           createdAt: {} as any,
         },
         // Recurrence with label "SEPA" but category "Salaire Nico" (should match ravConfig)
+        // Montant appris des versements passés : ignoré au profit du salaire déclaré.
         {
           id: 'salary-nico',
           label: 'SEPA',
           category: 'Salaire Nico',
-          expectedAmount: 3000,
+          expectedAmount: 2900,
           dayOfMonth: 26,
           active: true,
           createdAt: {} as any,
@@ -158,15 +150,14 @@ describe('useCashflowForecast hook', () => {
 
     const { result } = renderHook(() => useCashflowForecast(30, 0));
 
-    // Verify CAF is projected ONLY ONCE on June 5th
+    // CAF is not a declared salary: not projected
     const dayFive = result.current.days.find((d) => d.date === '2026-06-05');
-    expect(dayFive?.events).toHaveLength(1);
-    expect(dayFive?.events[0]!.label).toBe('SEPA');
-    expect(dayFive?.events[0]!.amount).toBe(150);
+    expect(dayFive?.events).toHaveLength(0);
 
-    // Verify Salaire Nico (from recurrences) is projected on June 26th
+    // Salaire Nico projected on June 26th (recurrence date) at the declared amount
     const day26 = result.current.days.find((d) => d.date === '2026-06-26');
     expect(day26?.events).toHaveLength(1);
+    expect(day26?.events[0]!.label).toBe('Salaire Nico');
     expect(day26?.events[0]!.amount).toBe(3000);
 
     // Verify Salaire Nico from ravConfig was NOT duplicated on June 1st
