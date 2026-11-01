@@ -15,6 +15,7 @@ import {
   Filter,
   type LucideIcon,
 } from 'lucide-react';
+import { EmptyState } from '../../ui';
 import { MScreenHeader } from '../components/MScreenHeader';
 import { MPlacementFormModal } from '../components/MPlacementFormModal';
 import { MPositionsImportModal } from '../components/MPositionsImportModal';
@@ -83,7 +84,7 @@ export const PatrimoineScreen: React.FC = () => {
   } = usePortfolio();
   const { placements, refresh: refreshPlacements } = usePlacements();
   const { credits } = useCredits();
-  const { placementHistory, patrimoineSnapshots } = usePatrimoine();
+  const { placementHistory, patrimoineSnapshots, loading: patrimoineLoading } = usePatrimoine();
   const [editingPlacement, setEditingPlacement] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -239,6 +240,14 @@ export const PatrimoineScreen: React.FC = () => {
               <Plus size={16} />
             </button>
           </div>
+          {!portfolioLoading && !patrimoineLoading && netSegments.every((s) => s.amount <= 0) && (
+            <EmptyState
+              icon={<Wallet size={24} />}
+              title="Aucun actif à afficher"
+              description="Aucun placement n'est enregistré, ou aucun ne correspond au périmètre sélectionné."
+              action={{ label: 'Ajouter un placement', onClick: () => setEditingPlacement('_new') }}
+            />
+          )}
           {netSegments
             .filter((s) => s.amount > 0)
             .map((segment) => {

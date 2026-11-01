@@ -7,6 +7,8 @@ import { HomeScreen } from './screens/HomeScreen';
 import { BankConnectionsPage } from '../components/banking/BankConnectionsPage';
 import { AurumNotificationPage } from '../components/dashboard/v2/AurumNotificationPage';
 import { BankingBanner } from '../components/banking/BankingBanner';
+import { LoadingFallback } from '../components/shared/LoadingFallback';
+import { NotFoundPage } from '../components/shared/NotFoundPage';
 
 // Écrans secondaires en chunks séparés (Recharts n'est plus dans le chargement
 // initial), préchargés dès que le navigateur est inactif pour que le premier
@@ -42,11 +44,16 @@ const AurumRecurringPage = lazy(() =>
   })),
 );
 
-const DesktopOnlyFallback = () => (
-  <div className="flex items-center justify-center h-full p-4 text-center">
-    <p className="text-body text-label-secondary">Disponible sur desktop uniquement</p>
-  </div>
-);
+// Pages réelles du desktop sans écran mobile : on le dit plutôt que « introuvable ».
+const DESKTOP_ONLY_PATHS = [
+  '/settings',
+  '/tronity',
+  '/mappings',
+  '/fusion',
+  '/reparse',
+  '/excluded',
+  '/rules',
+];
 
 // Canonical design-system easing.
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -115,13 +122,7 @@ export const MobileSwipeContainer: React.FC = () => {
           transition={{ duration: reduceMotion ? 0.15 : 0.28, ease: EASE }}
           className="absolute inset-0 flex flex-col overflow-hidden"
         >
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center p-8">
-                <span className="text-footnote text-label-tertiary">Chargement...</span>
-              </div>
-            }
-          >
+          <Suspense fallback={<LoadingFallback />}>
             <BankingBanner />
             <Routes location={location}>
               <Route
@@ -150,7 +151,19 @@ export const MobileSwipeContainer: React.FC = () => {
                 path="/recurring"
                 element={<AurumRecurringPage onBack={() => window.history.back()} />}
               />
-              <Route path="*" element={<DesktopOnlyFallback />} />
+              {DESKTOP_ONLY_PATHS.map((path) => (
+                <Route
+                  key={path}
+                  path={path}
+                  element={
+                    <NotFoundPage
+                      title="Disponible sur ordinateur"
+                      description="Cette page n'existe pas encore sur mobile. Ouvrez l'application sur un ordinateur pour y accéder."
+                    />
+                  }
+                />
+              ))}
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
         </motion.div>

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { FLAGS } from './lib/featureFlags';
 import { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
+import { useDelayedVisible } from './hooks/useDelayedVisible';
 import { isIOSLoginTab } from './components/AuthButtons';
 import { BottomNav } from './components/shared/BottomNav';
 import { Sidebar } from './components/layout/Sidebar';
@@ -13,6 +14,8 @@ import { ConfirmHost } from './components/ConfirmHost';
 import { AriaLiveRegion } from './components/shared/AriaLiveRegion';
 import { OfflineBanner } from './components/shared/OfflineBanner';
 import { PageLayout } from './components/shared/PageLayout';
+import { NotFoundPage } from './components/shared/NotFoundPage';
+import { LOADING_FALLBACK_DELAY_MS } from './components/shared/LoadingFallback';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BankingDataProvider } from './hooks/useBankingData';
 import { BankingBanner } from './components/banking/BankingBanner';
@@ -77,6 +80,9 @@ const AurumRecurringPage = lazy(() =>
 // ─── Shell components ─────────────────────────────────────────────────────────
 const RouteSpinner: React.FC = () => {
   const { formatMessage: t } = useIntl();
+  // Une page déjà en cache ne doit pas faire clignoter le spinner.
+  const visible = useDelayedVisible(LOADING_FALLBACK_DELAY_MS);
+  if (!visible) return null;
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16">
       <div className="w-12 h-12 border-4 border-label/20 border-t-platinum rounded-full animate-spin" />
@@ -218,11 +224,15 @@ export const MainApp: React.FC = () => {
                   />
 
                   {/* Legacy path stubs — prevent 404 redirects during migration */}
-                  <Route path="/budget" element={null} />
-                  <Route path="/budgets-v2" element={null} />
+                  <Route path="/budget" element={<Navigate to="/budgets" replace />} />
+                  <Route path="/budgets-v2" element={<Navigate to="/budgets" replace />} />
 
-                  {FLAGS.ANALYSE_PAGE && <Route path="/analyse" element={<AnalyseSection />} />}
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                  {FLAGS.ANALYSE_PAGE ? (
+                    <Route path="/analyse" element={<AnalyseSection />} />
+                  ) : (
+                    <Route path="/analyse" element={<Navigate to="/" replace />} />
+                  )}
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </Suspense>
             </ErrorBoundary>

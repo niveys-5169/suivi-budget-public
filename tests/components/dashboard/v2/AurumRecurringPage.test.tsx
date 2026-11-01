@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { AurumRecurringPage } from '../../../../public/src/components/dashboard/v2/AurumRecurringPage';
 import { TransactionContext } from '../../../../public/src/context/TransactionContext';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 beforeEach(() => {
   vi.useRealTimers();
@@ -73,9 +74,11 @@ const mockTransactionContextValue = {
 
 function renderPage() {
   return render(
-    <TransactionContext.Provider value={mockTransactionContextValue as any}>
-      <AurumRecurringPage onBack={vi.fn()} />
-    </TransactionContext.Provider>,
+    <MemoryRouter>
+      <TransactionContext.Provider value={mockTransactionContextValue as any}>
+        <AurumRecurringPage onBack={vi.fn()} />
+      </TransactionContext.Provider>
+    </MemoryRouter>,
   );
 }
 

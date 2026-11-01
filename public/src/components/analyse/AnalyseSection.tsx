@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { EyeOff, RotateCcw, Plus } from 'lucide-react';
+import { EyeOff, RotateCcw, Plus, PieChart } from 'lucide-react';
+import { EmptyState } from '../../ui';
+import { hasActiveFilters } from '../transactions/TransactionsEmptyState';
 import { useNavigate } from 'react-router-dom';
 import {
   useTransactions,
@@ -43,6 +45,7 @@ export const AnalyseSection: React.FC = () => {
   const {
     transactions,
     filteredTransactions,
+    loading,
     filters,
     updateFilters,
     resetFilters,
@@ -460,14 +463,22 @@ export const AnalyseSection: React.FC = () => {
                       );
                     })}
 
-                    {allCategories.length === 0 && (
+                    {allCategories.length === 0 && !loading && (
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="p-16 text-center text-label-tertiary text-sm"
                       >
-                        Aucune transaction pour cette période.
+                        <EmptyState
+                          icon={<PieChart size={24} />}
+                          title="Aucune transaction pour cette période"
+                          description="Changez de mois ou ajustez les filtres pour voir la répartition par catégorie."
+                          action={
+                            hasActiveFilters(filters)
+                              ? { label: 'Réinitialiser les filtres', onClick: resetFilters }
+                              : undefined
+                          }
+                        />
                       </motion.div>
                     )}
                   </AnimatePresence>

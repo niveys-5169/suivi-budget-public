@@ -2,10 +2,12 @@ import React, { Suspense, lazy, useSyncExternalStore } from 'react';
 import { FLAGS } from './lib/featureFlags';
 import { DevConsoleLogger } from './components/dashboard/v2/DevConsoleLogger';
 import { PWAUpdateBanner } from './components/shared/PWAUpdateBanner';
+import { LoadingFallback } from './components/shared/LoadingFallback';
 
 // Un seul des deux arbres sert sur un appareil donné : chacun vit dans son
 // chunk pour que le mobile ne télécharge pas le desktop (et inversement).
-// Pas de fallback : le loader de index.html reste affiché jusqu'à hideLoader().
+// Le loader de index.html reste affiché jusqu'à hideLoader() ; le repli ci-dessous
+// ne prend le relais qu'après 200 ms (bascule desktop ↔ mobile, réseau lent).
 const MainApp = lazy(() => import('./MainApp').then((m) => ({ default: m.MainApp })));
 const MobileApp = lazy(() => import('./MobileApp').then((m) => ({ default: m.MobileApp })));
 
@@ -40,7 +42,7 @@ export const AppRouter: React.FC = () => {
   return (
     <>
       <DevConsoleLogger />
-      <Suspense fallback={null}>
+      <Suspense fallback={<LoadingFallback fullScreen />}>
         {FLAGS.MOBILE_V3 && mode === 'mobile' ? <MobileApp /> : <MainApp />}
       </Suspense>
       {/* Monté au niveau routeur pour enregistrer le service worker (useRegisterSW)

@@ -18,6 +18,7 @@
 | **Zéro carte imbriquée**                     | Une `<Card>` ne contient jamais de `<Card>`. À l'intérieur : `<List>`/`<ListItem>`, ou `<Stack>` + `<Separator>`.                       |
 | **Hiérarchie par la taille et le poids**     | Pas de majuscules pour hiérarchiser. Seul `<Text variant="overline">` en conserve.                                                      |
 | **Grille de 8 px**                           | Sous-pas unique de 4 px, réservé aux gaps icône/texte.                                                                                  |
+| **Aucune zone blanche**                      | Toute liste vide affiche un `<EmptyState>` : quoi, pourquoi, action suivante. Repli de chargement après 200 ms.                         |
 
 ---
 

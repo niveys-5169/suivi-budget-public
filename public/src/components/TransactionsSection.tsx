@@ -7,6 +7,7 @@ import {
 } from '../hooks/useTransactions';
 import { TransactionFilters } from './TransactionFilters';
 import { TransactionGroupedList } from './transactions/TransactionGroupedList';
+import { TransactionsEmptyState } from './transactions/TransactionsEmptyState';
 import { BulkActionsBar } from './transactions/BulkActionsBar';
 import { BulkActionDialog, type BulkDialogMode } from './transactions/BulkActionDialog';
 import { TransactionFormModal } from './TransactionFormModal';
@@ -51,6 +52,7 @@ export const TransactionsSection: React.FC = () => {
     bulkUpdate,
     bulkDelete,
     bulkSetPointe,
+    loading,
     loadingMore,
     hasMore,
     loadMore,
@@ -323,16 +325,27 @@ export const TransactionsSection: React.FC = () => {
           {/* List Section */}
           <motion.div variants={itemVariants} className="space-y-8">
             <div className="px-2">
-              <TransactionGroupedList
-                transactions={filteredTransactions}
-                onOpenDetail={handleOpenEdit}
-                onTogglePointe={togglePointe}
-                onDelete={handleDelete}
-                selectionMode={selectionMode}
-                selectedIds={selectedIds}
-                onToggleSelect={selection.toggleSelect}
-                linkedTxIds={linkedTxIds}
-              />
+              {filteredTransactions.length === 0 ? (
+                // Pas d'état vide avant le premier snapshot : il clignoterait au chargement.
+                !loading && (
+                  <TransactionsEmptyState
+                    filters={filters}
+                    onResetFilters={resetFilters}
+                    onAdd={handleOpenAdd}
+                  />
+                )
+              ) : (
+                <TransactionGroupedList
+                  transactions={filteredTransactions}
+                  onOpenDetail={handleOpenEdit}
+                  onTogglePointe={togglePointe}
+                  onDelete={handleDelete}
+                  selectionMode={selectionMode}
+                  selectedIds={selectedIds}
+                  onToggleSelect={selection.toggleSelect}
+                  linkedTxIds={linkedTxIds}
+                />
+              )}
 
               {hasMore && (
                 <div className="mt-16 flex justify-center pb-12">

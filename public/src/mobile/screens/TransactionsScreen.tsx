@@ -21,6 +21,7 @@ import { MDateGroupHeader } from '../components/MDateGroupHeader';
 import { MTransactionFilterModal } from '../components/MTransactionFilterModal';
 import { TransactionFormModal } from '../../components/TransactionFormModal';
 import { BulkActionDialog } from '../../components/transactions/BulkActionDialog';
+import { TransactionsEmptyState } from '../../components/transactions/TransactionsEmptyState';
 import type { BulkDialogMode } from '../../components/transactions/BulkActionDialog';
 import { PullToRefreshWrapper } from '../../components/PullToRefreshWrapper';
 import { useFormOptions } from '../../hooks/useFormOptions';
@@ -48,6 +49,7 @@ export const TransactionsScreen: React.FC = () => {
     bulkSetPointe,
     hasMore,
     loadMore,
+    loading,
     loadingMore,
   } = useTransactions();
 
@@ -293,10 +295,12 @@ export const TransactionsScreen: React.FC = () => {
             </div>
           ))}
 
-          {filteredTransactions.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 px-10 text-center">
-              <p className="text-body text-label-tertiary">Aucune transaction trouvée</p>
-            </div>
+          {!loading && filteredTransactions.length === 0 && (
+            <TransactionsEmptyState
+              filters={filters}
+              onResetFilters={resetFilters}
+              onAdd={handleAdd}
+            />
           )}
 
           {hasMore && filteredTransactions.length > 0 && (

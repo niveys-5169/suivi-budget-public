@@ -1,5 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { PieChart } from 'lucide-react';
+import { EmptyState } from '../../../ui';
 import { formatCurrency } from '../../../lib/formatters';
 
 interface CategoryStat {
@@ -14,6 +16,16 @@ interface Props {
 }
 
 export const AurumCategoryBreakdown: React.FC<Props> = ({ stats }) => {
+  if (stats.length === 0) {
+    return (
+      <EmptyState
+        icon={<PieChart size={24} />}
+        title="Aucune dépense ce mois-ci"
+        description="La répartition par catégorie apparaîtra dès qu'une dépense sera enregistrée sur le mois."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {stats

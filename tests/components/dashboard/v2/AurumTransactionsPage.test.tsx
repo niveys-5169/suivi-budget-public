@@ -93,6 +93,30 @@ describe('AurumTransactionsPage', () => {
     expect(loader).toBeDefined();
   });
 
+  it('shows an empty state with a reset action when no transaction matches the filters', () => {
+    const resetFilters = vi.fn();
+    render(
+      <AppStateProvider>
+        <TransactionContext.Provider
+          value={
+            {
+              ...mockContextValue,
+              filteredTransactions: [],
+              filters: { search: 'introuvable' },
+              resetFilters,
+            } as any
+          }
+        >
+          <AurumTransactionsPage />
+        </TransactionContext.Provider>
+      </AppStateProvider>,
+    );
+
+    expect(screen.getByText('Aucune transaction trouvée')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Réinitialiser les filtres' }));
+    expect(resetFilters).toHaveBeenCalledTimes(1);
+  });
+
   it('renders search island', () => {
     render(
       <AppStateProvider>

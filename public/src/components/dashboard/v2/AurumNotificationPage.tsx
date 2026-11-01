@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Bell, AlertCircle, Info, CheckCircle2, ChevronRight, Zap, TrendingUp } from 'lucide-react';
+import { EmptyState } from '../../../ui';
 import { useAlerts } from '../../../hooks/useAlerts';
 import type { Alert } from '../../../types/banking.types';
 
@@ -26,7 +27,7 @@ interface Props {
 
 export const AurumNotificationPage: React.FC<Props> = ({ onNavigate }) => {
   const navigate = useNavigate();
-  const { alerts, markAllRead } = useAlerts();
+  const { alerts, loading, markAllRead } = useAlerts();
 
   useEffect(() => {
     markAllRead();
@@ -44,13 +45,12 @@ export const AurumNotificationPage: React.FC<Props> = ({ onNavigate }) => {
       </nav>
 
       <main className="px-6 space-y-8">
-        {alerts.length === 0 && (
-          <div className="py-20 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-white/5 mx-auto flex items-center justify-center text-label-tertiary">
-              <Bell size={32} />
-            </div>
-            <p className="text-sm font-bold text-label-tertiary">Aucune nouvelle alerte</p>
-          </div>
+        {alerts.length === 0 && !loading && (
+          <EmptyState
+            icon={<Bell size={24} />}
+            title="Aucune alerte"
+            description="Budgets respectés, récurrences à jour, banques synchronisées. Les prochaines alertes apparaîtront ici."
+          />
         )}
 
         <div className="space-y-4">

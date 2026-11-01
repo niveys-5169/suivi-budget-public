@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Building2 } from 'lucide-react';
+import { EmptyState } from '../../../ui';
 import { fmt } from '../../../utils/format';
 import type { Transaction } from '../../../hooks/useTransactions';
 
@@ -56,7 +57,11 @@ export const AccountsDrillDown: React.FC<Props> = ({ transactions, monthKey }) =
           </div>
         ))}
         {accounts.length === 0 && (
-          <div className="py-12 text-center text-label-tertiary text-sm">Aucun compte</div>
+          <EmptyState
+            icon={<Building2 size={24} />}
+            title="Aucun compte actif ce mois-ci"
+            description="Aucune transaction n'est affectée à ce mois. Changez de mois pour voir les autres comptes."
+          />
         )}
       </div>
     </div>

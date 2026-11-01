@@ -4,7 +4,8 @@ import type { AccountBalance } from '../../../types/banking.types';
 import { BankLogo } from '../../shared/BankLogo';
 import { getSyncSourceLabel } from '../../../constants/syncSource';
 import { formatRelativeTime, toMillis } from '../../../utils/firestoreDate';
-import { Amount, List, ListItem, Stack, Text } from '../../../ui';
+import { Landmark } from 'lucide-react';
+import { Amount, EmptyState, List, ListItem, Stack, Text } from '../../../ui';
 import type { FirestoreDateLike } from '../../../types/banking.types';
 
 interface Account {
@@ -38,31 +39,41 @@ const syncLabel = (source?: string, syncedAt?: FirestoreDateLike): string | null
 export const AurumAccountsList: React.FC<{
   accounts: Account[];
   onAccountClick?: (name: string) => void;
-}> = ({ accounts, onAccountClick }) => (
-  <List>
-    {accounts.map((acc) => {
-      const sync = syncLabel(acc.source, acc.syncedAt);
-      return (
-        <ListItem
-          key={acc.id}
-          data-testid={`account-${acc.id}-card`}
-          leading={<BankLogo name={acc.bankName || acc.name} size={40} />}
-          title={acc.name}
-          subtitle={acc.owner || 'Personnel'}
-          onClick={onAccountClick ? () => onAccountClick(acc.name) : undefined}
-          trailing={
-            <Stack gap="none" align="end">
-              <Amount value={acc.balance} tone="neutral" />
-              {acc.evidence && <BankBalanceStatus balance={acc.evidence} />}
-              {sync && (
-                <Text variant="caption" tone="tertiary">
-                  {sync}
-                </Text>
-              )}
-            </Stack>
-          }
-        />
-      );
-    })}
-  </List>
-);
+  /** Ouvre la connexion bancaire, proposée quand aucun compte n'est encore suivi. */
+  onConnect?: () => void;
+}> = ({ accounts, onAccountClick, onConnect }) =>
+  accounts.length === 0 ? (
+    <EmptyState
+      icon={<Landmark size={24} />}
+      title="Aucun compte courant"
+      description="Connectez une banque pour suivre vos soldes et vos opérations."
+      action={onConnect ? { label: 'Connecter une banque', onClick: onConnect } : undefined}
+    />
+  ) : (
+    <List>
+      {accounts.map((acc) => {
+        const sync = syncLabel(acc.source, acc.syncedAt);
+        return (
+          <ListItem
+            key={acc.id}
+            data-testid={`account-${acc.id}-card`}
+            leading={<BankLogo name={acc.bankName || acc.name} size={40} />}
+            title={acc.name}
+            subtitle={acc.owner || 'Personnel'}
+            onClick={onAccountClick ? () => onAccountClick(acc.name) : undefined}
+            trailing={
+              <Stack gap="none" align="end">
+                <Amount value={acc.balance} tone="neutral" />
+                {acc.evidence && <BankBalanceStatus balance={acc.evidence} />}
+                {sync && (
+                  <Text variant="caption" tone="tertiary">
+                    {sync}
+                  </Text>
+                )}
+              </Stack>
+            }
+          />
+        );
+      })}
+    </List>
+  );
