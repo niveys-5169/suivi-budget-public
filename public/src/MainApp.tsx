@@ -40,6 +40,11 @@ const BudgetsV2Section = lazy(() =>
 const PatrimoineSection = lazy(() =>
   import('./components/PatrimoineSection').then((m) => ({ default: m.PatrimoineSection })),
 );
+const ProjectionsSection = lazy(() =>
+  import('./components/projections/ProjectionsSection').then((m) => ({
+    default: m.ProjectionsSection,
+  })),
+);
 const FinanceQASection = lazy(() =>
   import('./components/FinanceQASection').then((m) => ({ default: m.FinanceQASection })),
 );
@@ -201,6 +206,7 @@ export const MainApp: React.FC = () => {
                   <Route path="/transactions" element={<TransactionsSection />} />
                   <Route path="/budgets/*" element={<BudgetsV2Section />} />
                   <Route path="/patrimoine" element={<PatrimoineSection />} />
+                  <Route path="/projections" element={<ProjectionsSection />} />
                   <Route path="/qa" element={<FinanceQASection />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/connexions" element={<BankConnectionsPage />} />

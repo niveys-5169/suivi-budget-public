@@ -35,6 +35,9 @@ vi.mock('../components/budgets-v2/BudgetsV2Section', () => ({
 vi.mock('../components/PatrimoineSection', () => ({
   PatrimoineSection: () => <div data-testid="patrimoine">Patrimoine</div>,
 }));
+vi.mock('../components/projections/ProjectionsSection', () => ({
+  ProjectionsSection: () => <div data-testid="projections">Projections</div>,
+}));
 vi.mock('../components/analyse/AnalyseSection', () => ({
   AnalyseSection: () => <div data-testid="analyse">Analyse</div>,
 }));
@@ -97,6 +100,28 @@ describe('App Navigation', () => {
       expect(await screen.findByTestId('budgets')).toBeInTheDocument();
     },
   );
+
+  it('rend la section Projections sur /projections', async () => {
+    render(
+      <MemoryRouter initialEntries={['/projections']}>
+        <MainApp />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('projections')).toBeInTheDocument();
+    expect(screen.queryByText('Page introuvable')).toBeNull();
+  });
+
+  it('affiche le lien Projections dans la barre latérale', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MainApp />
+      </MemoryRouter>,
+    );
+
+    const lien = await screen.findByRole('link', { name: 'Projections' });
+    expect(lien).toHaveAttribute('href', '/projections');
+  });
 
   it('redirige /analyse vers le tableau de bord quand la page est désactivée', async () => {
     FLAGS.ANALYSE_PAGE = false;

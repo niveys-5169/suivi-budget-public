@@ -10,6 +10,7 @@ const fr = {
   'nav.transactions': 'Transactions',
   'nav.budgets': 'Budgets',
   'nav.patrimoine': 'Patrimoine',
+  'nav.projections': 'Projections',
   'nav.analyse': 'Analyse',
   'nav.recurring': 'Récurrences',
   'nav.settings': 'Paramètres',
