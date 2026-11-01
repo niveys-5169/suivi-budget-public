@@ -46,7 +46,7 @@ export const PASS_REFERENCE = 48060;
 /** Première année des tables : les années antérieures prennent les valeurs de cette année. */
 export const PREMIERE_ANNEE_TABLE = 2005;
 
-/** PASS annuel par année civile (arrêtés annuels). 2005-2006 : valeurs du classeur, à vérifier. */
+/** PASS annuel par année civile : arrêtés annuels du PASS (valeur mensuelle × 12). */
 export const PASS_PAR_ANNEE: Readonly<Record<number, number>> = {
   2005: 30192,
   2006: 31068,

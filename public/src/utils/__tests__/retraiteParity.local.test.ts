@@ -1,6 +1,6 @@
 /**
  * Test de parité LOCAL du calculateur de retraite avec le classeur de simulation de l'utilisateur
- * (③ Retraite, ③b SAM par scénario, ③c Retraite Gwen, Hypothèses bloc 5, Tableau de bord lignes 9-21).
+ * (③ Retraite, ③b SAM par scénario, ③c (retraite de la personne 2), Hypothèses bloc 5, Tableau de bord lignes 9-21).
  * Ignoré sans `PROJECTION_XLSX=/chemin/vers/fichier.xlsx` : le classeur contient des données
  * personnelles et ne doit jamais être versionné. N'affiche que les écarts, jamais les valeurs.
  * Tolérance : 1 € par mois (`PROJECTION_RETRAITE_TOLERANCE`).
@@ -70,7 +70,7 @@ function comparateur() {
 const chargerClasseur = () => XLSX.read(readFileSync(FILE!), { type: 'buffer', cellDates: true });
 
 describe.skipIf(!FILE)('parité retraite ↔ classeur (local)', () => {
-  it('Nicolas : CNAV, Agirc-Arrco, Cipav, PER, brut, net et trimestres de chaque scénario', () => {
+  it('personne 1 : CNAV, Agirc-Arrco, Cipav, PER, brut, net et trimestres de chaque scénario', () => {
     const wb = chargerClasseur();
     const { compare, affiche, pire } = comparateur();
     const sam = sheet(wb, '③b SAM par scénario');
@@ -121,7 +121,9 @@ describe.skipIf(!FILE)('parité retraite ↔ classeur (local)', () => {
   it('personne 2 : pension nette de ③c', () => {
     const wb = chargerClasseur();
     const { compare, affiche, pire } = comparateur();
-    const gwen = sheet(wb, '③c Retraite Gwen');
+    const nomOnglet = wb.SheetNames.find((n) => n.startsWith('③c'));
+    if (!nomOnglet) throw new Error('Onglet ③c introuvable');
+    const p2 = sheet(wb, nomOnglet);
     const hyp = sheet(wb, 'Hypothèses');
     const base = baseParams(wb, 'p2');
     const params: ProjectionRetraitePersonneParams = {
@@ -129,20 +131,20 @@ describe.skipIf(!FILE)('parité retraite ↔ classeur (local)', () => {
       trimestresValides: num(hyp, 'C69'),
       trimestresRequis: num(hyp, 'C71'),
       // ③c B57 = B16 + H50 : H25 (année 2025) s'ajoute aux points déjà acquis au 31/12/2025.
-      pointsAgircArrco: num(hyp, 'C70') + num(gwen, 'H25'),
+      pointsAgircArrco: num(hyp, 'C70') + num(p2, 'H25'),
       pointsCipavParAn: 0,
       rentePerMensuelle: 0,
     };
     const carriere: ProjectionRetraiteCarriereAnnee[] = [];
     for (let row = 25; row <= 49; row += 1) {
-      carriere.push({ annee: num(gwen, `A${row}`), salaireRG: num(gwen, `C${row}`) });
+      carriere.push({ annee: num(p2, `A${row}`), salaireRG: num(p2, `C${row}`) });
     }
     const r = computeRetraitePersonne({ params, carriere });
-    compare('P2 CNAV', r.detailBrut.cnav, num(gwen, 'B56'));
-    compare('P2 Agirc-Arrco', r.detailBrut.agircArrco, num(gwen, 'B59'));
-    compare('P2 total brut', r.totalBrut, num(gwen, 'B60'));
-    compare('P2 net', r.netAvantImpot, num(gwen, 'B62'));
-    compare('P2 trimestres', r.trimestres.total, num(gwen, 'B14'));
+    compare('P2 CNAV', r.detailBrut.cnav, num(p2, 'B56'));
+    compare('P2 Agirc-Arrco', r.detailBrut.agircArrco, num(p2, 'B59'));
+    compare('P2 total brut', r.totalBrut, num(p2, 'B60'));
+    compare('P2 net', r.netAvantImpot, num(p2, 'B62'));
+    compare('P2 trimestres', r.trimestres.total, num(p2, 'B14'));
     affiche();
     expect(pire()).toBeLessThanOrEqual(TOLERANCE);
   });
