@@ -134,8 +134,15 @@ def test_render_weekly_recap_html_and_text():
             "top_transactions": [{"date": "2026-10-23", "libelle": "Courses", "montant": 85.50, "categorie": "Alimentation"}],
         },
         "budgets": {
-            "exceeded": [{"categorie": "Alimentation", "budget": 300.0, "depense": 320.0, "depassement": 20.0, "pourcentage": 106.7}],
-            "warning": [{"categorie": "Carburant", "budget": 100.0, "depense": 85.0, "reste": 15.0, "pourcentage": 85.0}],
+            "variables": [
+                {"categorie": "Alimentation", "budget": 300.0, "depense": 320.0, "depassement": 20.0, "reste": -20.0, "pourcentage": 106.7,
+                 "depense_mois_precedent": 250.0, "ecart_mois_precedent": 70.0},
+                {"categorie": "Carburant", "budget": 100.0, "depense": 85.0, "depassement": -15.0, "reste": 15.0, "pourcentage": 85.0,
+                 "depense_mois_precedent": 90.0, "ecart_mois_precedent": -5.0},
+            ],
+            "exceeded": [{"categorie": "Alimentation", "budget": 300.0, "depense": 320.0, "depassement": 20.0, "reste": -20.0, "pourcentage": 106.7}],
+            "warning": [{"categorie": "Carburant", "budget": 100.0, "depense": 85.0, "depassement": -15.0, "reste": 15.0, "pourcentage": 85.0}],
+            "envelopes": [{"categorie": "Vacances ski", "budget": 2500.0, "depense": 300.0, "reste": 2200.0, "pourcentage": 12.0, "echeance": "2027-02"}],
         },
     }
 
@@ -144,11 +151,16 @@ def test_render_weekly_recap_html_and_text():
     assert "BforBank" in html
     assert "Alimentation" in html
     assert "106.7%" in html
+    assert "M-1 à date" in html
+    assert "Vacances ski" in html
+    assert "02/2027" in html
 
     text = render_weekly_recap_text(data)
     assert "SUIVI-BUDGET" in text
     assert "BforBank" in text
     assert "106.7%" in text
+    assert "ENVELOPPES ANNUELLES" in text
+    assert "Vacances ski (échéance 02/2027)" in text
 
 
 def test_run_weekly_recap_skipped_when_disabled():
@@ -270,8 +282,13 @@ def test_weekly_recap_escapes_xss_and_filters_cancelled():
             "top_transactions": [{"date": "2026-10-23", "libelle": "<libelle dangerous>", "montant": 50.0, "categorie": "<Cat & Test>"}],
         },
         "budgets": {
-            "exceeded": [{"categorie": "<Budget Exceeded>", "budget": 30.0, "depense": 50.0, "depassement": 20.0, "pourcentage": 166.7}],
-            "warning": [{"categorie": "<Budget Warning>", "budget": 100.0, "depense": 85.0, "reste": 15.0, "pourcentage": 85.0}],
+            "variables": [
+                {"categorie": "<Budget Exceeded>", "budget": 30.0, "depense": 50.0, "depassement": 20.0, "reste": -20.0, "pourcentage": 166.7},
+                {"categorie": "<Budget Warning>", "budget": 100.0, "depense": 85.0, "depassement": -15.0, "reste": 15.0, "pourcentage": 85.0},
+            ],
+            "exceeded": [{"categorie": "<Budget Exceeded>", "budget": 30.0, "depense": 50.0, "depassement": 20.0, "reste": -20.0, "pourcentage": 166.7}],
+            "warning": [{"categorie": "<Budget Warning>", "budget": 100.0, "depense": 85.0, "depassement": -15.0, "reste": 15.0, "pourcentage": 85.0}],
+            "envelopes": [{"categorie": "<Env & XSS>", "budget": 100.0, "depense": 10.0, "reste": 90.0, "pourcentage": 10.0, "echeance": "2026-12"}],
         },
         "options": {"include_checking": True, "include_savings": True, "include_expenses": True, "include_budgets": True},
     }
@@ -285,6 +302,8 @@ def test_weekly_recap_escapes_xss_and_filters_cancelled():
     assert "&lt;libelle dangerous&gt;" in html
     assert "<Cat & Test>" not in html
     assert "&lt;Cat &amp; Test&gt;" in html
+    assert "<Env & XSS>" not in html
+    assert "&lt;Env &amp; XSS&gt;" in html
 
     # Test cancelled transactions ignored & current_balance preferred in savings
     ref_date = date(2026, 10, 23)
@@ -305,3 +324,86 @@ def test_weekly_recap_escapes_xss_and_filters_cancelled():
     assert recap["balances"]["total_savings"] == 1200.0
 
 
+
+
+def _recap_budgets_variables_fixture():
+    budgets = [
+        {"id": "Nourriture", "categorie": "Nourriture", "montant": 700.0, "type": "mensuel", "actif": True},
+        # Doublon legacy (auto-ID) : la fiche à ID déterministe l'emporte, comme dans l'app
+        {"id": "aZ09legacy", "categorie": "Nourriture", "montant": 8400.0, "type": "annuel", "actif": True},
+        {"id": "Achats shopping autres", "categorie": "Achats shopping autres", "montant": 667.0, "type": "mensuel", "actif": True},
+        {"id": "Fibre SFR", "categorie": "Fibre SFR", "montant": 329.64, "type": "annuel", "actif": True},
+        {"id": "Crédit Maison", "categorie": "Crédit Maison", "montant": 13248.0, "type": "annuel", "actif": True, "moisAttendus": [12]},
+        {"id": "Vacances ski", "categorie": "Vacances ski", "montant": 2500.0, "type": "annuel", "actif": True, "moisAttendus": [2]},
+        {"id": "Vacances Novembre", "categorie": "Vacances Novembre", "montant": 2275.0, "type": "annuel", "actif": True},
+    ]
+    recurrences = [
+        {"label": "SFR", "category": "Fibre SFR", "expectedAmount": -27.47, "active": True},
+        {"label": "PRET IMMOBILIER", "category": "Crédit Maison", "expectedAmount": -1103.90, "active": True},
+        {"label": "Claude AI", "category": "Achats shopping autres", "expectedAmount": -22.0, "active": True},
+        {"label": "Prélèvement", "category": "Crédit voiture", "expectedAmount": -369.86, "active": True},
+        {"label": "Ancien abonnement", "category": "Nourriture", "expectedAmount": -700.0, "active": False},
+    ]
+    transactions = [
+        # Charges fixes de la semaine : ne doivent pas apparaître dans le mail
+        {"date": "2026-10-28", "libelle": "PRET IMMOBILIER", "montant": -1103.90, "categorie": "Crédit Maison"},
+        {"date": "2026-10-29", "libelle": "Prélèvement", "montant": -11552.69, "categorie": "Crédit voiture"},
+        {"date": "2026-10-27", "libelle": "SFR", "montant": -27.47, "categorie": "Fibre SFR"},
+        # Budget variable Nourriture : 386,44 € ce mois, 300 € au 30/09
+        {"date": "2026-10-27", "libelle": "E.leclerc", "montant": -86.44, "categorie": "Nourriture"},
+        {"date": "2026-10-05", "libelle": "Courses", "montant": -300.0, "categorie": "Nourriture"},
+        {"date": "2026-09-10", "libelle": "Courses", "montant": -250.0, "categorie": "Nourriture"},
+        {"date": "2026-09-30", "libelle": "Courses", "montant": -50.0, "categorie": "Nourriture"},
+        # Abonnement récurrent compté dans son budget variable
+        {"date": "2026-10-15", "libelle": "Claude AI", "montant": -22.0, "categorie": "Achats shopping autres"},
+        {"date": "2026-10-20", "libelle": "Fnac", "montant": -100.0, "categorie": "Achats shopping autres"},
+        # Enveloppes
+        {"date": "2026-10-30", "libelle": "Hôtel", "montant": -183.85, "categorie": "Vacances Novembre"},
+        {"date": "2026-03-01", "libelle": "Acompte", "montant": -500.0, "categorie": "Vacances Novembre"},
+        {"date": "2026-02-15", "libelle": "Séjour", "montant": -2000.0, "categorie": "Vacances ski"},  # cycle précédent
+        {"date": "2026-10-01", "libelle": "Forfaits", "montant": -300.0, "categorie": "Vacances ski"},
+    ]
+    return budgets, recurrences, transactions
+
+
+def test_recap_ignore_les_charges_fixes_et_suit_les_budgets_variables():
+    budgets, recurrences, transactions = _recap_budgets_variables_fixture()
+    data = build_weekly_recap_data(
+        balances=[],
+        transactions=transactions,
+        budgets=budgets,
+        recurrences=recurrences,
+        reference_date=date(2026, 10, 31),
+    )
+
+    variables = {b["categorie"]: b for b in data["budgets"]["variables"]}
+    assert set(variables) == {"Nourriture", "Achats shopping autres"}
+    nourriture = variables["Nourriture"]
+    assert nourriture["budget"] == 700.0
+    assert round(nourriture["depense"], 2) == 386.44
+    assert round(nourriture["depense_mois_precedent"], 2) == 300.0
+    assert round(nourriture["ecart_mois_precedent"], 2) == 86.44
+    # L'abonnement Claude AI reste compté dans la consommation du budget
+    assert variables["Achats shopping autres"]["depense"] == 122.0
+
+    envelopes = data["budgets"]["envelopes"]
+    assert [e["categorie"] for e in envelopes] == ["Vacances Novembre", "Vacances ski"]
+    assert round(envelopes[0]["depense"], 2) == 683.85
+    assert envelopes[0]["echeance"] == "2026-12"
+    assert envelopes[1]["depense"] == 300.0
+    assert envelopes[1]["echeance"] == "2027-02"
+
+    # Dépenses de la semaine : sans les charges fixes
+    cats = {c["categorie"] for c in data["expenses"]["categories"]}
+    assert cats == {"Nourriture", "Vacances Novembre"}
+    assert round(data["expenses"]["total_expenses"], 2) == 270.29
+    assert all(t["categorie"] not in {"Crédit Maison", "Crédit voiture", "Fibre SFR"} for t in data["expenses"]["top_transactions"])
+
+    html = render_weekly_recap_html(data)
+    text = render_weekly_recap_text(data)
+    for body in (html, text):
+        assert "Vacances Novembre" in body
+        assert "Nourriture" in body
+        assert "Crédit voiture" not in body
+        assert "Crédit Maison" not in body
+        assert "Fibre SFR" not in body
