@@ -1,5 +1,20 @@
 # 🏗 Current Architectural State (mise à jour octobre 2026)
 
+## Projections long terme (novembre 2026)
+
+Route `/projections`, **desktop uniquement** : `MobileSwipeContainer` l'affiche
+dans `DESKTOP_ONLY_PATHS` (« Disponible sur ordinateur »). Pas d'entrée dans
+`BottomNav` ni dans `mobile/navItems.ts`.
+
+- **Moteur pur** `public/src/utils/projection/` : simulation mensuelle multi-scénarios
+  (`simulateProjection.ts`), rapport (`projectionReport*.ts`), valeurs observées Auto/Manuel
+  (`autoValues.ts`), import du classeur de simulation lu dans le navigateur (`importSimulationXlsx.ts`).
+- **Hooks** : `useProjectionParams` (paramètres persistés dans `metadata/projection_params`)
+  et `useProjection` (calcul de la projection).
+- **UI** : `public/src/components/projections/` (`ProjectionsSection.tsx` : onglets Tableau de bord,
+  Hypothèses, Détail).
+- **Lot 2 à venir** : calculateurs PAS/IR, retraite, ARE, libéral (plan séparé).
+
 ## Enable Banking et contrôle Linxo (9 octobre 2026)
 
 Backend déployé le 9 octobre 2026, **observation par défaut**, activation par

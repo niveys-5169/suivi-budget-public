@@ -53,6 +53,7 @@ const DESKTOP_ONLY_PATHS = [
   '/reparse',
   '/excluded',
   '/rules',
+  '/projections',
 ];
 
 // Canonical design-system easing.

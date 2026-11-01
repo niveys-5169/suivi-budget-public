@@ -4,6 +4,18 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [Unreleased] - Semaine du 26/10/2026
+
+### Added
+
+- **Projections long terme (desktop)** : nouvelle route `/projections`, entrée
+  « Projections » dans la barre latérale. Moteur pur `utils/projection/`
+  (simulation mensuelle multi-scénarios, rapport, valeurs observées Auto/Manuel,
+  import du classeur de simulation lu dans le navigateur), hooks
+  `useProjectionParams` et `useProjection`, interface `components/projections/`.
+  Sur mobile, la page affiche « Disponible sur ordinateur ». Voir
+  [docs/ARCH_STATE.md](docs/ARCH_STATE.md).
+
 ## [Unreleased] - Semaine du 21/09/2026
 
 ### Added

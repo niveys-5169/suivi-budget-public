@@ -10,6 +10,7 @@ import {
   Settings,
   MessageSquare,
   RefreshCw,
+  LineChart,
 } from 'lucide-react';
 import { FLAGS } from '../../lib/featureFlags';
 import { LogoutButton } from '../AuthButtons';
@@ -53,6 +54,7 @@ export const Sidebar: React.FC = () => {
     { to: '/budgets', icon: BarChart3, labelId: 'nav.budgets' },
     { to: '/recurring', icon: RefreshCw, labelId: 'nav.recurring' },
     { to: '/patrimoine', icon: TrendingUp, labelId: 'nav.audit' },
+    { to: '/projections', icon: LineChart, labelId: 'nav.projections' },
   ];
 
   if (FLAGS.ANALYSE_PAGE) {
