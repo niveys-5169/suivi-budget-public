@@ -1,13 +1,22 @@
 import React from 'react';
-import { Amount, Text } from '../../ui';
+import { Text } from '../../ui';
+import type { TextTone } from '../../ui';
+import { formatEuros } from './projectionFormat';
 
-/** Conteneur de tableau défilant horizontalement (les tableaux de projection sont larges). */
-export const DataTable: React.FC<{ label: string; children: React.ReactNode }> = ({
-  label,
-  children,
-}) => (
-  <div className="overflow-x-auto">
-    <table aria-label={label} className="w-full border-collapse text-left">
+/**
+ * Conteneur de tableau défilant horizontalement (les tableaux de projection sont larges).
+ * `dense` resserre le padding des cellules pour les tableaux à beaucoup de colonnes.
+ */
+export const DataTable: React.FC<{
+  label: string;
+  dense?: boolean;
+  children: React.ReactNode;
+}> = ({ label, dense = false, children }) => (
+  <div className="max-w-full overflow-x-auto">
+    <table
+      aria-label={label}
+      className={`w-full border-collapse text-left ${dense ? '[&_td]:px-2 [&_th]:px-2' : ''}`}
+    >
       {children}
     </table>
   </div>
@@ -20,7 +29,7 @@ export const Th: React.FC<{ align?: 'left' | 'right'; children?: React.ReactNode
 }) => (
   <th
     scope="col"
-    className={`whitespace-nowrap px-4 py-2 text-caption font-semibold text-label-secondary ${
+    className={`px-4 py-2 align-bottom text-caption font-semibold text-label-secondary ${
       align === 'left' ? 'text-left' : 'text-right'
     }`}
   >
@@ -33,7 +42,7 @@ export const RowHead: React.FC<{ strong?: boolean; children: React.ReactNode }> 
   strong = false,
   children,
 }) => (
-  <th scope="row" className="px-4 py-2 text-left font-normal">
+  <th scope="row" className="whitespace-nowrap px-4 py-2 text-left font-normal">
     <Text as="span" variant="callout" tone={strong ? 'primary' : 'secondary'}>
       {children}
     </Text>
@@ -45,20 +54,32 @@ export const Td: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <td className="whitespace-nowrap px-4 py-2 text-right">{children}</td>
 );
 
-/** Montant. `auto` colore selon le signe (résultats), `neutral` pour un flux (revenus, dépenses). */
+/**
+ * Montant à l'euro près (sans centimes : sur 30 ans ils ne sont que du bruit).
+ * `auto` colore selon le signe comme `Amount` (positif, négatif, neutre à zéro) ;
+ * `neutral` pour un flux (revenus, dépenses). Jamais d'or sur une valeur financière.
+ */
 export const Money: React.FC<{
   value: number | null;
   tone?: 'auto' | 'neutral';
   strong?: boolean;
-}> = ({ value, tone = 'neutral', strong = false }) => (
-  <Amount
-    as="span"
-    value={value}
-    variant="callout"
-    tone={tone}
-    className={strong ? 'font-semibold' : ''}
-  />
-);
+}> = ({ value, tone = 'neutral', strong = false }) => {
+  const n = value === null || !Number.isFinite(value) ? null : Math.round(value) + 0;
+  let resolved: TextTone = 'primary';
+  if (tone === 'auto')
+    resolved = n === null || n === 0 ? 'secondary' : n > 0 ? 'positive' : 'negative';
+  return (
+    <Text
+      as="span"
+      variant="callout"
+      tone={resolved}
+      numeric
+      className={strong ? 'font-semibold' : ''}
+    >
+      {n === null ? '—' : formatEuros(n)}
+    </Text>
+  );
+};
 
 export const ROW_CLS = 'border-t border-separator';
 

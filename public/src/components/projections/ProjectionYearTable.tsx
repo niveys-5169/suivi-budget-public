@@ -27,7 +27,7 @@ export const ProjectionYearTable: React.FC<{ annees: ProjectionAnneeDetail[] }> 
         {annees.length === 0 ? (
           <EmptyState title="Aucune année" description="L'horizon de projection est vide." />
         ) : (
-          <DataTable label="Flux annuels du scénario affiché">
+          <DataTable dense label="Flux annuels du scénario affiché">
             <thead>
               <tr>
                 <Th align="left">Année · phase</Th>

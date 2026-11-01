@@ -14,7 +14,7 @@ export const ProjectionPhaseTable: React.FC<{
       {phases.length === 0 ? (
         <EmptyState title="Aucune phase" description="L'horizon de projection est vide." />
       ) : (
-        <DataTable label="Moyennes mensuelles par phase">
+        <DataTable dense label="Moyennes mensuelles par phase">
           <thead>
             <tr>
               <Th align="left">Phase</Th>
