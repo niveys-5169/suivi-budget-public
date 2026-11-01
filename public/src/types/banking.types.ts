@@ -966,3 +966,93 @@ export interface ProjectionImportResult {
   /** Messages non bloquants (onglet ou libellé introuvable, valeur illisible…). */
   avertissements: string[];
 }
+
+// ─── Projections : rapport (utils/projection/projectionReport.ts) ───
+/** Pension de retraite d'une personne, en € de l'année de référence des prix (communes + scénario). */
+export interface ProjectionRetraitePersonne {
+  personneId: string;
+  prenom: string;
+  netAvantImpot: number;
+  netApresImpot: number;
+}
+
+export interface ProjectionRetraiteScenario {
+  scenarioId: string;
+  nom: string;
+  parPersonne: ProjectionRetraitePersonne[];
+  totalAvantImpot: number;
+  totalApresImpot: number;
+  /** Pensions après impôt du foyer / revenus d'activité du foyer au 1er mois (hors CAF) ; null si 0. */
+  tauxRemplacement: number | null;
+}
+
+export interface ProjectionSyntheseScenario {
+  scenarioId: string;
+  nom: string;
+  patrimoineFinal: number;
+  /** En € de l'année de référence des prix. */
+  patrimoineFinalReel: number;
+  capitalFinal: number;
+  horsPerFinal: number;
+  /** Premier mois où le capital tombe à 0 après avoir été > 0 ; null sinon. */
+  moisEpuisementCapital: ProjectionMonth | null;
+  prelevementCumule: number;
+  moisDeficit: number;
+  /** Moyennes mensuelles sur l'horizon. */
+  revenus: number;
+  revenusParPersonne: Record<string, number>;
+  depenses: number;
+  capacite: number;
+  /** Σ capacité − Σ dépenses exceptionnelles. */
+  epargneCumulee: number;
+}
+
+/** Patrimoine total au 31/12 (ou au dernier mois de l'horizon) de chaque scénario. */
+export interface ProjectionEvolutionAnnee {
+  annee: number;
+  parScenario: Record<string, number>;
+}
+
+/** Moyennes mensuelles d'une phase du scénario affiché. */
+export interface ProjectionPhaseMoyenne {
+  phase: string;
+  nbMois: number;
+  revenusParPersonne: Record<string, number>;
+  caf: number;
+  revenus: number;
+  depenses: number;
+  capacite: number;
+}
+
+/** Flux d'une année civile du scénario affiché (sommes). */
+export interface ProjectionAnneeDetail {
+  annee: number;
+  phaseDecembre: string;
+  revenus: number;
+  depenses: number;
+  capacite: number;
+  depensesExceptionnelles: number;
+  encaissements: number;
+  remboursementsAnticipes: number;
+  rendements: number;
+  abondement: number;
+  variationPatrimoine: number;
+  patrimoineFin: number;
+}
+
+export interface ProjectionControle {
+  id: string;
+  libelle: string;
+  ok: boolean;
+}
+
+export interface ProjectionRapport {
+  scenarioAfficheId: string;
+  retraite: ProjectionRetraiteScenario[];
+  synthese: ProjectionSyntheseScenario[];
+  evolution: ProjectionEvolutionAnnee[];
+  phases: ProjectionPhaseMoyenne[];
+  annees: ProjectionAnneeDetail[];
+  controles: ProjectionControle[];
+  pointsAConfirmer: ProjectionPointAConfirmer[];
+}
