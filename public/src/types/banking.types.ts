@@ -877,7 +877,11 @@ export interface ProjectionParams {
   classesCategories: Record<string, ProjectionClasseCategorie>;
   aConfirmer: ProjectionPointAConfirmer[];
   /** Paramètres des calculateurs détaillés (lot 2). Absent = comportement du lot 1. */
-  calculateurs?: { fiscal?: ProjectionFiscalParams; retraite?: ProjectionRetraiteParams };
+  calculateurs?: {
+    fiscal?: ProjectionFiscalParams;
+    retraite?: ProjectionRetraiteParams;
+    activite?: ProjectionActiviteParams;
+  };
 }
 
 /** Valeurs observées dans les données de l'app (sortie de utils/projection/autoValues.ts). */
@@ -1159,4 +1163,127 @@ export interface ProjectionRetraiteResultat {
   coefficientProratisation: number;
   pointsAgircArrco: number;
   pointsCipav: number;
+}
+
+/** Nature d'un poste de charges libérales : proratisé au nombre de mesures, coefficient CFE ou fixe. */
+export type ProjectionChargeLiberaleNature = 'fixe' | 'variable' | 'cfe';
+
+/** Poste de charges du cabinet libéral, au budget de référence (€/an, `mesuresReference` mesures). */
+export interface ProjectionChargeLiberale {
+  libelle: string;
+  montantReference: number;
+  nature: ProjectionChargeLiberaleNature;
+}
+
+/** Paramètres utilisateur du calculateur d'activité de la personne 1 (salaire, congé, ARE, CCN 66, libéral). */
+export interface ProjectionActiviteParams {
+  personne1: { dateNaissance: string; ageDepartRetraite: number };
+  /** Paie validée d'un mois normal, versée `moisPayesParAn` fois par an (lissée sur 12 mois). */
+  paie: {
+    netAvantPas: number;
+    netImposable: number;
+    moisPayesParAn: number;
+    /** Ratio net imposable / net versé des revenus de remplacement (allocation de reclassement, ARE). */
+    ratioImposableRemplacement: number;
+  };
+  /** Dates en YYYY-MM-DD. Le préavis court dans le congé de reclassement (fin du contrat = fin du congé). */
+  calendrier: {
+    dateNotification: string;
+    delaiReflexionJours: number;
+    dureePreavisMois: number;
+    dureeCongeMois: number;
+    debutAssociation: string;
+    /** Bascule en libéral (scénarios avec mesures cibles > 0). */
+    dateBasculeLiberal: string;
+  };
+  reclassement: {
+    /** Part du brut mensuel de référence versée pendant le congé (0.7 = 70 %). */
+    tauxAllocation: number;
+    /** Brut mensuel de référence (13e mois inclus, ÷ 12). */
+    brutMensuelReference: number;
+    /** Assiette mensuelle Agirc-Arrco maintenue pendant le congé (clause de l'accord). */
+    assietteAgircArrcoMensuelle: number;
+  };
+  /** SJR et assiettes des différés d'indemnisation (supra-légal + transactionnel brut ; ICCP brute). */
+  are: { sjr: number; assietteSupralegale: number; iccpBrute: number };
+  ccn66: {
+    coefficient: number;
+    valeurPoint: number;
+    /** Complément de traitement indiciaire (€ brut/mois), exclu du test SMIC. */
+    cti: number;
+    tauxCotisationsSalariales: number;
+    progressionAnnuelle: number;
+  };
+  liberal: {
+    tarifMesure: number;
+    /** Part des mesures cibles atteinte aux années 1, 2 et 3+ de la montée en charge. */
+    monteeEnCharge: [number, number, number];
+    mesuresReference: number;
+    charges: ProjectionChargeLiberale[];
+    /** Coefficient appliqué aux postes « cfe » (années 1, 2 et 3+). */
+    coefficientCfe: [number, number, number];
+    perAnnuel: number;
+    /** Taux maladie-maternité par année de montée en charge ; défaut : constantes légales. */
+    tauxMaladieMaternite?: [number, number, number];
+  };
+  /** Mesures cibles par id de scénario (0 ou absent = pas de libéral : association jusqu'à la retraite). */
+  scenarios: Record<string, number>;
+  /** Foyer pour l'IR imputé au libéral (②) : revenu imposable de l'autre personne et parts. */
+  irImpute?: { revenuImposableAutrePersonne: number; parts: number };
+  /** Personne 2 : salaire lissé revalorisé chaque 1er janvier jusqu'à la fin d'activité. */
+  personne2?: {
+    dateNaissance: string;
+    ageFinActivite: number;
+    netAvantPasMensuel: number;
+    netImposableMensuel: number;
+    revalorisationAnnuelle: number;
+    /** Année de la paie de référence (indice = 1 cette année-là). */
+    anneeReference: number;
+  };
+}
+
+/** Revenus d'activité de la personne 1 pour un mois (€/mois ; pensions de retraite exclues). */
+export interface ProjectionActiviteMois {
+  mois: ProjectionMonth;
+  /** Libellé de phase (colonne B des onglets Calc) ; « Retraite » une fois l'âge de départ passé. */
+  phase: string;
+  /** Code de phase (colonne AF) : 1 emploi, 2 congé, 3 association, 4 association sans ARE, 5 à 7 libéral, 8 retraite. */
+  codePhase: number;
+  /** Net avant PAS, libéral inclus (colonne C). */
+  netAvantPas: number;
+  /** Net imposable : salaires, remplacement et BNC imposable (colonne D = AY + BA). */
+  netImposable: number;
+  /** Net imposable hors libéral (colonne AY). */
+  netImposableHorsLiberal: number;
+  /** BNC imposable après cotisations et PER (colonne BA). */
+  bncImposable: number;
+  /** Libéral : BNC − cotisations (colonne AZ). */
+  liberalNetAvantImpot: number;
+  /** Libéral : IR imputé selon ② (colonne BB). */
+  liberalIrImpute: number;
+  /** Versement PER TNS du mois, positif (colonne BC = −per). */
+  per: number;
+  /** Revenu manquant avant PAS : complément ARE pendant le différé + salaire pendant le trou. */
+  revenuManquantNet: number;
+  /** Assiette imposable du revenu manquant. */
+  revenuManquantImposable: number;
+  /** Revenu manquant après PAS (colonne R), avec le taux PAS de l'année s'il est fourni, sinon 0 %. */
+  revenuManquant: number;
+  /** Fractions du mois (colonnes AI à AP) et année d'association (AQ). */
+  fractions: {
+    emploi: number;
+    conge: number;
+    trou: number;
+    association: number;
+    liberal: number;
+    arePlein: number;
+    areDegressif: number;
+    differeAre: number;
+  };
+  anneeAssociation: number;
+  /** Net mensuel du salaire d'association (colonne AR). */
+  netSalaireAssociation: number;
+  /** Personne 2 : net avant PAS et net imposable du salaire revalorisé (colonnes H et I, hors pension). */
+  netAvantPasPersonne2: number;
+  netImposablePersonne2: number;
 }
