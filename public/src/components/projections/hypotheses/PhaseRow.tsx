@@ -1,10 +1,11 @@
 import React from 'react';
-import { Button, Separator, Stack, Text } from '../../../ui';
+import { Separator, Stack } from '../../../ui';
 import type { ProjectionPersonne, ProjectionPhaseRevenu } from '../../../types/banking.types';
 import { AutoValueField } from './AutoValueField';
 import { sourceAverage } from './CategorySourcePicker';
 import type { EditorContext } from './editorTypes';
 import { DateField, NumberField, TextField } from './FormFields';
+import { ImportedAmountsNotice } from './ImportedAmountsNotice';
 import { ItemRow } from './ItemRow';
 import { PersonneSelect } from './PersonneSelect';
 
@@ -18,7 +19,6 @@ interface Props {
 
 /** Phase de revenu : période, net mensuel (auto depuis des catégories ou manuel), revalorisation. */
 export const PhaseRow: React.FC<Props> = ({ phase, personnes, ctx, onChange, onRemove }) => {
-  const annees = Object.keys(phase.montantsAnnuels ?? {}).length;
   return (
     <Stack gap="md">
       <ItemRow
@@ -70,20 +70,10 @@ export const PhaseRow: React.FC<Props> = ({ phase, personnes, ctx, onChange, onR
           onChange={(v) => onChange({ revalorisationAnnuelle: v ?? 0 })}
         />
       </div>
-      {annees > 0 && (
-        <Stack direction="row" align="center" gap="md" wrap>
-          <Text variant="footnote" tone="secondary">
-            {`Montants annuels importés (${annees} années)`}
-          </Text>
-          <Button
-            size="sm"
-            variant="plain"
-            onClick={() => onChange({ montantsAnnuels: undefined })}
-          >
-            Effacer
-          </Button>
-        </Stack>
-      )}
+      <ImportedAmountsNotice
+        montantsAnnuels={phase.montantsAnnuels}
+        onClear={() => onChange({ montantsAnnuels: undefined })}
+      />
       <Separator />
     </Stack>
   );
