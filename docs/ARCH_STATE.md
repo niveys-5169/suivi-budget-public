@@ -13,7 +13,14 @@ dans `DESKTOP_ONLY_PATHS` (« Disponible sur ordinateur »). Pas d'entrée dans
   et `useProjection` (calcul de la projection).
 - **UI** : `public/src/components/projections/` (`ProjectionsSection.tsx` : onglets Tableau de bord,
   Hypothèses, Détail).
-- **Lot 2 à venir** : calculateurs PAS/IR, retraite, ARE, libéral (plan séparé).
+- **Lot 2 (calculateurs, fonctions pures)** : `fiscal/` (IR du foyer, quotient familial, décote,
+  taux PAS individualisés), `retraite/` (CNAV, Agirc-Arrco, Cipav, PER), `activite/` (congé de
+  reclassement, ARE, cumul ARE + salaire, salariat CCN 66, libéral). Constantes légales versionnées
+  dans `<domaine>/constants.ts`. `calculateurs/` assemble : si `calculateurs.actif`, les revenus
+  mensuels de chaque personne et scénario sont calculés et remplacent phases et montants importés.
+- **Import et saisie** : paramètres lus depuis le classeur (`importCalculateurs*.ts`), section
+  « Calculateurs » de l'onglet Hypothèses (`components/projections/hypotheses/calculateurs/`).
+- **Tests de parité** : `*Parity.local.test.ts`, ignorés sans `PROJECTION_XLSX`.
 
 ## Enable Banking et contrôle Linxo (9 octobre 2026)
 
