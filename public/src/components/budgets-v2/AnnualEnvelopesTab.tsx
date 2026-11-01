@@ -35,14 +35,9 @@ import type { AnnualEnvelope } from '../../utils/annualEnvelope';
 import { sortBudgetCategories } from '../../utils/budgetSort';
 import type { BudgetSortMode } from '../../hooks/usePreferences';
 import { AnnualEnvelopeFormModal } from './AnnualEnvelopeFormModal';
+import { AnnualEnvelopeDetail, echeanceLabel } from './AnnualEnvelopeDetail';
 
 const eur = (n: number) => formatCurrency(n, 'EUR', 'fr-FR', { maximumFractionDigits: 0 });
-
-const echeanceLabel = (key: string) => {
-  const [y = NaN, m = NaN] = key.split('-').map(Number);
-  const label = new Date(y, m - 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
 
 const SORT_SEGMENTS = [
   { value: 'montant' as const, label: 'Montant' },
@@ -58,6 +53,8 @@ interface Props {
   onSortModeChange: (mode: BudgetSortMode) => void;
   manualOrder: string[];
   onReorder: (orderedIds: string[]) => void;
+  /** Ouvre la fiche d'une transaction listée dans le détail d'une enveloppe. */
+  onOpenTransaction?: (id: string) => void;
 }
 
 // La poignée seule déclenche le glisser (touch-none) : le reste de la ligne
@@ -95,7 +92,7 @@ const SortableRow: React.FC<{ id: string; children: React.ReactNode }> = ({ id, 
 /**
  * Onglet « Enveloppes » de l'écran Budgets (desktop et mobile) : ce qu'il faut
  * mettre de côté chaque mois, puis une ligne par enveloppe. Toucher une ligne
- * ouvre la fenêtre de l'enveloppe, pré-remplie.
+ * ouvre son détail (transactions comptées), d'où l'on peut la modifier.
  */
 export const AnnualEnvelopesTab: React.FC<Props> = ({
   envelopes,
@@ -104,8 +101,12 @@ export const AnnualEnvelopesTab: React.FC<Props> = ({
   onSortModeChange,
   manualOrder,
   onReorder,
+  onOpenTransaction,
 }) => {
   const [editing, setEditing] = useState<AnnualEnvelope | 'new' | null>(null);
+  // Par catégorie : le détail suit les données recalculées (transaction modifiée, mois changé).
+  const [viewingKey, setViewingKey] = useState<string | null>(null);
+  const viewing = envelopes.find((e) => e.categorie === viewingKey);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const isManualSort = sortMode === 'manual';
 
@@ -133,7 +134,14 @@ export const AnnualEnvelopesTab: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      {envelopes.length === 0 ? (
+      {viewing ? (
+        <AnnualEnvelopeDetail
+          envelope={viewing}
+          onBack={() => setViewingKey(null)}
+          onEdit={() => setEditing(viewing)}
+          onOpenTransaction={onOpenTransaction}
+        />
+      ) : envelopes.length === 0 ? (
         <EmptyState
           icon={<PiggyBank size={28} aria-hidden="true" />}
           title="Aucune enveloppe"
@@ -189,7 +197,7 @@ export const AnnualEnvelopesTab: React.FC<Props> = ({
                     const row = (
                       <ListItem
                         key={e.categorie}
-                        onClick={() => setEditing(e)}
+                        onClick={() => setViewingKey(e.categorie)}
                         leading={
                           <Tile>
                             <span style={{ color: meta.color }}>

@@ -492,6 +492,19 @@ export const BankinBudgetsContainer: React.FC = () => {
             onSortModeChange={setBudgetSortMode}
             manualOrder={budgetManualOrder}
             onReorder={handleReorder}
+            onOpenTransaction={(txId) => {
+              const tx = transactions.find((t) => t.id === txId);
+              if (tx) setEditingTransaction(tx);
+            }}
+          />
+          <TransactionFormModal
+            isOpen={editingTransaction !== null}
+            onClose={() => setEditingTransaction(null)}
+            transaction={editingTransaction}
+            onSave={saveTransaction}
+            onDelete={deleteTransaction}
+            categories={txCategories}
+            accounts={accounts}
           />
         </div>
       ) : (

@@ -14,9 +14,11 @@ const envelope = (categorie: string, montant: number): AnnualEnvelope => ({
   montant,
   depense: 0,
   reste: montant,
+  debutKey: '2026-01',
   echeanceKey: '2026-12',
   moisEcheance: 12,
   provisionMensuelle: montant / 12,
+  transactions: [],
 });
 
 const ENVELOPES = [
@@ -69,5 +71,52 @@ describe('AnnualEnvelopesTab — tri', () => {
     const { onSortModeChange } = renderTab('montant');
     fireEvent.click(screen.getByRole('button', { name: 'Alphabétique' }));
     expect(onSortModeChange).toHaveBeenCalledWith('alpha');
+  });
+});
+
+describe('AnnualEnvelopesTab — détail', () => {
+  const vacances: AnnualEnvelope = {
+    ...envelope('Vacances', 3000),
+    depense: 500,
+    reste: 2500,
+    transactions: [
+      {
+        id: 't2',
+        libelle: 'Billets',
+        montant: -500,
+        date: '2027-01-03',
+        moisAffectation: '2026-12',
+      },
+    ],
+  };
+
+  const renderDetail = (envelopes: AnnualEnvelope[]) => {
+    const onOpenTransaction = vi.fn();
+    render(
+      <AnnualEnvelopesTab
+        envelopes={envelopes}
+        categories={[]}
+        sortMode="montant"
+        onSortModeChange={vi.fn()}
+        manualOrder={[]}
+        onReorder={vi.fn()}
+        onOpenTransaction={onOpenTransaction}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Vacances/ }));
+    return { onOpenTransaction };
+  };
+
+  it('liste les transactions comptées et signale un mois d’affectation décalé', () => {
+    const { onOpenTransaction } = renderDetail([vacances]);
+    expect(screen.getByText('Janvier 2026 → décembre 2026')).toBeInTheDocument();
+    expect(screen.getByText(/affectée à décembre 2026/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Billets/ }));
+    expect(onOpenTransaction).toHaveBeenCalledWith('t2');
+  });
+
+  it('indique quand aucune transaction n’est comptée', () => {
+    renderDetail([envelope('Vacances', 3000)]);
+    expect(screen.getByText('Aucune transaction')).toBeInTheDocument();
   });
 });

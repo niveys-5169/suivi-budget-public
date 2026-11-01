@@ -49,9 +49,11 @@ describe('AnnualEnvelopeFormModal', () => {
           montant: 3000,
           depense: 400,
           reste: 2600,
+          debutKey: '2026-08',
           echeanceKey: '2027-07',
           moisEcheance: 7,
           provisionMensuelle: 250,
+          transactions: [],
         }}
       />,
     );
@@ -105,9 +107,11 @@ describe('AnnualEnvelopeFormModal', () => {
           montant: 3000,
           depense: 0,
           reste: 3000,
+          debutKey: '2026-08',
           echeanceKey: '2027-07',
           moisEcheance: 7,
           provisionMensuelle: 250,
+          transactions: [],
         }}
       />,
     );

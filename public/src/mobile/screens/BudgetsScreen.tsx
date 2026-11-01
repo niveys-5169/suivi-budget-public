@@ -360,6 +360,9 @@ export const BudgetsScreen: React.FC = () => {
                   onSortModeChange={setBudgetSortMode}
                   manualOrder={budgetManualOrder}
                   onReorder={handleReorder}
+                  onOpenTransaction={(txId) =>
+                    setSelectedTransaction(transactions.find((t) => t.id === txId) ?? null)
+                  }
                 />
               </div>
             ) : (

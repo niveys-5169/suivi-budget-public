@@ -71,6 +71,26 @@ describe('computeEnvelope', () => {
     expect(computeEnvelope(vacances, txs, '2027-07').depense).toBe(1300);
   });
 
+  it('expose le début du cycle et les transactions comptées, les plus récentes d’abord', () => {
+    const txs = [
+      { id: 'a', categorie: 'Vacances', montant: -300, date: '2026-10-12' },
+      { id: 'b', categorie: 'Vacances', montant: -400, date: '2027-03-05' },
+      { id: 'c', categorie: 'Vacances', montant: -999, date: '2026-07-15' }, // cycle précédent
+      { id: 'd', categorie: 'Courses', montant: -50, date: '2027-03-05' },
+      { id: 'e', categorie: 'Virement interne', montant: -10, date: '2027-03-01' },
+      {
+        id: 'f',
+        categorie: 'Vacances',
+        montant: -20,
+        date: '2027-08-01',
+        moisAffectation: '2027-07',
+      },
+    ];
+    const env = computeEnvelope(vacances, txs, '2027-03');
+    expect(env.debutKey).toBe('2026-08');
+    expect(env.transactions.map((t) => t.id)).toEqual(['f', 'b', 'a']);
+  });
+
   it('ignore les virements internes', () => {
     const txs = [{ categorie: 'Virement interne', montant: -500, date: '2027-03-01' }];
     expect(computeEnvelope(vacances, txs, '2027-03').depense).toBe(0);

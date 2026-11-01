@@ -12,6 +12,8 @@ import { getAssignedMonthKey } from './date';
  */
 
 export interface EnvelopeTransaction {
+  id?: string;
+  libelle?: string;
   categorie?: string;
   montant?: number;
   date?: string;
@@ -24,11 +26,15 @@ export interface AnnualEnvelope {
   /** Net dépensé sur le cycle (dépenses − remboursements). */
   depense: number;
   reste: number;
+  /** Premier mois du cycle (YYYY-MM). */
+  debutKey: string;
   /** Mois de l'événement, fin du cycle (YYYY-MM). */
   echeanceKey: string;
   moisEcheance: number;
   /** Somme à mettre de côté chaque mois. */
   provisionMensuelle: number;
+  /** Transactions comptées dans `depense`, les plus récentes d'abord. */
+  transactions: EnvelopeTransaction[];
 }
 
 const INTERNAL_TRANSFER = 'Virement interne';
@@ -63,11 +69,14 @@ export function computeEnvelope(
   const { debut, fin } = getEnvelopeCycle(moisEcheance, monthKey);
   const key = categoryKey(budget.categorie);
 
-  const net = transactions.reduce((sum, t) => {
-    if (t.categorie === INTERNAL_TRANSFER || categoryKey(t.categorie) !== key) return sum;
-    const m = getAssignedMonthKey(t);
-    return m >= debut && m <= fin ? sum + (Number(t.montant) || 0) : sum;
-  }, 0);
+  const counted = transactions
+    .filter((t) => {
+      if (t.categorie === INTERNAL_TRANSFER || categoryKey(t.categorie) !== key) return false;
+      const m = getAssignedMonthKey(t);
+      return m >= debut && m <= fin;
+    })
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const net = counted.reduce((sum, t) => sum + (Number(t.montant) || 0), 0);
 
   const montant = Number(budget.montant) || 0;
   const depense = -net || 0;
@@ -76,8 +85,10 @@ export function computeEnvelope(
     montant,
     depense,
     reste: montant - depense,
+    debutKey: debut,
     echeanceKey: fin,
     moisEcheance,
     provisionMensuelle: montant / 12,
+    transactions: counted,
   };
 }
