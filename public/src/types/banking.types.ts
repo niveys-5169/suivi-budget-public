@@ -957,3 +957,12 @@ export interface ProjectionScenarioResultat {
   nom: string;
   mois: ProjectionMoisResultat[];
 }
+
+/** Résultat de l'import du classeur de simulation (utils/projection/importSimulationXlsx.ts). */
+export interface ProjectionImportResult {
+  params: ProjectionParams;
+  /** Libellés des paramètres reconnus et repris. */
+  reconnus: string[];
+  /** Messages non bloquants (onglet ou libellé introuvable, valeur illisible…). */
+  avertissements: string[];
+}
