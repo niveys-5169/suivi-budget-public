@@ -7,8 +7,12 @@ import {
   getDayOfMonth,
   isSettled,
 } from '../utils/recurrenceEngine';
-import { computeCashflowForecast, type CashflowForecast } from '../utils/computeCashflowForecast';
-import type { Recurrence } from '../types/banking.types';
+import {
+  computeCashflowForecast,
+  type CashflowForecast,
+  type ForecastRecurringIncome,
+} from '../utils/computeCashflowForecast';
+import type { RavConfig, Recurrence } from '../types/banking.types';
 import type { Transaction } from '../types/banking.types';
 import { useTransactionContext } from '../context/TransactionContext';
 import { resolveRecurrencePeriods } from '../utils/resolveRecurrencePeriods';
@@ -83,10 +87,52 @@ function mapActiveRecurrences(
   return Array.from(deduped.values()).filter((r) => r.occurrenceDates.length > 0);
 }
 
+export interface IncomeSchedule {
+  key: string;
+  label: string;
+  category?: string;
+  dayOfMonth: number;
+  /** Échéances à venir non encore perçues dans l'horizon. */
+  occurrenceDates: string[];
+}
+
+/**
+ * Revenus de la projection : uniquement les salaires déclarés dans le RAV
+ * (`provision_salaires`), toujours au montant déclaré — jamais au montant
+ * appris des versements passés. Une récurrence correspondante (même clé ou
+ * même catégorie/libellé) ne fournit que le calendrier (dates à venir, mois
+ * déjà perçus exclus) ; sans récurrence, repli sur le 1ᵉʳ du mois.
+ */
+export function buildDeclaredSalaryIncomes(
+  provisionSalaires: RavConfig['provision_salaires'],
+  revenuCategories: string[] | null | undefined,
+  incomeSchedules: IncomeSchedule[],
+): ForecastRecurringIncome[] {
+  return Object.entries(provisionSalaires ?? {})
+    .map(([key, p]) => ({
+      key,
+      label: p?.categorie || 'Revenu',
+      amount: Number(p?.montant) || 0,
+    }))
+    .filter((s) => s.amount > 0 && isAllowedIncomeCategory(s.label, revenuCategories))
+    .map((salary) => {
+      const matches = incomeSchedules.filter(
+        (r) =>
+          r.key === salary.key ||
+          matchesIncomeCategory(r.category || '', salary.label) ||
+          matchesIncomeCategory(r.label, salary.label),
+      );
+      const schedule = matches.find((r) => r.occurrenceDates.length > 0) ?? matches[0];
+      return schedule
+        ? { ...salary, dayOfMonth: schedule.dayOfMonth, occurrenceDates: schedule.occurrenceDates }
+        : { ...salary, dayOfMonth: 1 };
+    });
+}
+
 /**
  * Projette le solde bancaire sur l'horizon demandé à partir des récurrences
- * actives (dépenses et revenus, toutes fréquences) et des revenus déclarés
- * dans le RAV (`provision_salaires`, non couverts par une récurrence).
+ * de dépense actives (toutes fréquences) et des seuls salaires déclarés dans
+ * le RAV (`provision_salaires`) pour les revenus.
  */
 export const useCashflowForecast = (
   horizonDays: number = 30,
@@ -113,49 +159,32 @@ export const useCashflowForecast = (
       occurrenceDates: r.occurrenceDates,
     }));
 
-    const recurrencesIncomes = mapActiveRecurrences(
+    // Dates à venir (non encore perçues) de chaque récurrence de revenu active.
+    const mappedIncomes = mapActiveRecurrences(
       recurrences,
       'income',
       startDate,
       horizonDays,
       transactions,
-    ).filter(
-      (r) =>
-        isAllowedIncomeCategory(r.category || '', ravConfig?.revenu_categories) ||
-        isAllowedIncomeCategory(r.label || '', ravConfig?.revenu_categories),
     );
-
-    // Revenus déclarés dans le RAV non déjà couverts par une récurrence
-    // (même libellé/catégorie) — évite de compter deux fois le même salaire.
-    const ravIncomes = Object.entries(ravConfig?.provision_salaires ?? {})
-      .filter(([, p]) => (Number(p?.montant) || 0) > 0)
-      .map(([k, p]) => ({
-        key: k,
-        label: p.categorie || 'Revenu',
-        amount: Number(p.montant) || 0,
-        dayOfMonth: 1,
-      }))
-      .filter((ravInc) => isAllowedIncomeCategory(ravInc.label, ravConfig?.revenu_categories))
-      .filter((ravInc) => {
-        return !recurrencesIncomes.some((recInc) => {
-          return (
-            matchesIncomeCategory(recInc.category || '', ravInc.label) ||
-            matchesIncomeCategory(recInc.label, ravInc.label) ||
-            recInc.key === ravInc.key
-          );
-        });
-      });
-
-    const recurringIncomes = [
-      ...recurrencesIncomes.map((r) => ({
-        key: r.key,
+    const incomeSchedules = recurrences
+      .filter((r) => r.active && r.expectedAmount > 0)
+      .map((r) => ({
+        key: r.id,
         label: r.label,
-        amount: r.amount,
-        dayOfMonth: r.dayOfMonth,
-        occurrenceDates: r.occurrenceDates,
-      })),
-      ...ravIncomes,
-    ];
+        category: r.category,
+        dayOfMonth: getDayOfMonth(r),
+        occurrenceDates: mappedIncomes
+          .filter((m) => m.key === r.id)
+          .flatMap((m) => m.occurrenceDates)
+          .sort(),
+      }));
+
+    const recurringIncomes = buildDeclaredSalaryIncomes(
+      ravConfig?.provision_salaires,
+      ravConfig?.revenu_categories,
+      incomeSchedules,
+    );
 
     return computeCashflowForecast({
       startBalance: checkingTotal,
