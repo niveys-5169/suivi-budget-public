@@ -208,6 +208,33 @@ describe('BankinBudgetsContainer', () => {
       expect(screen.queryAllByTestId('category-name')).toHaveLength(0);
     });
 
+    it('toucher une enveloppe montre les transactions comptées, puis ouvre la fiche', () => {
+      render(<BankinBudgetsContainer />);
+      fireEvent.click(screen.getByRole('button', { name: 'Enveloppes' }));
+
+      fireEvent.click(screen.getByRole('button', { name: /Vacances/ }));
+
+      expect(screen.getByText('Transactions prises en compte')).toBeInTheDocument();
+      expect(screen.getByText(/Août 2025 → juillet 2026/)).toBeInTheDocument();
+      expect(screen.getByText('Acompte gîte')).toBeInTheDocument();
+      expect(screen.queryByText('Courses')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Acompte gîte/ }));
+      expect(screen.getByDisplayValue('Acompte gîte')).toBeInTheDocument();
+    });
+
+    it('le détail d’une enveloppe permet de la modifier et de revenir à la liste', () => {
+      render(<BankinBudgetsContainer />);
+      fireEvent.click(screen.getByRole('button', { name: 'Enveloppes' }));
+      fireEvent.click(screen.getByRole('button', { name: /Vacances/ }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+      expect(screen.getByText('Une dépense qui revient une fois par an')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Retour aux enveloppes' }));
+      expect(screen.getByText('Enveloppes annuelles')).toBeInTheDocument();
+    });
+
     it('le lien sous la jauge ouvre l’onglet Enveloppes et le choix est mémorisé', () => {
       const { unmount } = render(<BankinBudgetsContainer />);
       fireEvent.click(screen.getByRole('button', { name: /250.*enveloppes/ }));
