@@ -78,3 +78,6 @@ export function useProjection() {
     error: paramsError ?? creditsError ?? tx.error?.message ?? null,
   };
 }
+
+/** Valeur renvoyée par `useProjection`, transmise aux composants de la section Projections. */
+export type UseProjectionResult = ReturnType<typeof useProjection>;
