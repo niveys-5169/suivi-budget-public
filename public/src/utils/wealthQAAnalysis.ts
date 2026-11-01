@@ -3,6 +3,7 @@ import type { SavingsBalance, AccountBalance } from '../types/banking.types';
 import type { WealthHistoryEntry } from '../types/patrimoine';
 import type { Holding } from '../hooks/usePortfolio';
 import { buildWealthTimeline, normalizeType, type WealthCategory } from './wealthTimeline';
+import { toCalendarKey } from './date';
 
 /** Répartition d'un patrimoine sur les 5 segments d'audit (retraite et immobilier isolés). */
 export interface WealthBreakdown {
@@ -304,8 +305,8 @@ export function buildWealthSummary(input: WealthSummaryInput): WealthSummary | n
     }));
 
   return {
-    date_reference: now.toISOString().slice(0, 10),
-    date_comparaison: cutoff.toISOString().slice(0, 10),
+    date_reference: toCalendarKey(now),
+    date_comparaison: toCalendarKey(cutoff),
     par_owner,
     global: {
       actuel: globalActuel,

@@ -103,6 +103,23 @@ const RULES = [
     skipUi: true,
     hint: 'Utilise <Card> / <Surface>.',
   },
+  {
+    id: 'date-parse',
+    label: 'Dates lues sans helper  new Date(x)',
+    // `new Date(x)` à UN seul argument non vide, sans appel imbriqué. Une chaîne
+    // `YYYY-MM-DD` y est lue comme minuit UTC : le jour recule dès que le fuseau
+    // est négatif. La regex ne distingue pas chaîne, nombre et Date (faux
+    // positifs : `new Date(ts)`, `new Date(now)`) ; le plafond est donc un
+    // plancher honnête de ce qui reste à auditer, pas une liste de bugs.
+    re: /\bnew Date\((?!\s*\))[^,()]+\)/g,
+    hint: 'Pour une date calendaire YYYY-MM-DD, utilise parseCalendarDate (utils/date.ts).',
+  },
+  {
+    id: 'iso-day-key',
+    label: 'Jour local via UTC  toISOString().slice|split',
+    re: /toISOString\(\)\s*\.(?:slice\(0,\s*(?:7|10)\)|substring\(0,\s*7\)|split\('T'\)\[0\])/g,
+    hint: 'Pour le jour calendaire local, utilise toCalendarKey (utils/date.ts) : toISOString donne le jour UTC.',
+  },
 ];
 
 const BASELINE_FILE = join(HERE, 'design-system-baseline.json');

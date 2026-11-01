@@ -8,6 +8,7 @@ import type {
 } from '../../types/banking.types';
 import { fmt } from '../../utils/format';
 import { Amount, Badge, Stack, Text } from '../../ui';
+import { parseCalendarDate } from '../../utils/date';
 
 interface PropertyValuationBreakdownProps {
   estimation: EstimationImmobiliere & { justification: JustificationEstimation };
@@ -20,7 +21,7 @@ const SURFACE_MAX = 1.3;
 
 const pct = (n: number, digits = 1): string => n.toFixed(digits).replace('.', ',');
 const signedPct = (n: number): string => `${n > 0 ? '+' : ''}${pct(n)} %`;
-const frDate = (iso: string): string => new Date(iso).toLocaleDateString('fr-FR');
+const frDate = (iso: string): string => parseCalendarDate(iso).toLocaleDateString('fr-FR');
 
 function adjustmentLabel(t: IntlShape['formatMessage'], a: AjustementEstimation): string {
   if (a.code.startsWith('ENERGY_')) {

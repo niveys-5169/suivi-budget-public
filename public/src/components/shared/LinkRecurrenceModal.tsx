@@ -5,6 +5,7 @@ import { Modal } from './Modal';
 import type { Recurrence, Transaction } from '../../types/banking.types';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
 import { CategoryIcon } from '../CategoryIcon';
+import { parseCalendarDate } from '../../utils/date';
 
 interface LinkRecurrenceModalProps {
   recurrence: Recurrence | null;
@@ -29,7 +30,7 @@ export const LinkRecurrenceModal: React.FC<LinkRecurrenceModalProps> = ({
   const [search, setSearch] = useState('');
 
   const formatDay = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const d = parseCalendarDate(dateStr);
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 

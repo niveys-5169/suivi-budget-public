@@ -28,6 +28,7 @@ import {
 import type { Holding, PortfolioTx, PortfolioMirrorData } from '../types/banking.types';
 import { toMillis } from '../utils/firestoreDate';
 import { withRetry } from '../utils/withRetry';
+import { toCalendarKey } from '../utils/date';
 
 export type { Holding, PortfolioTx };
 
@@ -242,7 +243,7 @@ export const usePortfolio = () => {
 
       // Historise la valeur ACTUELLE réelle par position pour aujourd'hui
       try {
-        const today = new Date().toISOString().split('T')[0]!;
+        const today = toCalendarKey(new Date());
         const historyBatch = writeBatch(db);
         let historyCount = 0;
         finalHoldings.forEach((h) => {

@@ -8,7 +8,7 @@ import { AurumBudgetDetail } from './AurumBudgetDetail';
 import { AurumTransactionDetail } from './AurumTransactionDetail';
 import { AurumBudgetGlobalFocus } from './AurumBudgetGlobalFocus';
 import { getBudgetedMonthlyIncome, isIncomeBudget } from '../../../utils/budgetHelpers';
-import { getExpectedPaceProgress } from '../../../utils/date';
+import { getExpectedPaceProgress, toCalendarKey } from '../../../utils/date';
 import { formatCurrency } from '../../../lib/formatters';
 import { parseDecimal } from '../../../utils/format';
 import { EmptyState } from '../../shared/EmptyState';
@@ -105,7 +105,7 @@ export const AurumBudgetPage: React.FC = () => {
     });
   }, [budgets, sortMode]);
 
-  const safeMonthKey = monthKey || new Date().toISOString().slice(0, 7);
+  const safeMonthKey = monthKey || toCalendarKey(new Date()).slice(0, 7);
   const [yearStr = ''] = safeMonthKey.split('-');
 
   // O(N) optimization: Group spent amount by category once per snapshot

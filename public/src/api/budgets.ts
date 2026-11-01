@@ -16,6 +16,7 @@ import {
 import { db } from '../services/firebase';
 import { budgetDocKey } from '../utils/budgetKey';
 import { withRetry } from '../utils/withRetry';
+import { toCalendarKey } from '../utils/date';
 
 const COLLECTION_NAME = 'budgets';
 
@@ -95,7 +96,7 @@ export async function suggestBudgetAmount(categorie: string, months = 12): Promi
   const now = new Date();
   const startDate = new Date();
   startDate.setMonth(now.getMonth() - months);
-  const startDateIso = startDate.toISOString().split('T')[0]!;
+  const startDateIso = toCalendarKey(startDate);
 
   const relevantTxs = txs.filter(
     (t) => t.date >= startDateIso && t.categorie !== 'Virement interne',

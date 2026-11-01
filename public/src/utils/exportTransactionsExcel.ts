@@ -1,4 +1,5 @@
 import type { Transaction } from '../types/banking.types';
+import { toCalendarKey } from './date';
 
 const COLUMNS = [
   { header: 'ID', key: 'id' },
@@ -55,6 +56,6 @@ export async function exportTransactionsToExcel(
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
 
-  const date = new Date().toISOString().slice(0, 10);
+  const date = toCalendarKey(new Date());
   XLSX.writeFile(wb, filename ?? `transactions-export-${date}.xlsx`);
 }

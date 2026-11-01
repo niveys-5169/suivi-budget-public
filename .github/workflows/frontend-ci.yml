@@ -81,3 +81,17 @@ jobs:
           if [ "${{ matrix.check }}" == "design" ]; then npm run check:design; fi
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
+
+      # Dates calendaires : la suite principale tourne dans le fuseau du runner
+      # (UTC). Un fuseau négatif révèle les `YYYY-MM-DD` lus comme minuit UTC
+      # (jour précédent) ; Europe/Paris, lui, révèle les clés « jour » déduites
+      # de toISOString(). On rejoue donc les tests de dates sous les deux.
+      - name: Run date tests under other timezones
+        if: matrix.check == 'test'
+        shell: bash
+        run: |
+          FILES="public/src/utils/__tests__/date.calendar.test.ts public/src/utils/__tests__/calendarDates.timezone.test.ts public/src/utils/__tests__/recurrenceEngine.test.ts public/src/utils/__tests__/wealthEvolution.test.ts tests/utils/creditSchedule.test.ts tests/utils/ravCalculations.test.ts"
+          TZ=America/New_York npx vitest run $FILES
+          TZ=Europe/Paris npx vitest run $FILES
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'

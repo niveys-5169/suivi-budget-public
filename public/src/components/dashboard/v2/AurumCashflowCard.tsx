@@ -10,6 +10,7 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { Button } from '../../../ui';
+import { parseCalendarDate } from '../../../utils/date';
 
 export const AurumCashflowCard: React.FC = () => {
   const threshold = useMemo(() => {
@@ -84,7 +85,7 @@ export const AurumCashflowCard: React.FC = () => {
   }
 
   const lowestDateFormatted = forecast.lowestPoint.date
-    ? new Date(forecast.lowestPoint.date).toLocaleDateString('fr-FR', {
+    ? parseCalendarDate(forecast.lowestPoint.date).toLocaleDateString('fr-FR', {
         day: 'numeric',
         month: 'long',
       })
@@ -161,7 +162,7 @@ export const AurumCashflowCard: React.FC = () => {
                 {formatCurrency(forecast.lowestPoint.balance)}
               </span>{' '}
               le{' '}
-              {new Date(breach).toLocaleDateString('fr-FR', {
+              {parseCalendarDate(breach).toLocaleDateString('fr-FR', {
                 day: 'numeric',
                 month: 'long',
               })}
@@ -230,7 +231,7 @@ export const AurumCashflowCard: React.FC = () => {
                             {ev.label}
                           </p>
                           <p className="text-caption text-label-tertiary">
-                            {new Date(ev.date).toLocaleDateString('fr-FR', {
+                            {parseCalendarDate(ev.date).toLocaleDateString('fr-FR', {
                               day: 'numeric',
                               month: 'short',
                             })}

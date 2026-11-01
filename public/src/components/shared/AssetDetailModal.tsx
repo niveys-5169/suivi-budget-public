@@ -24,6 +24,7 @@ import {
   PropertyValuationCard,
   type PropertyValuationPlacement,
 } from '../property/PropertyValuationCard';
+import { parseCalendarDate } from '../../utils/date';
 
 export interface AssetDetailTarget {
   kind: 'asset' | 'holding';
@@ -76,7 +77,7 @@ const HISTORY_PAGE = 30;
 const SECTION_TITLE_CLS = 'text-caption font-bold text-label-tertiary';
 
 function frDate(iso: string): string {
-  const d = new Date(iso);
+  const d = parseCalendarDate(iso);
   return isNaN(d.getTime())
     ? iso
     : d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });

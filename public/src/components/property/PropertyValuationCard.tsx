@@ -15,6 +15,7 @@ import { toast } from '../../lib/toast';
 import { triggerGitHubWorkflow } from '../../services/firebase-api';
 import { Amount, Badge, Button, Card, Separator, Stack, Text, type BadgeTone } from '../../ui';
 import { PropertyValuationBreakdown } from './PropertyValuationBreakdown';
+import { parseCalendarDate } from '../../utils/date';
 
 /** Sous-ensemble d'un placement immobilier lu par la carte (compatible avec les deux hooks). */
 export interface PropertyValuationPlacement {
@@ -41,7 +42,7 @@ const CONFIDENCE_TONE: Record<NonNullable<EstimationImmobiliere['confiance']>, B
 
 const pct = (n: number, digits = 1): string => n.toFixed(digits).replace('.', ',');
 const signedPct = (n: number): string => `${n > 0 ? '+' : ''}${pct(n)} %`;
-const frDate = (iso: string): string => new Date(iso).toLocaleDateString('fr-FR');
+const frDate = (iso: string): string => parseCalendarDate(iso).toLocaleDateString('fr-FR');
 
 function adjustmentLabel(t: IntlShape['formatMessage'], a: AjustementEstimation): string {
   if (a.code.startsWith('ENERGY_')) {

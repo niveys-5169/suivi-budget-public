@@ -1,4 +1,5 @@
 import type { PortfolioTx } from '../types/banking.types';
+import { toCalendarKey } from './date';
 export type { PortfolioTx };
 
 interface PositionState {
@@ -141,7 +142,7 @@ export function buildMonthlyPortfolioSnapshots(
     if (monthKey > todayMonthKey) break;
 
     const lastDay = new Date(year, month, 0);
-    const lastDayStr = lastDay.toISOString().split('T')[0] ?? '';
+    const lastDayStr = toCalendarKey(lastDay);
 
     let totalValue = 0;
     let totalNetInvested = 0;
@@ -230,7 +231,7 @@ export function buildPerHoldingMonthlySnapshots(
     if (monthKey > todayMonthKey) break;
 
     const lastDay = new Date(year, month, 0);
-    const lastDayStr = lastDay.toISOString().split('T')[0] ?? '';
+    const lastDayStr = toCalendarKey(lastDay);
 
     byPosition.forEach((txs, key) => {
       const [isin = '', owner = '', envelope = ''] = key.split('||');
@@ -305,7 +306,7 @@ export function buildPerHoldingDailySnapshots(
     .sort();
   if (!txDates.length) return [];
   const firstDate = txDates[0]!;
-  const todayStr = new Date().toISOString().split('T')[0]!;
+  const todayStr = toCalendarKey(new Date());
 
   // Union des dates candidates : transactions + cotations des ISIN concernés.
   const heldIsins = new Set(

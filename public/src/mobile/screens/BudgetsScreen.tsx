@@ -4,7 +4,7 @@ import { Settings2, Target } from 'lucide-react';
 import { deleteField } from 'firebase/firestore';
 import { updateBudget } from '../../api/budgets';
 import { budgetDocKey } from '../../utils/budgetKey';
-import { getExpectedPaceProgress } from '../../utils/date';
+import { getExpectedPaceProgress, toCalendarKey } from '../../utils/date';
 import { MScreenHeader } from '../components/MScreenHeader';
 import { MMonthNavigator } from '../components/MMonthNavigator';
 import { MBudgetHero } from '../components/MBudgetHero';
@@ -198,7 +198,7 @@ export const BudgetsScreen: React.FC = () => {
 
   const envelopeProvision = envelopes.reduce((s, e) => s + e.provisionMensuelle, 0);
   // Solde prévu = Reste à vivre sur le mois courant/futur ; sur un mois passé ou sans revenus de référence, on garde le solde encaissé.
-  const isPastMonth = monthKey < new Date().toISOString().slice(0, 7);
+  const isPastMonth = monthKey < toCalendarKey(new Date()).slice(0, 7);
   const showForecast = viewMode === 'monthly' && !isPastMonth && rav.revenuRef > 0;
   const fmtEur = (n: number) => formatCurrency(n, 'EUR', 'fr-FR', { maximumFractionDigits: 0 });
 

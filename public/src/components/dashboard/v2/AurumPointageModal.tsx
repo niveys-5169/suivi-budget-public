@@ -3,6 +3,7 @@ import { Modal } from '../../shared/Modal';
 import { Transaction } from '../../../context/TransactionContext';
 import { formatCurrency } from '../../../lib/formatters';
 import { CheckCircle2, Circle } from 'lucide-react';
+import { parseCalendarDate } from '../../../utils/date';
 
 interface Props {
   isOpen: boolean;
@@ -65,7 +66,7 @@ export const AurumPointageModal: React.FC<Props> = ({
           <div className="divide-y divide-separator">
             {sortedTransactions.map((tx) => {
               const dateStr = tx.date
-                ? new Date(tx.date).toLocaleDateString('fr-FR', {
+                ? parseCalendarDate(tx.date).toLocaleDateString('fr-FR', {
                     day: 'numeric',
                     month: 'short',
                   })

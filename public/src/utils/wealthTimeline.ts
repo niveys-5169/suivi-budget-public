@@ -1,5 +1,6 @@
 import type { Credit } from '../types/banking.types';
 import { capitalRestantDu } from './creditSchedule';
+import { parseCalendarDate } from './date';
 
 export type WealthCategory = 'courants' | 'epargne' | 'investissements' | 'retraite' | 'immobilier';
 
@@ -213,7 +214,7 @@ export function buildWealthTimeline(
       total += montant;
     }
 
-    const dateObj = new Date(date);
+    const dateObj = parseCalendarDate(date);
     if (isNaN(dateObj.getTime())) continue;
 
     // Valeur nette : le capital restant dû à cette date est retranché de l'immobilier.

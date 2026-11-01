@@ -12,6 +12,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { fmt } from '../../utils/format';
+import { parseCalendarDate, toCalendarKey } from '../../utils/date';
 
 interface BudgetTrendChartProps {
   consumption: { periodeDebut: string; periodeFin: string; montant: number };
@@ -38,8 +39,8 @@ const BudgetTrendChartImpl: React.FC<BudgetTrendChartProps> = ({ consumption, tr
 
   const { data, todayLabel } = useMemo(() => {
     const { periodeDebut, periodeFin, montant } = consumption;
-    const start = new Date(periodeDebut);
-    const end = new Date(periodeFin);
+    const start = parseCalendarDate(periodeDebut);
+    const end = parseCalendarDate(periodeFin);
     const days = Math.max(
       1,
       Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1,
@@ -59,7 +60,7 @@ const BudgetTrendChartImpl: React.FC<BudgetTrendChartProps> = ({ consumption, tr
     const points: PointDatum[] = Array.from({ length: days }, (_, i) => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      const iso = d.toISOString().split('T')[0]!;
+      const iso = toCalendarKey(d);
       running += txByDay[iso] || 0;
       return {
         label: formatLabel(d),

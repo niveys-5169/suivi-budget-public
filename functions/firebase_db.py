@@ -26,6 +26,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from firebase_admin import firestore
 from google.api_core.exceptions import NotFound, ResourceExhausted, ServiceUnavailable, DeadlineExceeded
@@ -515,6 +516,15 @@ def sauvegarder_soldes_comptes(soldes: list, source: str = "gmail") -> int:
     return len(soldes)
 
 
+_PARIS = ZoneInfo("Europe/Paris")
+
+
+def _paris_date_key(now: datetime) -> str:
+    """Clé de jour (YYYY-MM-DD) des snapshots, en Europe/Paris et non en UTC serveur :
+    entre 22h/23h et minuit UTC il est déjà « demain » pour l'application."""
+    return now.astimezone(_PARIS).strftime("%Y-%m-%d")
+
+
 def take_patrimoine_snapshot() -> int:
     """Effectue un snapshot complet du patrimoine (placements, soldes, épargne, portefeuille).
 
@@ -529,7 +539,7 @@ def take_patrimoine_snapshot() -> int:
     """
     db = _get_db()
     now = datetime.now(timezone.utc)
-    date_str = now.strftime("%Y-%m-%d")
+    date_str = _paris_date_key(now)
     mapping = charger_account_owners_mapping()
 
     history_col = db.collection("placement_history")
@@ -762,7 +772,7 @@ def sync_portfolio_daily() -> int:
         return 0
 
     now = datetime.now(timezone.utc)
-    date_str = now.strftime("%Y-%m-%d")
+    date_str = _paris_date_key(now)
     history_col = db.collection("placement_history")
     batch = db.batch()
     count = 0

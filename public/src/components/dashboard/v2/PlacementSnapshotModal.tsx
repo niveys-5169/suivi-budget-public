@@ -8,6 +8,7 @@ import { normalizeType, savingsAssetId, courantAssetId } from '../../../utils/we
 import { formatCurrency } from '../../../lib/formatters';
 import { parseDecimal } from '../../../utils/format';
 import { withRetry } from '../../../utils/withRetry';
+import { toCalendarKey } from '../../../utils/date';
 
 interface PlacementOption {
   id: string;
@@ -55,7 +56,7 @@ export const PlacementSnapshotModal: React.FC<Props> = ({
 }) => {
   const hasOptions = placements.length > 0;
   const rowCounter = useRef(1);
-  const defaultDate = new Date().toISOString().split('T')[0]!;
+  const defaultDate = toCalendarKey(new Date());
 
   const createRow = (keySuffix: number): SnapshotRow => ({
     key: `snapshot-row-${keySuffix}`,

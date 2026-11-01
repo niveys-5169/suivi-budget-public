@@ -62,6 +62,7 @@ import { reportDuplicates } from '../utils/cleanupDuplicates';
 import { buildWealthTimeline } from '../utils/wealthTimeline';
 import { computeWealthTotals } from '../utils/wealthSnapshot';
 import { withRetry } from '../utils/withRetry';
+import { toCalendarKey } from '../utils/date';
 
 /** Agrège comptes épargne, placements et historique patrimonial en une seule interface réactive. */
 export const usePatrimoine = () => {
@@ -258,7 +259,7 @@ export const usePatrimoine = () => {
 
   const saveSnapshot = useCallback(async (owners: Record<string, OwnerSnapshot>) => {
     if (Object.keys(owners).length === 0) return;
-    const monthKey = new Date().toISOString().substring(0, 7);
+    const monthKey = toCalendarKey(new Date()).substring(0, 7);
     const date = new Date().toISOString();
     await withRetry(() =>
       setDoc(doc(db, 'patrimoine_snapshots', monthKey), { monthKey, date, owners }),

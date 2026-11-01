@@ -10,6 +10,7 @@ import { useTransactionContext } from '../../../context/TransactionContext';
 import { Transaction } from '../../../types/banking.types';
 import { formatCurrency } from '../../../lib/formatters';
 import { parseDecimal } from '../../../utils/format';
+import { parseCalendarDate } from '../../../utils/date';
 
 interface Props {
   category: string;
@@ -73,7 +74,7 @@ export const AurumBudgetDetail: React.FC<Props> = ({
     if (viewMode === 'annual') {
       const monthMap: Record<number, number> = {};
       sorted.forEach((t) => {
-        const m = new Date(t.date).getMonth() + 1;
+        const m = parseCalendarDate(t.date).getMonth() + 1;
         monthMap[m] = (monthMap[m] || 0) + Math.abs(Number(t.montant) || 0);
       });
       const currentMonth = new Date().getMonth() + 1;
@@ -84,7 +85,10 @@ export const AurumBudgetDetail: React.FC<Props> = ({
         .filter((d) => d.day <= currentMonth || d.amount > 0);
     }
     const totals = cumulate(sorted, (t) => Math.abs(Number(t.montant) || 0));
-    const data = sorted.map((t, i) => ({ day: new Date(t.date).getDate(), amount: totals[i]! }));
+    const data = sorted.map((t, i) => ({
+      day: parseCalendarDate(t.date).getDate(),
+      amount: totals[i]!,
+    }));
     if (data.length > 0) data.push({ day: 31, amount: totals[totals.length - 1]! });
     return data;
   }, [transactions, viewMode]);

@@ -8,6 +8,7 @@ import {
   appendLiveTodayPoint,
   evolutionForTypeScope,
 } from '../wealthEvolution';
+import { parseCalendarDate } from '../date';
 import type { RawHistoryEntry, WealthPoint } from '../wealthTimeline';
 
 function point(date: string, amount: number, byCat?: Partial<WealthPoint['byCat']>): WealthPoint {
@@ -165,8 +166,8 @@ describe('buildAssetSeries', () => {
   it('ignore les autres assetIds', () => {
     const series = buildAssetSeries(history, new Set(['a1']));
     expect(series).toEqual([
-      { date: '2026-01-01', timestamp: new Date('2026-01-01').getTime(), value: 100 },
-      { date: '2026-02-01', timestamp: new Date('2026-02-01').getTime(), value: 110 },
+      { date: '2026-01-01', timestamp: parseCalendarDate('2026-01-01').getTime(), value: 100 },
+      { date: '2026-02-01', timestamp: parseCalendarDate('2026-02-01').getTime(), value: 110 },
     ]);
   });
 

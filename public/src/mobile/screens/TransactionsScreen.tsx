@@ -30,6 +30,7 @@ import { useTransactionSelection } from '../../hooks/useTransactionSelection';
 import { toast } from '../../lib/toast';
 import { FormattedNumber } from 'react-intl';
 import { getDayOfMonth } from '../../utils/recurrenceEngine';
+import { toCalendarKey } from '../../utils/date';
 
 export const TransactionsScreen: React.FC = () => {
   const {
@@ -73,7 +74,7 @@ export const TransactionsScreen: React.FC = () => {
     const grouped: Record<string, { transactions: Transaction[]; total: number }> = {};
 
     filteredTransactions.forEach((tx) => {
-      const date = tx.date || new Date().toISOString().slice(0, 10);
+      const date = tx.date || toCalendarKey(new Date());
       if (!grouped[date]) {
         grouped[date] = { transactions: [], total: 0 };
       }

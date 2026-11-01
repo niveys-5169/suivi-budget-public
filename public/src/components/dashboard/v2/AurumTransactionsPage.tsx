@@ -13,6 +13,7 @@ import { useAppState } from '../../../context/AppStateContext';
 import { MonthNavigator } from '../../shared/MonthNavigator';
 import { getDayOfMonth } from '../../../utils/recurrenceEngine';
 import { useKeyboardReconciliation } from '../../../hooks/useKeyboardReconciliation';
+import { parseCalendarDate } from '../../../utils/date';
 
 export const AurumTransactionsPage: React.FC = () => {
   const {
@@ -181,7 +182,7 @@ export const AurumTransactionsPage: React.FC = () => {
             {/* Sticky Day Header */}
             <div className="sticky top-[calc(env(safe-area-inset-top)+6rem)] z-30 py-6 bg-bg backdrop-blur-md -mx-6 md:-mx-24 px-6 md:px-24 border-b border-separator">
               <h3 className="text-caption font-semibold text-label-tertiary">
-                {new Date(date).toLocaleDateString('fr-FR', {
+                {parseCalendarDate(date).toLocaleDateString('fr-FR', {
                   weekday: 'long',
                   day: 'numeric',
                   month: 'long',

@@ -31,6 +31,7 @@ import {
   updateRecurrence,
 } from './recurrencesService';
 import type { Recurrence, Transaction } from '../types/banking.types';
+import { toCalendarKey } from '../utils/date';
 
 /** Récurrence enrichie de son état pour la période affichée. Modèle de vue unique. */
 export interface RecurrenceView extends Recurrence {
@@ -88,7 +89,7 @@ export function useRecurrences(monthKeyOverride?: string) {
   // fournit son propre mois (comme /recurring, qui a sa navigation temporelle)
   // n'a pas à être monté sous un AppStateProvider.
   const appState = useContext(AppStateContext);
-  const monthKey = monthKeyOverride ?? appState?.monthKey ?? new Date().toISOString().slice(0, 7);
+  const monthKey = monthKeyOverride ?? appState?.monthKey ?? toCalendarKey(new Date()).slice(0, 7);
   const periodKey = getPeriodKey(`${monthKey}-01`);
 
   const activeRecurrences = useMemo(() => recurrences.filter((r) => r.active), [recurrences]);

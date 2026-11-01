@@ -7,6 +7,7 @@ import { IconButton } from '../../ui';
 import type { Transaction } from '../../types/banking.types';
 import { Check, ArrowUp, ArrowDown, ArrowUpDown, Repeat2 } from 'lucide-react';
 import { formatCurrency as cachedFormatCurrency } from '../../lib/formatters';
+import { parseCalendarDate, toCalendarKey } from '../../utils/date';
 
 type SortKey = 'date' | 'montant' | 'libelle' | 'categorie' | 'compte';
 type SortDir = 'asc' | 'desc';
@@ -22,7 +23,6 @@ interface TransactionCardProps {
   isRecurrent?: boolean;
 }
 
-const MS_IN_A_DAY = 86400000;
 const OBSERVER_ROOT_MARGIN = '200px';
 
 const TransactionCard = React.memo<TransactionCardProps & { isFirst: boolean; isLast: boolean }>(
@@ -251,13 +251,13 @@ export const TransactionGroupedList: React.FC<TransactionGroupedListProps> = ({
 
     // Un seul instant pour « aujourd'hui » et « hier » (cohérents même à minuit).
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const yesterday = new Date(now.getTime() - MS_IN_A_DAY).toISOString().split('T')[0];
+    const today = toCalendarKey(now);
+    const yesterday = toCalendarKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
 
     if (dateStr === today) return t({ id: 'txList.date.today' });
     if (dateStr === yesterday) return t({ id: 'txList.date.yesterday' });
 
-    const date = new Date(dateStr);
+    const date = parseCalendarDate(dateStr);
     return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long' }).format(date);
   };
 

@@ -19,6 +19,7 @@ import {
   type RawHistoryEntry,
   type WealthCategory,
 } from '../utils/wealthTimeline';
+import { parseCalendarDate, toCalendarKey } from '../utils/date';
 
 interface HistoryEntry {
   id?: string;
@@ -87,7 +88,7 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
   const [showFilters, setShowFilters] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeframePreset>('defaut');
 
-  const todayStr = new Date().toISOString().split('T')[0]!;
+  const todayStr = toCalendarKey(new Date());
   const [startDate, setStartDate] = useState('2024-02-01');
   const [endDate, setEndDate] = useState(todayStr);
 
@@ -97,18 +98,18 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
     if (tf === '1M') {
       const prev = new Date(today);
       prev.setMonth(today.getMonth() - 1);
-      setStartDate(prev.toISOString().split('T')[0]!);
-      setEndDate(today.toISOString().split('T')[0]!);
+      setStartDate(toCalendarKey(prev));
+      setEndDate(toCalendarKey(today));
     } else if (tf === '6M') {
       const prev = new Date(today);
       prev.setMonth(today.getMonth() - 6);
-      setStartDate(prev.toISOString().split('T')[0]!);
-      setEndDate(today.toISOString().split('T')[0]!);
+      setStartDate(toCalendarKey(prev));
+      setEndDate(toCalendarKey(today));
     } else if (tf === '1Y') {
       const prev = new Date(today);
       prev.setFullYear(today.getFullYear() - 1);
-      setStartDate(prev.toISOString().split('T')[0]!);
-      setEndDate(today.toISOString().split('T')[0]!);
+      setStartDate(toCalendarKey(prev));
+      setEndDate(toCalendarKey(today));
     } else if (tf === 'defaut') {
       setStartDate('2024-02-01');
       setEndDate(todayStr);
@@ -132,8 +133,8 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
     });
 
     const categoriesUsed = new Set<CategoryKey>();
-    const startTs = new Date(startDate).getTime();
-    const endTs = new Date(endDate).getTime();
+    const startTs = parseCalendarDate(startDate).getTime();
+    const endTs = parseCalendarDate(endDate).getTime();
 
     const chartData = points.map((p): ChartDataPoint => {
       const entry: ChartDataPoint = {
@@ -197,7 +198,7 @@ const WealthEvolutionBudgetChartImpl: React.FC<WealthEvolutionBudgetChartProps> 
                 {timeframe === 'defaut'
                   ? 'Depuis fév. 24'
                   : timeframe === 'custom'
-                    ? `${new Date(startDate).toLocaleDateString('fr-FR')} - ${new Date(
+                    ? `${parseCalendarDate(startDate).toLocaleDateString('fr-FR')} - ${parseCalendarDate(
                         endDate,
                       ).toLocaleDateString('fr-FR')}`
                     : timeframe}

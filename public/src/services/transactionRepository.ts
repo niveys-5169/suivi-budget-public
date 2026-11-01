@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { db, auth } from './firebase';
 import { withRetry } from '../utils/withRetry';
 import { Transaction } from '../types/banking.types';
+import { toCalendarKey } from '../utils/date';
 
 /** Convertit une date Firestore (Timestamp, ISO string, …) en `YYYY-MM-DD`. */
 const toIsoDate = (value: unknown): string => {
@@ -127,7 +128,7 @@ export function buildTransactionQuery(loadAll: boolean): Query {
   cutoff.setMonth(cutoff.getMonth() - 18);
   return query(
     collection(db, 'transactions'),
-    where('date', '>=', cutoff.toISOString().slice(0, 10)),
+    where('date', '>=', toCalendarKey(cutoff)),
     orderBy('date', 'desc'),
   );
 }

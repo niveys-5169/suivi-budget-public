@@ -9,6 +9,7 @@ import { Edit2, TrendingUp, Calendar, BarChart3, ArrowRight, List, Repeat2 } fro
 
 import { BudgetBase, BudgetConsumption } from '../../types/banking.types';
 import { useRecurrences } from '../../hooks/useRecurrences';
+import { parseCalendarDate } from '../../utils/date';
 
 interface BudgetDetailModalProps {
   consumption: BudgetConsumption;
@@ -49,8 +50,8 @@ export const BudgetDetailModal: React.FC<BudgetDetailModalProps> = ({
 
   // Projection
   const today = new Date();
-  const start = new Date(consumption.periodeDebut);
-  const end = new Date(consumption.periodeFin);
+  const start = parseCalendarDate(consumption.periodeDebut);
+  const end = parseCalendarDate(consumption.periodeFin);
   const joursPasses = Math.max(
     1,
     Math.round((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)),

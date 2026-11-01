@@ -15,6 +15,7 @@ import { periodRangeISO, type EvolutionPeriod } from '../../utils/wealthEvolutio
 
 import { formatCurrency } from '../../lib/formatters';
 import type { WealthHistoryEntry } from '../../types/patrimoine';
+import { parseCalendarDate } from '../../utils/date';
 
 interface Props {
   placementHistory: WealthHistoryEntry[];
@@ -41,7 +42,7 @@ export const MPositionsChart: React.FC<Props> = ({ placementHistory, period }) =
     if (!placementHistory?.length) return [];
     const timeline = buildWealthTimeline(placementHistory);
     const { from } = periodRangeISO(period);
-    const threshold = from ? new Date(from).getTime() : -Infinity;
+    const threshold = from ? parseCalendarDate(from).getTime() : -Infinity;
     return timeline
       .filter((d) => d.timestamp >= threshold)
       .map((p: WealthPoint) => ({
