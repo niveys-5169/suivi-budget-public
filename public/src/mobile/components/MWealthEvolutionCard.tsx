@@ -10,7 +10,7 @@ import {
 } from '../../utils/wealthEvolution';
 import type { RawHistoryEntry, WealthCategory } from '../../utils/wealthTimeline';
 import type { OwnerScope } from '../../hooks/useWealthScope';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCurrency, formatPercent } from '../../lib/formatters';
 
 const CAT_ORDER: WealthCategory[] = [
   'courants',
@@ -52,7 +52,7 @@ const DeltaChip: React.FC<{ evo: CatEvolution }> = ({ evo }) => {
     >
       {positive ? '+' : ''}
       {eur(evo.delta)}
-      {evo.deltaPct !== null && ` (${positive ? '+' : ''}${evo.deltaPct.toFixed(1)}%)`}
+      {evo.deltaPct !== null && ` (${formatPercent(evo.deltaPct, { signed: true })})`}
     </span>
   );
 };

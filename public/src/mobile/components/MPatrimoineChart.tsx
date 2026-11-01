@@ -6,16 +6,10 @@ import type { OwnerScope } from '../../hooks/useWealthScope';
 import { useCredits } from '../../hooks/useCredits';
 import { creditsForOwners } from '../../utils/creditSchedule';
 import { FormattedNumber } from 'react-intl';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCompactCurrency, formatCurrency } from '../../lib/formatters';
 import { CHART_COLORS } from '../../lib/colors';
 import type { WealthHistoryEntry, PatrimoineSnapshot } from '../../types/patrimoine';
 import { parseCalendarDate } from '../../utils/date';
-
-const fmt = (n: number) => {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `${Math.round(n / 1_000)}k`;
-  return String(Math.round(n));
-};
 
 /** Clés du filtre de type (MPatrimoineFilterModal) → catégories de la timeline. */
 const SCOPE_KEY_TO_CAT: Record<string, WealthCategory> = {
@@ -146,11 +140,11 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
             minTickGap={40}
           />
           <YAxis
-            tickFormatter={fmt}
+            tickFormatter={formatCompactCurrency}
             tick={{ fill: CHART_COLORS.axis, fontSize: 10 }}
             tickLine={false}
             axisLine={false}
-            width={36}
+            width={48}
           />
           <Tooltip
             contentStyle={{

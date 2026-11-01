@@ -5,6 +5,7 @@ import { db } from '../../../services/firebase';
 import { Modal } from '../../shared/Modal';
 import { parseHistoryFile, type ParsedHistoryRow } from '../../../utils/positionsHistoryExcel';
 import type { WealthHistoryEntry } from '../../../types/patrimoine';
+import { formatDecimal } from '../../../lib/formatters';
 import { fmt } from '../../../utils/format';
 import { withRetry } from '../../../utils/withRetry';
 
@@ -151,7 +152,9 @@ export const PositionsImportModal: React.FC<PositionsImportModalProps> = ({
               </div>
               <div>
                 <p className="font-bold text-white">{file.name}</p>
-                <p className="text-xs text-label-tertiary">{(file.size / 1024).toFixed(1)} KB</p>
+                <p className="text-xs text-label-tertiary">
+                  {formatDecimal(file.size / 1024, 1)} Ko
+                </p>
               </div>
             </div>
             <button

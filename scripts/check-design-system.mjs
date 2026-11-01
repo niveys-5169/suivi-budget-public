@@ -120,6 +120,16 @@ const RULES = [
     re: /toISOString\(\)\s*\.(?:slice\(0,\s*(?:7|10)\)|substring\(0,\s*7\)|split\('T'\)\[0\])/g,
     hint: 'Pour le jour calendaire local, utilise toCalendarKey (utils/date.ts) : toISOString donne le jour UTC.',
   },
+  {
+    id: 'to-fixed',
+    label: 'Nombres formatés à la main  toFixed(',
+    // `toFixed` rend « 8.3 » (point décimal) : l'affichage doit passer par
+    // formatPercent / formatDecimal / formatCurrency (lib/formatters.ts). Les
+    // arrondis internes (clés de recherche, valeurs numériques, logs dev) sont
+    // légitimes et comptent aussi : le plafond est un plancher à auditer.
+    re: /\.toFixed\(/g,
+    hint: 'Pour l’affichage, utilise formatPercent / formatDecimal / formatCurrency (lib/formatters.ts).',
+  },
 ];
 
 const BASELINE_FILE = join(HERE, 'design-system-baseline.json');

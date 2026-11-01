@@ -2,6 +2,7 @@ import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import { useBudgetProjection } from '../../hooks/useBudgetProjection';
 import type { BudgetPeriodMode } from '../../context/AppStateContext';
+import { formatCurrency } from '../../lib/formatters';
 
 interface BudgetProjectionBadgeProps {
   categoryId: string;
@@ -38,7 +39,8 @@ export const BudgetProjectionBadge: React.FC<BudgetProjectionBadgeProps> = ({
       role="status"
       className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-negative/10 border border-negative/20 text-negative text-caption font-semibold"
     >
-      <TrendingUp size={9} />+{overrun.toFixed(0)} €
+      <TrendingUp size={9} />+
+      {formatCurrency(overrun, 'EUR', 'fr-FR', { maximumFractionDigits: 0 })}
     </span>
   );
 };

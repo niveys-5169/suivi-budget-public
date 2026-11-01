@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { formatCurrency } from '../lib/formatters';
+import { formatCurrency, formatPercent } from '../lib/formatters';
 import type { CatEvolution } from '../utils/wealthEvolution';
 
 interface WealthTotalCardProps {
@@ -67,7 +67,7 @@ export const WealthTotalCard: React.FC<WealthTotalCardProps> = ({
               >
                 <span className="text-sm font-semibold">
                   {isPositive ? '▲' : '▼'}
-                  {delta.deltaPct !== null && ` ${Math.abs(delta.deltaPct).toFixed(1)}%`}
+                  {delta.deltaPct !== null && ` ${formatPercent(Math.abs(delta.deltaPct))}`}
                 </span>
                 <span className="w-px h-4 bg-current/20" />
                 <span className="text-sm font-bold tabular-nums">

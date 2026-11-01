@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { fmt } from '../../utils/format';
+import { formatPercent } from '../../lib/formatters';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
 import { CategoryIcon } from '../CategoryIcon';
 
@@ -77,7 +78,11 @@ export const AnalyseCategoryRow = React.forwardRef<HTMLDivElement, Props>(
             <span>
               {count} {count > 1 ? 'transactions' : 'transaction'}
             </span>
-            {!isHidden && <span className="text-label-secondary">{percentage.toFixed(0)} %</span>}
+            {!isHidden && (
+              <span className="text-label-secondary">
+                {formatPercent(percentage, { decimals: 0 })}
+              </span>
+            )}
           </div>
 
           {/* Barre de progression */}

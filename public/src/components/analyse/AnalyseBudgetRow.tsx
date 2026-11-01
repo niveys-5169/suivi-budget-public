@@ -2,6 +2,7 @@ import React from 'react';
 import { CHART_COLORS } from '../../lib/colors';
 import { ChevronRight, PieChart } from 'lucide-react';
 import { fmt } from '../../utils/format';
+import { formatPercent } from '../../lib/formatters';
 
 interface Props {
   spent: number;
@@ -55,7 +56,7 @@ export const AnalyseBudgetRow: React.FC<Props> = ({ spent, total, onClick }) => 
         <span
           className={`text-caption font-bold tabular-nums ${isExceeded ? 'text-negative' : 'text-label-tertiary'}`}
         >
-          {pct.toFixed(0)} %
+          {formatPercent(pct, { decimals: 0 })}
         </span>
       </div>
     </button>

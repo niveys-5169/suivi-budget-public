@@ -18,10 +18,10 @@ describe('WealthAllocationBars', () => {
     );
 
     expect(screen.getByText('Immobilier')).toBeInTheDocument();
-    expect(screen.getByText('97.6%')).toBeInTheDocument();
+    expect(screen.getByText('97,6 %')).toBeInTheDocument();
     // La barre n'affiche que les segments non nuls : cash + immobilier.
-    expect(screen.getByTitle('Immobilier: 97.6%')).toBeInTheDocument();
-    expect(screen.getByTitle('Disponibilités: 2.4%')).toBeInTheDocument();
+    expect(screen.getByTitle('Immobilier: 97,6 %')).toBeInTheDocument();
+    expect(screen.getByTitle('Disponibilités: 2,4 %')).toBeInTheDocument();
     expect(screen.queryByTitle(/Retraite/)).not.toBeInTheDocument();
   });
 });

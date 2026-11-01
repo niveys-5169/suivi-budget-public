@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { fmt } from '../../utils/format';
+import { formatPercent } from '../../lib/formatters';
 import { BUCKET_COLORS, BUCKET_ORDER } from '../../utils/simplifiedBuckets';
 import type { SimplifiedBucketData, DrillDownView } from './analyseTypes';
 
@@ -71,7 +72,7 @@ export const AnalyseSimplifiedView: React.FC<Props> = ({ buckets, onDrillDown })
                     />
                   </div>
                   <span className="text-caption font-bold text-label-tertiary tabular-nums w-8 text-right">
-                    {b.percentage.toFixed(0)}%
+                    {formatPercent(b.percentage, { decimals: 0 })}
                   </span>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { FormattedNumber } from 'react-intl';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCurrency, formatPercent } from '../../lib/formatters';
 import {
   TrendingUp,
   TrendingDown,
@@ -219,7 +219,7 @@ export const PatrimoineScreen: React.FC = () => {
               >
                 {isPositive ? '+' : ''}
                 <FormattedNumber value={delta1M.delta} style="currency" currency="EUR" />
-                {delta1M.deltaPct !== null && ` (${delta1M.deltaPct.toFixed(1)}%)`} sur 1 mois
+                {delta1M.deltaPct !== null && ` (${formatPercent(delta1M.deltaPct)})`} sur 1 mois
               </span>
             </div>
           )}
@@ -428,7 +428,7 @@ export const PatrimoineScreen: React.FC = () => {
                         className={`text-caption font-bold tabular-nums ${h.unrealizedGain >= 0 ? 'text-positive' : 'text-negative'}`}
                       >
                         {h.unrealizedGain >= 0 ? '+' : ''}
-                        {h.unrealizedGainPct.toFixed(1)}%
+                        {formatPercent(h.unrealizedGainPct)}
                       </p>
                     </div>
                   </button>

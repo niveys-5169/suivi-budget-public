@@ -8,7 +8,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, ReferenceLine } fro
 import { useBudget } from '../../../hooks/useBudget';
 import { useTransactionContext } from '../../../context/TransactionContext';
 import { Transaction } from '../../../types/banking.types';
-import { formatCurrency } from '../../../lib/formatters';
+import { formatCurrency, formatPercent } from '../../../lib/formatters';
 import { parseDecimal } from '../../../utils/format';
 import { parseCalendarDate } from '../../../utils/date';
 
@@ -186,7 +186,7 @@ export const AurumBudgetDetail: React.FC<Props> = ({
                 </span>
               </div>
               <span className="text-caption font-semibold text-white/30">
-                Jalon temps : {timeProgress.toFixed(0)}%
+                Jalon temps : {formatPercent(timeProgress, { decimals: 0 })}
               </span>
             </div>
           </div>

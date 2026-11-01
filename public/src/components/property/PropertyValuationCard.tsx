@@ -10,6 +10,7 @@ import type {
 } from '../../types/banking.types';
 import { capitalRestantDu } from '../../utils/creditSchedule';
 import { coutAchat, equiteNette, plusValueLatente } from '../../utils/property';
+import { formatDecimal, formatPercent } from '../../lib/formatters';
 import { fmt } from '../../utils/format';
 import { toast } from '../../lib/toast';
 import { triggerGitHubWorkflow } from '../../services/firebase-api';
@@ -40,8 +41,6 @@ const CONFIDENCE_TONE: Record<NonNullable<EstimationImmobiliere['confiance']>, B
   haute: 'positive',
 };
 
-const pct = (n: number, digits = 1): string => n.toFixed(digits).replace('.', ',');
-const signedPct = (n: number): string => `${n > 0 ? '+' : ''}${pct(n)} %`;
 const frDate = (iso: string): string => parseCalendarDate(iso).toLocaleDateString('fr-FR');
 
 function adjustmentLabel(t: IntlShape['formatMessage'], a: AjustementEstimation): string {
@@ -205,7 +204,7 @@ export const PropertyValuationCard: React.FC<PropertyValuationCardProps> = ({
               <Stack direction="row" gap="sm" align="center">
                 <Amount value={gain.montant} signed variant="headline" />
                 <Text variant="footnote" tone={gain.montant >= 0 ? 'positive' : 'negative'}>
-                  {signedPct(gain.pct)}
+                  {formatPercent(gain.pct, { signed: true })}
                 </Text>
               </Stack>
             </Stack>
@@ -252,7 +251,8 @@ export const PropertyValuationCard: React.FC<PropertyValuationCardProps> = ({
                   <Stack as="li" key={a.code} direction="row" justify="between" gap="md">
                     <Text variant="footnote" tone="secondary">
                       {adjustmentLabel(t, a)}
-                      {a.facteur !== undefined && ` (${signedPct(a.facteur * 100)})`}
+                      {a.facteur !== undefined &&
+                        ` (${formatPercent(a.facteur * 100, { signed: true })})`}
                     </Text>
                     <Amount value={a.montant} signed variant="footnote" />
                   </Stack>
@@ -263,7 +263,7 @@ export const PropertyValuationCard: React.FC<PropertyValuationCardProps> = ({
                       {t({ id: 'property.card.how.multiplier' })}
                     </Text>
                     <Text variant="footnote" numeric>
-                      × {estimation.multiplicateur.toFixed(2).replace('.', ',')}
+                      × {formatDecimal(estimation.multiplicateur, 2)}
                     </Text>
                   </Stack>
                 )}
@@ -275,7 +275,7 @@ export const PropertyValuationCard: React.FC<PropertyValuationCardProps> = ({
                   </Text>
                   {estimation.ratioReindexation !== undefined && (
                     <Text variant="footnote" numeric>
-                      × {estimation.ratioReindexation.toFixed(4).replace('.', ',')}
+                      × {formatDecimal(estimation.ratioReindexation, 4)}
                     </Text>
                   )}
                 </Stack>
