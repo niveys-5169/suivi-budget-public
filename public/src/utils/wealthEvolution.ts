@@ -1,5 +1,6 @@
 import type { RawHistoryEntry, WealthCategory, WealthPoint } from './wealthTimeline';
 import { canonicalPortfolioAssetId } from './wealthTimeline';
+import { parseCalendarDate, toCalendarKey } from './date';
 
 export type EvolutionPeriod = '1M' | '3M' | '6M' | '1Y' | 'ytd' | 'all' | 'custom';
 
@@ -8,10 +9,6 @@ export interface PeriodRange {
   from: string | null;
   /** Date ISO (YYYY-MM-DD) de fin, null = jusqu'à aujourd'hui. */
   to: string | null;
-}
-
-function toISODate(d: Date): string {
-  return d.toISOString().split('T')[0]!;
 }
 
 /** Calcule la fenêtre [from, to] d'une période d'analyse. */
@@ -27,12 +24,12 @@ export function periodRangeISO(
       const months = period === '1M' ? 1 : period === '3M' ? 3 : 6;
       const d = new Date(now);
       d.setMonth(d.getMonth() - months);
-      return { from: toISODate(d), to: null };
+      return { from: toCalendarKey(d), to: null };
     }
     case '1Y': {
       const d = new Date(now);
       d.setFullYear(d.getFullYear() - 1);
-      return { from: toISODate(d), to: null };
+      return { from: toCalendarKey(d), to: null };
     }
     case 'ytd':
       return { from: `${now.getFullYear()}-01-01`, to: null };
@@ -146,7 +143,7 @@ function makeCatEvolution(start: number, end: number): CatEvolution {
 }
 
 function midnightTs(iso: string): number {
-  return new Date(iso).getTime();
+  return parseCalendarDate(iso).getTime();
 }
 
 /**
@@ -266,7 +263,7 @@ export function buildAssetSeries(
       const pid = canonicalPortfolioAssetId(h.assetId || h.placementId || '');
       lastKnown.set(pid, Number(h.montant ?? h.amount ?? h.value) || 0);
     }
-    const ts = new Date(date).getTime();
+    const ts = parseCalendarDate(date).getTime();
     if (isNaN(ts)) continue;
     let value = 0;
     lastKnown.forEach((v) => {

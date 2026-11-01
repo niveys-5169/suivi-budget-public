@@ -1,5 +1,6 @@
 import type { WorkBook } from '@e965/xlsx';
 import type { WealthHistoryEntry } from '../types/patrimoine';
+import { toCalendarKey } from './date';
 
 /**
  * En-têtes FR <=> Clés internes
@@ -167,6 +168,6 @@ export async function downloadWorkbook(wb: WorkBook, filename: string) {
  */
 export async function exportPlacementHistory(entries: WealthHistoryEntry[]) {
   const wb = await buildHistoryWorkbook(entries);
-  const date = new Date().toISOString().split('T')[0]!;
+  const date = toCalendarKey(new Date());
   await downloadWorkbook(wb, `positions-historique-${date}.xlsx`);
 }

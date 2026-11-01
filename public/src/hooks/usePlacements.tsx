@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db as dbModular } from '../services/firebase';
-import { parseDateInput } from '../utils/date';
+import { parseDateInput, toCalendarKey } from '../utils/date';
 import type { PlacementSnapshot } from '../types/patrimoine';
 import { withRetry } from '../utils/withRetry';
 import type {
@@ -64,7 +64,7 @@ export type AddPlacementInput = {
 export type UpdatePlacementInput = Partial<AddPlacementInput>;
 
 function todayKey(): string {
-  return new Date().toISOString().split('T')[0]!;
+  return toCalendarKey(new Date());
 }
 
 async function writeHistoryEntry(

@@ -5,6 +5,7 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { parseHistoryFile, type ParsedHistoryRow } from '../../utils/positionsHistoryExcel';
 import type { WealthHistoryEntry } from '../../types/patrimoine';
+import { formatDecimal } from '../../lib/formatters';
 import { fmt } from '../../utils/format';
 import { withRetry } from '../../utils/withRetry';
 
@@ -150,7 +151,7 @@ export const MPositionsImportModal: React.FC<MPositionsImportModalProps> = ({
                 <div className="min-w-0">
                   <p className="text-footnote font-bold text-white truncate">{file.name}</p>
                   <p className="text-caption text-label-tertiary">
-                    {(file.size / 1024).toFixed(1)} KB
+                    {formatDecimal(file.size / 1024, 1)} Ko
                   </p>
                 </div>
               </div>

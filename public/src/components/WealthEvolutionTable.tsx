@@ -8,6 +8,7 @@ import type { EvolutionPeriod, CatEvolution, LiveByCat } from '../utils/wealthEv
 import type { RawHistoryEntry, WealthCategory } from '../utils/wealthTimeline';
 import type { OwnerScope } from '../hooks/useWealthScope';
 import { fmt } from '../utils/format';
+import { formatPercent } from '../lib/formatters';
 
 const CAT_ORDER: WealthCategory[] = [
   'courants',
@@ -45,7 +46,7 @@ export const DeltaValue: React.FC<{ delta: number; pct: number | null }> = ({ de
       {positive ? '+' : ''}
       {fmt(delta)}
       <span className="ml-2 font-medium opacity-80">
-        {pct === null ? '—' : `${positive ? '+' : ''}${pct.toFixed(1)}%`}
+        {pct === null ? '—' : formatPercent(pct, { signed: true })}
       </span>
     </span>
   );

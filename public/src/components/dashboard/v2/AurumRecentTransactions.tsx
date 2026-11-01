@@ -8,6 +8,7 @@ import { IconButton } from '../../../ui';
 import { formatCurrency } from '../../../lib/formatters';
 import { CategoryIcon } from '../../CategoryIcon';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
+import { parseCalendarDate, toCalendarKey } from '../../../utils/date';
 
 interface Transaction {
   id: string;
@@ -70,17 +71,16 @@ export const AurumRecentTransactions: React.FC<{
     );
   }
 
-  const MS_IN_A_DAY = 86400000;
   const formatDateLabel = (dateStr: string) => {
     if (dateStr === 'undated') return 'Date inconnue';
     // Un seul instant pour « aujourd'hui » et « hier » (cohérents même à minuit).
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const yesterday = new Date(now.getTime() - MS_IN_A_DAY).toISOString().split('T')[0];
+    const today = toCalendarKey(now);
+    const yesterday = toCalendarKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
 
     if (dateStr === today) return "Aujourd'hui";
     if (dateStr === yesterday) return 'Hier';
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
+    return parseCalendarDate(dateStr).toLocaleDateString('fr-FR', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',

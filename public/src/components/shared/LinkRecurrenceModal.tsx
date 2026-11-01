@@ -5,6 +5,8 @@ import { Modal } from './Modal';
 import type { Recurrence, Transaction } from '../../types/banking.types';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
 import { CategoryIcon } from '../CategoryIcon';
+import { parseCalendarDate } from '../../utils/date';
+import { formatPercent } from '../../lib/formatters';
 
 interface LinkRecurrenceModalProps {
   recurrence: Recurrence | null;
@@ -29,7 +31,7 @@ export const LinkRecurrenceModal: React.FC<LinkRecurrenceModalProps> = ({
   const [search, setSearch] = useState('');
 
   const formatDay = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const d = parseCalendarDate(dateStr);
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
@@ -140,7 +142,7 @@ export const LinkRecurrenceModal: React.FC<LinkRecurrenceModalProps> = ({
                         {tx.date && ` · ${formatDay(tx.date)}`}
                         {sameCat
                           ? ' · même catégorie'
-                          : ` · écart ${(amountDiff * 100).toFixed(0)}%`}
+                          : ` · écart ${formatPercent(amountDiff * 100, { decimals: 0 })}`}
                       </p>
                     </div>
                     <span className="text-footnote font-semibold tabular-nums text-white shrink-0">

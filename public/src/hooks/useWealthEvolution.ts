@@ -11,6 +11,7 @@ import {
 import { creditsForOwners } from '../utils/creditSchedule';
 import { useCredits } from './useCredits';
 import type { OwnerScope } from './useWealthScope';
+import { toCalendarKey } from '../utils/date';
 
 /**
  * Évolution chiffrée du patrimoine (total + par catégorie) sur une période.
@@ -47,7 +48,7 @@ export function useWealthEvolution(
       now,
       customFrom ? { from: customFrom, to: customTo } : undefined,
     );
-    const todayISO = now.toISOString().split('T')[0]!;
+    const todayISO = toCalendarKey(now);
     const includesToday = range.to === null || range.to >= todayISO;
     // Total live nul = données pas encore chargées : on n'ancre pas sur 0.
     const hasLiveData = liveByCat && Object.values(liveByCat).some((v) => v !== 0);

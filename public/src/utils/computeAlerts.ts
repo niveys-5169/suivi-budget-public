@@ -1,4 +1,5 @@
 import type { Alert, Recurrence, Transaction } from '../types/banking.types';
+import { formatCurrency } from '../lib/formatters';
 import {
   getPeriodKey,
   computePeriodState,
@@ -59,7 +60,7 @@ export function computeAlerts({
         id: `budget-over-${b.id}`,
         type: 'error',
         title: 'Budget dépassé',
-        desc: `Enveloppe "${b.categorie}" dépassée de ${(spent - b.montant).toFixed(0)} € en ${formatMonth(prevMonthKey)}`,
+        desc: `Enveloppe "${b.categorie}" dépassée de ${formatCurrency(spent - b.montant, 'EUR', 'fr-FR', { maximumFractionDigits: 0 })} en ${formatMonth(prevMonthKey)}`,
         time: 'Mois passé',
       });
     } else if (ratio >= 0.8) {
@@ -104,7 +105,7 @@ export function computeAlerts({
           id: `recurring-price-${r.id}`,
           type: 'info',
           title: 'Hausse de prix détectée',
-          desc: `"${r.label}" : ${paidAmount.toFixed(2)} € au lieu de ${expected.toFixed(2)} € attendus`,
+          desc: `"${r.label}" : ${formatCurrency(paidAmount)} au lieu de ${formatCurrency(expected)} attendus`,
           time: 'Ce mois',
           actionTab: 'recurring',
         });

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Clock, Globe, BarChart2 } from 'lucide-react';
 import { Holding } from '../hooks/usePortfolio';
 import { fmt } from '../utils/format';
+import { formatPercent } from '../lib/formatters';
 import { Skeleton } from './shared/Skeleton';
 
 interface WealthPortfolioTableProps {
@@ -134,7 +135,7 @@ export const WealthPortfolioTable: React.FC<WealthPortfolioTableProps> = ({
                         className={`text-caption font-semibold tabular-nums opacity-60 ${isPositive ? 'text-positive' : 'text-negative'}`}
                       >
                         {isPositive ? '+' : ''}
-                        {h.unrealizedGainPct.toFixed(2)}%
+                        {formatPercent(h.unrealizedGainPct, { decimals: 2 })}
                       </span>
                     </div>
                   </td>

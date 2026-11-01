@@ -1,4 +1,4 @@
-import { getAssignedMonthKey } from '../utils/date';
+import { diffInDays, getAssignedMonthKey, parseCalendarDate, toCalendarKey } from '../utils/date';
 
 /**
  * consumption.ts — Calcul de la consommation des budgets (V1 côté client)
@@ -58,24 +58,20 @@ export interface ConsumptionResult {
   transactionIds: Array<string | undefined>;
 }
 
-// Helper pour formater une date en YYYY-MM-DD local sans décalage UTC
-const toLocalISO = (d: Date): string => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+// Une chaîne `YYYY-MM-DD` est une date calendaire locale, pas un instant UTC.
+const toRefDate = (value: Date | string | number): Date =>
+  typeof value === 'string' ? parseCalendarDate(value) : new Date(value);
 
 export function getPeriodBounds(
   budget: ConsumptionBudget,
   referenceDate: Date | string | number = new Date(),
 ): PeriodBounds {
-  const ref = new Date(referenceDate);
+  const ref = toRefDate(referenceDate);
   if (!budget?.periode?.type) {
     // Par défaut, mois courant si infos manquantes pour éviter le crash
     return {
-      debut: toLocalISO(new Date(ref.getFullYear(), ref.getMonth(), 1)),
-      fin: toLocalISO(new Date(ref.getFullYear(), ref.getMonth() + 1, 0)),
+      debut: toCalendarKey(new Date(ref.getFullYear(), ref.getMonth(), 1)),
+      fin: toCalendarKey(new Date(ref.getFullYear(), ref.getMonth() + 1, 0)),
     };
   }
 
@@ -94,8 +90,8 @@ export function getPeriodBounds(
     debut = new Date(ref);
     debut.setFullYear(ref.getFullYear() - 1);
   } else if (pType === 'custom') {
-    debut = new Date(budget.periode.debut || ref);
-    fin = new Date(budget.periode.fin || ref);
+    debut = budget.periode.debut ? parseCalendarDate(budget.periode.debut) : new Date(ref);
+    fin = budget.periode.fin ? parseCalendarDate(budget.periode.fin) : new Date(ref);
   } else {
     // Fallback mois courant au lieu de throw
     debut = new Date(ref.getFullYear(), ref.getMonth(), 1);
@@ -103,8 +99,8 @@ export function getPeriodBounds(
   }
 
   return {
-    debut: toLocalISO(debut),
-    fin: toLocalISO(fin),
+    debut: toCalendarKey(debut),
+    fin: toCalendarKey(fin),
   };
 }
 
@@ -114,16 +110,14 @@ export function calculateRythmeTheorique(
   debutStr: string,
   finStr: string,
 ): number {
-  const ref = new Date(referenceDate);
-  const debut = new Date(debutStr);
-  const fin = new Date(finStr);
+  const ref = toRefDate(referenceDate);
+  const debut = parseCalendarDate(debutStr);
+  const fin = parseCalendarDate(finStr);
   const montant = budget.montant;
 
-  const joursTotaux = Math.round((+fin - +debut) / (1000 * 60 * 60 * 24)) + 1;
-  const joursEcoules = Math.min(
-    Math.max(0, Math.round((+ref - +debut) / (1000 * 60 * 60 * 24)) + 1),
-    joursTotaux,
-  );
+  const joursTotaux = diffInDays(debut, fin) + 1;
+  const refJour = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  const joursEcoules = Math.min(Math.max(0, diffInDays(debut, refJour) + 1), joursTotaux);
 
   const moisAttendus = budget.moisAttendus || [];
   if (budget.type === 'annuel' && moisAttendus.length > 0) {
@@ -151,7 +145,7 @@ export function computeConsumption(
   transactions: ConsumptionTransaction[],
   referenceDate: Date | string | number = new Date(),
 ): ConsumptionResult {
-  const ref = new Date(referenceDate);
+  const ref = toRefDate(referenceDate);
   const { debut, fin } = getPeriodBounds(budget, ref);
   const pType = budget.periode?.type;
 

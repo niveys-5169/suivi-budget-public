@@ -19,6 +19,7 @@ import { formatCurrency } from '../../../lib/formatters';
 import { parseDecimal } from '../../../utils/format';
 import { buildHistoryAssets } from '../../../utils/historyAssets';
 import { withRetry } from '../../../utils/withRetry';
+import { toCalendarKey } from '../../../utils/date';
 
 interface HistoryEntry {
   id: string;
@@ -131,7 +132,7 @@ export const HistoryManagementModal: React.FC<Props> = ({ onClose }) => {
     const newRow: HistoryEntry = {
       id: `temp_${Date.now()}`,
       assetId: selectedAssetId,
-      date: new Date().toISOString().split('T')[0]!,
+      date: toCalendarKey(new Date()),
       montant: 0,
       owner: selectedAsset.owner,
       type: selectedAsset.type,

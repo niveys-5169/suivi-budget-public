@@ -34,6 +34,37 @@ export function parseDateInput(value: DateInput): Date | null {
   return Number.isNaN(converted.getTime()) ? null : converted;
 }
 
+const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Lit une date calendaire `YYYY-MM-DD` comme minuit LOCAL, à partir de ses
+ * composantes (jamais d'aller-retour UTC) : `new Date('2026-10-31')` vaut minuit
+ * UTC, donc la veille dès que le fuseau est négatif. Une date inexistante
+ * (`2026-02-31`) donne une Date invalide au lieu de déborder sur mars.
+ * Toute autre chaîne (horodatage ISO complet avec heure/offset) garde la
+ * sémantique de `new Date(str)`.
+ */
+export function parseCalendarDate(str: string): Date {
+  const match = CALENDAR_DATE.exec(str);
+  if (!match) return new Date(str);
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(year, month - 1, day);
+  const valid =
+    date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+  return valid ? date : new Date(NaN);
+}
+
+/**
+ * Clé calendaire `YYYY-MM-DD` du jour LOCAL de `d` (à l'inverse de
+ * `toISOString().slice(0, 10)`, qui donne le jour UTC : la veille / le lendemain
+ * autour de minuit).
+ */
+export function toCalendarKey(d: Date): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 /**
  * Retourne le nombre de jours entre deux dates (arrondi à l'entier le plus proche).
  */

@@ -13,6 +13,7 @@ import { transactionFormSchema, type TransactionFormValues } from '../lib/schema
 import { useFirestoreErrorHandler } from '../hooks/useFirestoreErrorHandler';
 import { confirm } from '../lib/confirm';
 import { toVentilationParts } from '../utils/ventilation';
+import { toCalendarKey } from '../utils/date';
 
 type TransactionFormModalProps = {
   isOpen: boolean;
@@ -24,7 +25,7 @@ type TransactionFormModalProps = {
   accounts: string[];
 };
 
-const todayISO = () => new Date().toISOString().split('T')[0]!;
+const todayISO = () => toCalendarKey(new Date());
 
 const buildDefaults = (
   transaction: Transaction | null | undefined,

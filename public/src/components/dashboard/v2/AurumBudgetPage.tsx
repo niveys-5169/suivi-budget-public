@@ -8,8 +8,8 @@ import { AurumBudgetDetail } from './AurumBudgetDetail';
 import { AurumTransactionDetail } from './AurumTransactionDetail';
 import { AurumBudgetGlobalFocus } from './AurumBudgetGlobalFocus';
 import { getBudgetedMonthlyIncome, isIncomeBudget } from '../../../utils/budgetHelpers';
-import { getExpectedPaceProgress } from '../../../utils/date';
-import { formatCurrency } from '../../../lib/formatters';
+import { getExpectedPaceProgress, toCalendarKey } from '../../../utils/date';
+import { formatCurrency, formatPercent } from '../../../lib/formatters';
 import { parseDecimal } from '../../../utils/format';
 import { EmptyState } from '../../shared/EmptyState';
 
@@ -51,7 +51,7 @@ const AurumBudgetGauge: React.FC<{ spent: number; total: number; label: string }
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="text-caption font-semibold text-label-tertiary">{label}</span>
           <span className="text-2xl font-bold tracking-tighter tabular-nums">
-            {percentage.toFixed(0)}%
+            {formatPercent(percentage, { decimals: 0 })}
           </span>
         </div>
       </div>
@@ -105,7 +105,7 @@ export const AurumBudgetPage: React.FC = () => {
     });
   }, [budgets, sortMode]);
 
-  const safeMonthKey = monthKey || new Date().toISOString().slice(0, 7);
+  const safeMonthKey = monthKey || toCalendarKey(new Date()).slice(0, 7);
   const [yearStr = ''] = safeMonthKey.split('-');
 
   // O(N) optimization: Group spent amount by category once per snapshot
@@ -376,7 +376,7 @@ export const AurumBudgetPage: React.FC = () => {
                   <div className="flex justify-between text-caption font-semibold">
                     <span className="text-label-tertiary">Budget Consommé</span>
                     <span className={burnRate.isOverSpeed ? 'text-negative' : 'text-positive'}>
-                      {burnRate.budgetProgress.toFixed(0)}%
+                      {formatPercent(burnRate.budgetProgress, { decimals: 0 })}
                     </span>
                   </div>
                   <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden p-1 border border-separator">
@@ -450,7 +450,8 @@ export const AurumBudgetPage: React.FC = () => {
                       <div>
                         <p className="text-footnote font-semibold text-white">{b.categorie}</p>
                         <p className="text-caption font-bold text-label-tertiary mt-1">
-                          {spent.toFixed(0)} € dépensés
+                          {formatCurrency(spent, 'EUR', 'fr-FR', { maximumFractionDigits: 0 })}{' '}
+                          dépensés
                         </p>
                       </div>
                     </div>

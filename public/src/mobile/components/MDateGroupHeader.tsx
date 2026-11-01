@@ -1,5 +1,6 @@
 import React from 'react';
 import { FormattedNumber } from 'react-intl';
+import { parseCalendarDate, toCalendarKey } from '../../utils/date';
 
 type MDateGroupHeaderProps = {
   date: string; // ISO 'YYYY-MM-DD'
@@ -8,11 +9,12 @@ type MDateGroupHeaderProps = {
 };
 
 function formatGroupDate(dateStr: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const now = new Date();
+  const today = toCalendarKey(now);
+  const yesterday = toCalendarKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
   if (dateStr === today) return "Aujourd'hui";
   if (dateStr === yesterday) return 'Hier';
-  return new Date(dateStr)
+  return parseCalendarDate(dateStr)
     .toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
     .toUpperCase();
 }

@@ -25,6 +25,7 @@ import { categoryKey, preferDisplayLabel } from '../../../utils/budgetHelpers';
 import { budgetDocKey } from '../../../utils/budgetKey';
 import { Transaction, BudgetBase, BudgetConsumption } from '../../../types/banking.types';
 import { hideLoader } from '../../../utils/loader';
+import { parseCalendarDate, toCalendarKey } from '../../../utils/date';
 
 export interface CategoryDetail extends Partial<BudgetConsumption> {
   id: string;
@@ -247,7 +248,7 @@ export const BankinBudgetsContainer: React.FC = () => {
         if (viewMode === 'monthly') {
           const dayMap: Record<number, number> = {};
           catTx.forEach((tx) => {
-            const day = new Date(tx.date).getDate();
+            const day = parseCalendarDate(tx.date).getDate();
             dayMap[day] = (dayMap[day] || 0) + (tx.montant || 0);
           });
           let cumul = 0;
@@ -319,7 +320,7 @@ export const BankinBudgetsContainer: React.FC = () => {
     if (viewMode === 'monthly') {
       const totalDayMap: Record<number, number> = {};
       monthTx.forEach((tx) => {
-        const day = new Date(tx.date).getDate();
+        const day = parseCalendarDate(tx.date).getDate();
         totalDayMap[day] = (totalDayMap[day] || 0) + (tx.montant || 0);
       });
 
@@ -533,7 +534,7 @@ export const BankinBudgetsContainer: React.FC = () => {
           // Sans revenus de référence configurés ou sur un mois passé clôturé, on garde le solde réellement encaissé.
           forecastBalance={
             viewMode === 'monthly' &&
-            monthKey >= new Date().toISOString().slice(0, 7) &&
+            monthKey >= toCalendarKey(new Date()).slice(0, 7) &&
             rav.revenuRef > 0
               ? rav.reste
               : undefined

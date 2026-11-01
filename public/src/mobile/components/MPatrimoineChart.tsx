@@ -6,15 +6,10 @@ import type { OwnerScope } from '../../hooks/useWealthScope';
 import { useCredits } from '../../hooks/useCredits';
 import { creditsForOwners } from '../../utils/creditSchedule';
 import { FormattedNumber } from 'react-intl';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCompactCurrency, formatCurrency } from '../../lib/formatters';
 import { CHART_COLORS } from '../../lib/colors';
 import type { WealthHistoryEntry, PatrimoineSnapshot } from '../../types/patrimoine';
-
-const fmt = (n: number) => {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `${Math.round(n / 1_000)}k`;
-  return String(Math.round(n));
-};
+import { parseCalendarDate } from '../../utils/date';
 
 /** Clés du filtre de type (MPatrimoineFilterModal) → catégories de la timeline. */
 const SCOPE_KEY_TO_CAT: Record<string, WealthCategory> = {
@@ -53,7 +48,7 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
 
   const data = useMemo(() => {
     const { from } = periodRangeISO(period);
-    const threshold = from ? new Date(from).getTime() : -Infinity;
+    const threshold = from ? parseCalendarDate(from).getTime() : -Infinity;
     let points: { label: string; total: number; timestamp: number }[];
     if (history?.length > 0) {
       const timeline = buildWealthTimeline(history, {
@@ -74,11 +69,11 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
         .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
         .map((snap) => {
           const total = Object.values(snap.owners).reduce((sum, o) => sum + (o.total || 0), 0);
-          const label = new Date(snap.monthKey + '-01').toLocaleDateString('fr-FR', {
+          const label = parseCalendarDate(snap.monthKey + '-01').toLocaleDateString('fr-FR', {
             month: 'short',
             year: '2-digit',
           });
-          return { label, total, timestamp: new Date(snap.monthKey + '-01').getTime() };
+          return { label, total, timestamp: parseCalendarDate(snap.monthKey + '-01').getTime() };
         })
         .filter((p) => p.timestamp >= threshold);
     }
@@ -145,11 +140,11 @@ const MPatrimoineChartImpl: React.FC<Props> = ({
             minTickGap={40}
           />
           <YAxis
-            tickFormatter={fmt}
+            tickFormatter={formatCompactCurrency}
             tick={{ fill: CHART_COLORS.axis, fontSize: 10 }}
             tickLine={false}
             axisLine={false}
-            width={36}
+            width={48}
           />
           <Tooltip
             contentStyle={{

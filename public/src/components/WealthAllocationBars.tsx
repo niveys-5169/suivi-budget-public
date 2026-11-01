@@ -2,6 +2,7 @@ import React from 'react';
 import { CHART_COLORS } from '../lib/colors';
 import { categoryColor } from '../ui';
 import { motion } from 'framer-motion';
+import { formatPercent } from '../lib/formatters';
 
 interface Segment {
   type: string;
@@ -42,7 +43,7 @@ export const WealthAllocationBars: React.FC<WealthAllocationBarsProps> = ({ segm
               animate={{ width: `${s.pct}%` }}
               className="h-full"
               style={{ backgroundColor: SEGMENT_COLORS[s.type] }}
-              title={`${SEGMENT_LABELS[s.type]}: ${s.pct.toFixed(1)}%`}
+              title={`${SEGMENT_LABELS[s.type]}: ${formatPercent(s.pct)}`}
             />
           ))}
       </div>
@@ -67,7 +68,7 @@ export const WealthAllocationBars: React.FC<WealthAllocationBarsProps> = ({ segm
                   maximumFractionDigits: 0,
                 })}
               </p>
-              <p className="text-caption font-semibold text-label/20">{s.pct.toFixed(1)}%</p>
+              <p className="text-caption font-semibold text-label/20">{formatPercent(s.pct)}</p>
             </div>
           </div>
         ))}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { fmt } from '../../../utils/format';
+import { formatPercent } from '../../../lib/formatters';
 import { BUCKET_COLORS } from '../../../utils/simplifiedBuckets';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { CategoryIcon } from '../../CategoryIcon';
@@ -91,7 +92,7 @@ export const BucketDrillDown: React.FC<Props> = ({
                       />
                     </div>
                     <span className="text-caption text-label-tertiary font-bold tabular-nums">
-                      {cat.percentage.toFixed(0)}%
+                      {formatPercent(cat.percentage, { decimals: 0 })}
                     </span>
                   </div>
                 </div>

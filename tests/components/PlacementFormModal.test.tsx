@@ -26,7 +26,7 @@ describe("PlacementFormModal — édition d'un placement", () => {
     render(
       <PlacementFormModal
         placement={{ id: 'abc-123', nom: 'Livret A', type: 'savings', montant: 5000 }}
-        previousAmount={{ montant: 4500, date: new Date('2026-03-15') }}
+        previousAmount={{ montant: 4500, date: new Date(2026, 2, 15) }}
         onClose={() => {}}
         onSave={() => {}}
       />,
@@ -42,7 +42,7 @@ describe("PlacementFormModal — édition d'un placement", () => {
     render(
       <PlacementFormModal
         placement={{ id: 'live_pf_xyz', nom: 'Portefeuille Live', type: 'market', montant: 10000 }}
-        previousAmount={{ montant: 9000, date: new Date('2026-03-15') }}
+        previousAmount={{ montant: 9000, date: new Date(2026, 2, 15) }}
         onClose={() => {}}
         onSave={() => {}}
       />,

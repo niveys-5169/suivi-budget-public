@@ -5,6 +5,7 @@ import {
   Transaction,
   MonthOverride,
 } from '../types/banking.types';
+import { parseCalendarDate, toCalendarKey } from './date';
 
 /**
  * Normalise un libellé pour la détection et la génération de clés.
@@ -68,10 +69,6 @@ function parseAnchor(anchorDate?: string): ParsedAnchor | null {
 
 function isoDateString(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-function dateToISO(d: Date): string {
-  return isoDateString(d.getFullYear(), d.getMonth() + 1, d.getDate());
 }
 
 /**
@@ -192,7 +189,8 @@ function dayDiffToExpected(rec: Recurrence, tx: Transaction): number | null {
   if (dateParts.length !== 3 || dateParts.some((p) => !p || isNaN(Number(p)))) return null;
   const expected = getExpectedDate(rec, getPeriodKey(dateStr));
   return Math.round(
-    Math.abs(new Date(dateStr).getTime() - new Date(expected).getTime()) / 86_400_000,
+    Math.abs(parseCalendarDate(dateStr).getTime() - parseCalendarDate(expected).getTime()) /
+      86_400_000,
   );
 }
 
@@ -289,17 +287,17 @@ export function getUpcomingOccurrences(
   from: Date,
   days: number,
 ): UpcomingOccurrence[] {
-  const fromKey = dateToISO(from);
+  const fromKey = toCalendarKey(from);
   const toDate = new Date(from);
   toDate.setDate(toDate.getDate() + days);
-  const toKey = dateToISO(toDate);
+  const toKey = toCalendarKey(toDate);
 
   const occurrences: UpcomingOccurrence[] = [];
   const seenPeriods = new Set<string>();
   const cursor = new Date(from);
 
-  while (dateToISO(cursor) <= toKey) {
-    const periodKey = getPeriodKey(dateToISO(cursor));
+  while (toCalendarKey(cursor) <= toKey) {
+    const periodKey = getPeriodKey(toCalendarKey(cursor));
     if (!seenPeriods.has(periodKey)) {
       seenPeriods.add(periodKey);
       const date = getExpectedDate(rec, periodKey);
@@ -410,7 +408,7 @@ export function computePeriodState(
   const todayMidnight = new Date(today);
   todayMidnight.setHours(0, 0, 0, 0);
   const daysUntil = Math.round(
-    (new Date(expectedDate).getTime() - todayMidnight.getTime()) / 86_400_000,
+    (parseCalendarDate(expectedDate).getTime() - todayMidnight.getTime()) / 86_400_000,
   );
 
   return {

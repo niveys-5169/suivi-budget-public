@@ -42,7 +42,7 @@ describe('capitalRestantDu', () => {
 
   it('decreases partway through the loan', () => {
     const credit = makeCredit();
-    const crd = capitalRestantDu(credit, new Date('2029-12-01')); // 120 payments made
+    const crd = capitalRestantDu(credit, new Date(2029, 11, 1)); // 120 payments made
     expect(crd).toBeGreaterThan(0);
     expect(crd).toBeLessThan(200000);
     // Amortization sanity check against the closed-form outstanding-balance formula.
@@ -59,7 +59,7 @@ describe('capitalRestantDu', () => {
   it('handles a 0 % rate linearly', () => {
     const credit = makeCredit({ tauxAnnuel: 0, capitalInitial: 24000, dureeMois: 24 });
     // 12 payments made -> half the capital remains
-    const crd = capitalRestantDu(credit, new Date('2020-12-01'));
+    const crd = capitalRestantDu(credit, new Date(2020, 11, 1));
     expect(crd).toBeCloseTo(12000, 6);
   });
 });

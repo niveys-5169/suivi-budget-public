@@ -61,10 +61,41 @@ export const formatMaskedIban = (iban: string): string => {
 };
 
 /**
- * Calcule et formate la variation en pourcentage avec signe.
+ * Formate un pourcentage à la française : « 8,3 % » (espace insécable avant %).
+ * `pct` est exprimé en points de pourcentage (8.3 → « 8,3 % », pas 0.083).
+ * `decimals` est un nombre fixe de décimales (comme `toFixed`), 1 par défaut.
+ * `signed` préfixe « + » aux valeurs positives (zéro exclu).
  */
-export const formatPercent = (value: number): string => {
-  const sign = value >= 0 ? '+' : '';
-  // Utilisation de l'espace insécable pour éviter le saut de ligne entre chiffre et %
-  return `${sign}${value.toFixed(2)}%`.replace('.', ',');
-};
+export const formatPercent = (
+  pct: number,
+  { decimals = 1, signed = false }: { decimals?: number; signed?: boolean } = {},
+): string =>
+  getFormatter('fr-FR', {
+    style: 'percent',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    signDisplay: signed ? 'exceptZero' : 'auto',
+    // `+ 0` normalise -0 (ex. 0 / base négative) : Intl afficherait « -0,0 % », toFixed « 0.0 ».
+  }).format(pct / 100 + 0);
+
+/**
+ * Montant compact pour les graduations d'axes : 1 234 → « 1,2 k € », 1 500 000 → « 1,5 M € ».
+ */
+export const formatCompactCurrency = (value: number): string =>
+  getFormatter('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    notation: 'compact',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value);
+
+/**
+ * Nombre décimal à la française avec un nombre fixe de décimales (virgule, espace fine insécable
+ * pour les milliers) : (0.9557, 4) → « 0,9557 ».
+ */
+export const formatDecimal = (value: number, decimals = 2): string =>
+  getFormatter('fr-FR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value);

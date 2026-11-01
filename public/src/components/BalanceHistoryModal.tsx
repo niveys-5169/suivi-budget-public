@@ -491,14 +491,15 @@ export const BalanceHistoryModal: React.FC<BalanceHistoryModalProps> = ({
 
                         {/* Right: Balance Info */}
                         <div className="text-right flex-shrink-0 ml-4">
-                          <p className="font-bold text-white">€{entry.balance_value.toFixed(2)}</p>
+                          <p className="font-bold text-white">{fmt(entry.balance_value)}</p>
                           {delta !== undefined && (
                             <p
                               className={`text-xs font-medium mt-1 ${
                                 delta >= 0 ? 'text-positive' : 'text-negative'
                               }`}
                             >
-                              {delta >= 0 ? '+' : ''}€{delta.toFixed(2)}
+                              {delta >= 0 ? '+' : ''}
+                              {fmt(delta)}
                             </p>
                           )}
                         </div>

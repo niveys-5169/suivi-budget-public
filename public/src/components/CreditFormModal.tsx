@@ -11,6 +11,7 @@ import { fmt } from '../utils/format';
 import { MoneyInput } from './shared/MoneyInput';
 import { Button, Field, IconButton, Input, Select, Sheet, Stack, Text } from '../ui';
 import { confirm } from '../lib/confirm';
+import { toCalendarKey } from '../utils/date';
 
 interface CreditFormModalProps {
   credit?: Credit;
@@ -24,7 +25,7 @@ const buildDefaults = (credit: Credit | undefined): CreditFormValues => ({
   capitalInitial: credit?.capitalInitial ?? 0,
   tauxAnnuel: credit?.tauxAnnuel ?? 0,
   dureeMois: credit?.dureeMois ?? 240,
-  dateDebut: credit?.dateDebut ?? new Date().toISOString().split('T')[0]!,
+  dateDebut: credit?.dateDebut ?? toCalendarKey(new Date()),
   assuranceMensuelle: credit?.assuranceMensuelle ?? 0,
   commentaire: credit?.commentaire ?? '',
 });

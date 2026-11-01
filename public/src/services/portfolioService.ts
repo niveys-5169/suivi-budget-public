@@ -25,6 +25,7 @@ import type {
   PortfolioTx,
   PortfolioMirrorData,
 } from '../types/banking.types';
+import { toCalendarKey } from '../utils/date';
 
 export type { Holding, PortfolioContractAccount, PortfolioTx, PortfolioMirrorData };
 
@@ -199,7 +200,7 @@ export async function getTransactions(uid: string): Promise<PortfolioTx[]> {
  */
 export async function writeHistorySnapshots(db: Firestore, holdings: Holding[]): Promise<void> {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = toCalendarKey(new Date());
     const historyBatch = writeBatch(db);
     let historyCount = 0;
     holdings.forEach((h) => {

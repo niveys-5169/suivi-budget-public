@@ -24,6 +24,7 @@ import { formatCurrency } from '../../lib/formatters';
 import { getCategoryMeta } from '../../constants/categoryMetadata';
 import { EmptyState } from '../shared/EmptyState';
 import { MoneyInput } from '../shared/MoneyInput';
+import { parseCalendarDate } from '../../utils/date';
 
 const ICONS: Record<string, React.ElementType> = {
   utensils: Utensils,
@@ -136,7 +137,7 @@ const TransactionDetailBody: React.FC<{
           {formatCurrency(tx.montant ?? 0, 'EUR')}
         </p>
         <p className="text-caption font-semibold text-label/40 mt-4">
-          {new Date(tx.date).toLocaleDateString('fr-FR', {
+          {parseCalendarDate(tx.date).toLocaleDateString('fr-FR', {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
@@ -359,7 +360,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({
   const grouped = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
     filteredTransactions.forEach((t) => {
-      const date = new Date(t.date).toLocaleDateString('fr-FR', {
+      const date = parseCalendarDate(t.date).toLocaleDateString('fr-FR', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',

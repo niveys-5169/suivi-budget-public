@@ -21,7 +21,7 @@ const CATEGORY_COLORS = [
   CHART_COLORS.pink,
 ];
 
-import { formatCurrency } from '../../../lib/formatters';
+import { formatCompactCurrency, formatCurrency } from '../../../lib/formatters';
 
 const fmt = (n: number) => formatCurrency(n, 'EUR', 'fr-FR', { maximumFractionDigits: 0 });
 
@@ -107,7 +107,7 @@ const TrendLineChartImpl: React.FC<TrendLineChartProps> = ({ breakdown }) => {
           tick={{ fill: 'rgba(255,255,255,0.20)', fontSize: 10 }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => `${v}€`}
+          tickFormatter={formatCompactCurrency}
         />
         <Tooltip content={<CustomTooltip />} />
         {topCats.map((cat, i) => (

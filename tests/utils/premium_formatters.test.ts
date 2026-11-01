@@ -34,15 +34,15 @@ describe('Premium Banking Formatters', () => {
 
   describe('formatPercent', () => {
     it('should add a plus sign for positive percentages', () => {
-      expect(formatPercent(4.25)).toBe('+4,25%');
+      expect(formatPercent(4.25, { decimals: 2, signed: true })).toBe('+4,25\u00a0%');
     });
 
     it('should keep the minus sign for negative percentages', () => {
-      expect(formatPercent(-1.5)).toBe('-1,50%');
+      expect(formatPercent(-1.5, { decimals: 2, signed: true })).toBe('-1,50\u00a0%');
     });
 
     it('should format zero correctly', () => {
-      expect(formatPercent(0)).toBe('+0,00%');
+      expect(formatPercent(0, { decimals: 2, signed: true })).toBe('0,00\u00a0%');
     });
   });
 });

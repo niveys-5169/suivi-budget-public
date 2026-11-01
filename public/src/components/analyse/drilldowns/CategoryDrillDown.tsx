@@ -1,6 +1,7 @@
 import React from 'react';
 import { CHART_COLORS } from '../../../lib/colors';
 import { fmt } from '../../../utils/format';
+import { formatPercent } from '../../../lib/formatters';
 import { getCategoryMeta } from '../../../constants/categoryMetadata';
 import { CategoryIcon } from '../../CategoryIcon';
 import type { Transaction } from '../../../hooks/useTransactions';
@@ -60,7 +61,7 @@ export const CategoryDrillDown: React.FC<Props> = ({
             <div className="flex justify-between text-caption font-bold">
               <span className="text-label-tertiary">Budget</span>
               <span className={isExceeded ? 'text-negative' : 'text-label-secondary'}>
-                {fmt(budget)} • {budgetPct.toFixed(0)}%
+                {fmt(budget)} • {formatPercent(budgetPct, { decimals: 0 })}
               </span>
             </div>
             <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">

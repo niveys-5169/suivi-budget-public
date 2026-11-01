@@ -8,5 +8,8 @@
   "hex-literal": 239,
   "raw-button": 251,
   "raw-input": 56,
-  "legacy-glass": 0
+  "legacy-glass": 0,
+  "date-parse": 34,
+  "iso-day-key": 8,
+  "to-fixed": 10
 }

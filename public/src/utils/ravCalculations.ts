@@ -4,6 +4,7 @@ import { getPeriodKey, getAmountForPeriod, isSettled } from './recurrenceEngine'
 import { resolveRecurrencePeriods } from './resolveRecurrencePeriods';
 import { PATRIMONIAL_FLOW_CATEGORY_ALIASES } from '../constants/transactionFlowCategories';
 import { categoryKey } from './budgetHelpers';
+import { toCalendarKey } from './date';
 
 export interface DerivedRav {
   reste: number;
@@ -206,7 +207,7 @@ export function getRecurringProvisions(
 ): number {
   const today = options?.referenceDate || new Date();
   if (options?.checkPastMonth) {
-    const currentMonthKey = today.toISOString().slice(0, 7);
+    const currentMonthKey = toCalendarKey(today).slice(0, 7);
     if (monthKey < currentMonthKey) {
       return 0;
     }
@@ -286,7 +287,7 @@ export function computeDerivedRav(cfg: RavConfigFormValues, ctx: RavContext): De
   }
 
   const today = referenceDate || new Date();
-  const currentMonthKey = today.toISOString().slice(0, 7);
+  const currentMonthKey = toCalendarKey(today).slice(0, 7);
   const isPastMonth = monthKey < currentMonthKey;
 
   const expenseProvisions = getRecurringProvisions(monthKey, txList, recurrences, 'expense', {

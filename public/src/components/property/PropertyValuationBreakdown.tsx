@@ -6,8 +6,10 @@ import type {
   EstimationImmobiliere,
   JustificationEstimation,
 } from '../../types/banking.types';
+import { formatDecimal, formatPercent } from '../../lib/formatters';
 import { fmt } from '../../utils/format';
 import { Amount, Badge, Stack, Text } from '../../ui';
+import { parseCalendarDate } from '../../utils/date';
 
 interface PropertyValuationBreakdownProps {
   estimation: EstimationImmobiliere & { justification: JustificationEstimation };
@@ -18,9 +20,7 @@ interface PropertyValuationBreakdownProps {
 const SURFACE_MIN = 0.7;
 const SURFACE_MAX = 1.3;
 
-const pct = (n: number, digits = 1): string => n.toFixed(digits).replace('.', ',');
-const signedPct = (n: number): string => `${n > 0 ? '+' : ''}${pct(n)} %`;
-const frDate = (iso: string): string => new Date(iso).toLocaleDateString('fr-FR');
+const frDate = (iso: string): string => parseCalendarDate(iso).toLocaleDateString('fr-FR');
 
 function adjustmentLabel(t: IntlShape['formatMessage'], a: AjustementEstimation): string {
   if (a.code.startsWith('ENERGY_')) {
@@ -149,7 +149,7 @@ export const PropertyValuationBreakdown: React.FC<PropertyValuationBreakdownProp
                   annee,
                   t({ id: 'property.why.reindex.year' }, { year: annee }),
                   <Text variant="footnote" numeric>
-                    × {ratio.toFixed(4).replace('.', ',')}
+                    × {formatDecimal(ratio, 4)}
                   </Text>,
                 ),
               )}
@@ -162,9 +162,9 @@ export const PropertyValuationBreakdown: React.FC<PropertyValuationBreakdownProp
                 { id: 'property.why.reindex.detail' },
                 {
                   from: reindexation.trimestreDepart,
-                  fromValue: pct(reindexation.indiceDepart),
+                  fromValue: formatDecimal(reindexation.indiceDepart, 1),
                   to: reindexation.trimestreActuel,
-                  toValue: pct(reindexation.indiceActuel),
+                  toValue: formatDecimal(reindexation.indiceActuel, 1),
                 },
               )}
             </Text>
@@ -173,7 +173,7 @@ export const PropertyValuationBreakdown: React.FC<PropertyValuationBreakdownProp
                 'ratio',
                 t({ id: 'property.card.how.reindex' }),
                 <Text variant="footnote" numeric>
-                  × {reindexation.ratio.toFixed(4).replace('.', ',')}
+                  × {formatDecimal(reindexation.ratio, 4)}
                 </Text>,
               )}
             </Stack>
@@ -199,7 +199,7 @@ export const PropertyValuationBreakdown: React.FC<PropertyValuationBreakdownProp
                         {adjustmentLabel(t, a)}
                         {valeur && ` · ${valeur}`}
                         {a.facteur !== undefined &&
-                          ` (${signedPct((a.facteurApplique ?? a.facteur) * 100)})`}
+                          ` (${formatPercent((a.facteurApplique ?? a.facteur) * 100, { signed: true })})`}
                       </Text>
                       {a.origine === 'ademe' && (
                         <Badge tone="neutral">{t({ id: 'property.why.origin.ademe' })}</Badge>
@@ -224,7 +224,7 @@ export const PropertyValuationBreakdown: React.FC<PropertyValuationBreakdownProp
             'mult',
             t({ id: 'property.card.how.multiplier' }),
             <Text variant="footnote" numeric>
-              × {multiplicateur.applique.toFixed(2).replace('.', ',')}
+              × {formatDecimal(multiplicateur.applique, 2)}
             </Text>,
           )}
         </Stack>
@@ -232,7 +232,7 @@ export const PropertyValuationBreakdown: React.FC<PropertyValuationBreakdownProp
           <Text variant="caption" tone="warning">
             {t(
               { id: 'property.why.multiplier.capped' },
-              { sum: signedPct(multiplicateur.somme * 100) },
+              { sum: formatPercent(multiplicateur.somme * 100, { signed: true }) },
             )}
           </Text>
         )}
