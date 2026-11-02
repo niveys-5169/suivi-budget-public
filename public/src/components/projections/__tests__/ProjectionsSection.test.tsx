@@ -149,6 +149,26 @@ describe('ProjectionsSection', () => {
     expect(within(annees).getByText(/^2029 · /)).toBeInTheDocument();
   });
 
+  it('onglet Détail : budget mensuel regroupé par période, mois par mois et colonnes détaillées', () => {
+    render(<ProjectionsSection />);
+    fireEvent.click(screen.getByRole('button', { name: 'Détail' }));
+    const budget = () => screen.getByRole('table', { name: 'Budget mensuel du foyer' });
+    const nbLignes = () => within(budget()).getAllByRole('row').length - 1;
+
+    expect(within(budget()).getByRole('columnheader', { name: 'Alice' })).toBeInTheDocument();
+    expect(within(budget()).queryByRole('columnheader', { name: 'Crédits' })).toBeNull();
+    const periodes = nbLignes();
+    expect(periodes).toBeGreaterThan(0);
+    expect(periodes).toBeLessThan(48);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mois par mois' }));
+    expect(nbLignes()).toBe(48);
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Colonnes détaillées' }));
+    expect(within(budget()).getByRole('columnheader', { name: 'Crédits' })).toBeInTheDocument();
+    expect(within(budget()).getByRole('columnheader', { name: 'Rendements' })).toBeInTheDocument();
+  });
+
   it('bandeau d information quand aucun paramètre n est enregistré', () => {
     m.projection = buildProjection({ exists: false });
     render(<ProjectionsSection />);

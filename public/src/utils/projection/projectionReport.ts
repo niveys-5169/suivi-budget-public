@@ -10,7 +10,7 @@ import { aggregateYears, buildControles, buildEvolution } from './projectionRepo
 
 /**
  * Agrège les résultats de simulation en rapport (retraite, synthèse, évolution, phases, années,
- * contrôles). Les sections « phases » et « années » portent sur le scénario affiché.
+ * contrôles). Les sections « phases », « années » et « mois » portent sur le scénario affiché.
  */
 export function buildProjectionReport(
   inputs: ProjectionInputs,
@@ -26,6 +26,7 @@ export function buildProjectionReport(
     evolution: buildEvolution(resultats),
     phases: buildPhases(affiche),
     annees: affiche ? aggregateYears(inputs, affiche) : [],
+    mois: affiche?.mois ?? [],
     controles: buildControles(inputs, resultats),
     pointsAConfirmer: aConfirmer,
   };
