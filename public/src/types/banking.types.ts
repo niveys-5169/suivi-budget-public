@@ -1075,6 +1075,8 @@ export interface ProjectionRapport {
   evolution: ProjectionEvolutionAnnee[];
   phases: ProjectionPhaseMoyenne[];
   annees: ProjectionAnneeDetail[];
+  /** Résultats mois par mois du scénario affiché (budget mensuel du foyer). */
+  mois: ProjectionMoisResultat[];
   controles: ProjectionControle[];
   pointsAConfirmer: ProjectionPointAConfirmer[];
 }
