@@ -836,6 +836,28 @@ export interface ProjectionCreditParam {
   remboursementAnticipe?: { mois: ProjectionMonth; frais?: number };
 }
 
+/**
+ * Montants réalisés d'un mois, en € courants : relevés dans les transactions ou saisis à la main.
+ * Un champ absent garde la valeur théorique (ou relevée, pour une saisie partielle).
+ */
+export interface ProjectionMoisReel {
+  revenusParPersonne?: Record<string, number>;
+  caf?: number;
+  /** Revenus non attribués à une personne ni à la CAF. */
+  autresRevenus?: number;
+  depenses?: number;
+  /** Net signé : encaissements − dépenses exceptionnelles. */
+  fluxExceptionnels?: number;
+  /**
+   * Épargne nette (versements − retraits sur les comptes d'épargne) : information sur
+   * l'emploi de la capacité ; ni une dépense ni un revenu, l'argent reste dans le patrimoine.
+   */
+  epargneNette?: number;
+}
+
+/** Origine des montants d'un mois de projection. */
+export type ProjectionSourceMois = 'theorique' | 'releve' | 'manuel';
+
 export type ProjectionClasseCategorie =
   'depense' | 'fixe' | 'exclu' | 'tresorerie' | 'interne' | 'revenu' | 'ponctuel';
 
@@ -876,6 +898,8 @@ export interface ProjectionParams {
   };
   classesCategories: Record<string, ProjectionClasseCategorie>;
   aConfirmer: ProjectionPointAConfirmer[];
+  /** Saisies manuelles par mois : priment sur les montants relevés et théoriques. */
+  moisReels?: Record<ProjectionMonth, ProjectionMoisReel>;
   /** Paramètres des calculateurs détaillés (lot 2). Absent = comportement du lot 1. */
   calculateurs?: {
     /** true = les revenus des personnes viennent des calculateurs (« Auto (calculé) »). */
@@ -946,6 +970,8 @@ export interface ProjectionInputs {
   patrimoineDepart: number;
   abondement?: ProjectionParams['capital']['abondement'];
   scenarios: ProjectionScenarioResolu[];
+  /** Montants réalisés par mois (relevés, complétés des saisies) : remplacent les théoriques. */
+  moisReels?: Record<ProjectionMonth, { valeurs: ProjectionMoisReel; source: 'releve' | 'manuel' }>;
   /** Messages non bloquants de la résolution des calculateurs (bloc manquant, scénario non calculable). */
   messagesCalculateurs?: string[];
 }
@@ -955,7 +981,9 @@ export interface ProjectionMoisResultat {
   phase: string; // phase de la personne de référence (1re personne) : 'Retraite' si pension, '—' sinon
   revenusParPersonne: Record<string, number>; // activité + pension
   caf: number;
-  revenus: number; // Σ personnes + CAF
+  autresRevenus: number; // revenus réalisés non attribués (0 pour un mois théorique)
+  epargneNette: number; // versements nets vers l'épargne relevés (0 pour un mois théorique)
+  revenus: number; // Σ personnes + CAF + autres revenus
   creditsFixes: number;
   depensesCourantes: number;
   depenses: number; // fixes + courantes (hors exceptionnelles)
@@ -970,6 +998,7 @@ export interface ProjectionMoisResultat {
   abondement: number;
   patrimoineHorsPer: number;
   patrimoineTotal: number;
+  source: ProjectionSourceMois;
 }
 
 export interface ProjectionScenarioResultat {

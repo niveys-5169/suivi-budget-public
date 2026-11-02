@@ -1,9 +1,26 @@
 import React, { useMemo, useState } from 'react';
-import type { ProjectionMoisResultat, ProjectionPersonne } from '../../types/banking.types';
-import { Card, EmptyState, SegmentedControl, Section, Stack, Switch, Text } from '../../ui';
+import { Pencil } from 'lucide-react';
+import type {
+  ProjectionMoisReel,
+  ProjectionMoisResultat,
+  ProjectionMonth,
+  ProjectionPersonne,
+} from '../../types/banking.types';
+import {
+  Badge,
+  Card,
+  EmptyState,
+  IconButton,
+  SegmentedControl,
+  Section,
+  Stack,
+  Switch,
+  Text,
+} from '../../ui';
 import type { Segment } from '../../ui';
 import { buildBudgetMensuel } from '../../utils/projection/budgetMensuel';
 import type { BudgetMensuelLigne } from '../../utils/projection/budgetMensuel';
+import { MoisReelEditor } from './MoisReelEditor';
 import { formatMois } from './projectionFormat';
 import { Money, ROW_CLS, Td, Th } from './ProjectionTable';
 
@@ -21,15 +38,22 @@ function libellePeriode(l: BudgetMensuelLigne): string {
 /**
  * Budget mensuel du foyer du scénario affiché : revenus après PAS → dépenses → capacité
  * d'épargne → patrimoine. Par défaut, les mois consécutifs aux flux identiques sont regroupés
- * et seules les colonnes principales sont affichées.
+ * et seules les colonnes principales sont affichées. Les mois révolus reprennent les montants
+ * relevés dans les transactions ; chaque mois peut être corrigé à la main.
  */
 export const ProjectionBudgetMensuel: React.FC<{
   mois: ProjectionMoisResultat[];
   personnes: ProjectionPersonne[];
-}> = ({ mois, personnes }) => {
+  releves: Record<ProjectionMonth, ProjectionMoisReel>;
+  saisies: Record<ProjectionMonth, ProjectionMoisReel>;
+  onSaisie: (mois: ProjectionMonth, saisie: ProjectionMoisReel | undefined) => void;
+}> = ({ mois, personnes, releves, saisies, onSaisie }) => {
   const [vue, setVue] = useState<Vue>('periodes');
   const [detail, setDetail] = useState(false);
+  const [edite, setEdite] = useState<ProjectionMonth | null>(null);
   const lignes = useMemo(() => buildBudgetMensuel(mois, vue === 'periodes'), [mois, vue]);
+  const avecAutresRevenus = lignes.some((l) => Math.round(l.autresRevenus) !== 0);
+  const avecEpargne = lignes.some((l) => Math.round(l.epargneNette) !== 0);
 
   const controles = (
     <Stack direction="row" gap="md" align="center">
@@ -62,14 +86,19 @@ export const ProjectionBudgetMensuel: React.FC<{
                     <Th key={p.id}>{p.prenom}</Th>
                   ))}
                   <Th>CAF</Th>
+                  {avecAutresRevenus && <Th>Autres revenus</Th>}
                   <Th>Revenus du foyer</Th>
                   {detail && <Th>Crédits</Th>}
                   {detail && <Th>Dépenses courantes</Th>}
                   <Th>Dépenses</Th>
                   <Th>Capacité d&apos;épargne</Th>
+                  {avecEpargne && <Th>Dont épargné</Th>}
                   <Th>Flux exceptionnels</Th>
                   {detail && <Th>Rendements</Th>}
                   <Th>Patrimoine</Th>
+                  <Th>
+                    <span className="sr-only">Saisie</span>
+                  </Th>
                 </tr>
               </thead>
               <tbody>
@@ -89,6 +118,16 @@ export const ProjectionBudgetMensuel: React.FC<{
                             {l.nbMois} mois
                           </Text>
                         )}
+                        {l.source === 'releve' && (
+                          <Badge tone="positive" className="ml-2">
+                            Relevé
+                          </Badge>
+                        )}
+                        {l.source === 'manuel' && (
+                          <Badge tone="accent" className="ml-2">
+                            Saisi
+                          </Badge>
+                        )}
                       </th>
                       <td className="whitespace-nowrap py-2">
                         <Text
@@ -107,6 +146,11 @@ export const ProjectionBudgetMensuel: React.FC<{
                       <Td>
                         <Money value={l.caf} />
                       </Td>
+                      {avecAutresRevenus && (
+                        <Td>
+                          <Money value={l.autresRevenus} />
+                        </Td>
+                      )}
                       <Td>
                         <Money value={l.revenus} strong />
                       </Td>
@@ -126,6 +170,17 @@ export const ProjectionBudgetMensuel: React.FC<{
                       <Td>
                         <Money value={l.capacite} tone="auto" strong />
                       </Td>
+                      {avecEpargne && (
+                        <Td>
+                          {l.source === 'theorique' ? (
+                            <Text as="span" variant="callout" tone="tertiary">
+                              —
+                            </Text>
+                          ) : (
+                            <Money value={l.epargneNette} tone="auto" />
+                          )}
+                        </Td>
+                      )}
                       <Td>
                         {l.fluxExceptionnels === 0 ? (
                           <Text as="span" variant="callout" tone="tertiary">
@@ -143,6 +198,18 @@ export const ProjectionBudgetMensuel: React.FC<{
                       <Td>
                         <Money value={l.patrimoineFin} />
                       </Td>
+                      <td className="py-1 text-right">
+                        {l.nbMois === 1 && (
+                          <IconButton
+                            size="sm"
+                            variant="plain"
+                            label={`Modifier ${formatMois(l.debut)}`}
+                            onClick={() => setEdite(l.debut)}
+                          >
+                            <Pencil size={16} aria-hidden="true" />
+                          </IconButton>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -151,8 +218,27 @@ export const ProjectionBudgetMensuel: React.FC<{
           </div>
         )}
       </Card>
+      {edite && (
+        <MoisReelEditor
+          mois={edite}
+          personnes={personnes}
+          releve={releves[edite]}
+          saisie={saisies[edite]}
+          onClose={() => setEdite(null)}
+          onSave={(saisie) => {
+            onSaisie(edite, saisie);
+            setEdite(null);
+          }}
+        />
+      )}
       <Text variant="footnote" tone="tertiary" className="px-1">
-        Montants mensuels en € courants, revenus après prélèvement à la source.
+        Montants mensuels en € courants, revenus après prélèvement à la source. Mois révolus :
+        montants exacts de toutes les transactions hors virements internes (« Relevé »), ou saisis
+        (« Saisi ») ; le crayon d&apos;un mois permet de les corriger. Les revenus d&apos;une
+        personne viennent des catégories associées à ses phases dans les Hypothèses, à défaut des
+        catégories de revenus portant son prénom. « Dont épargné » : versements nets vers
+        l&apos;épargne (négatif = désépargne), compris dans la capacité et toujours dans le
+        patrimoine.
         {vue === 'periodes' &&
           ' Une période regroupe les mois consécutifs aux montants identiques ;'}
         {vue === 'periodes' && ' rendements cumulés sur la période.'} Le patrimoine est celui de fin

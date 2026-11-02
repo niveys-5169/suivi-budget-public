@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useProjection } from '../../hooks/useProjection';
 import { Card, EmptyState, Screen, SegmentedControl, Skeleton, Stack, Text } from '../../ui';
 import type { Segment } from '../../ui';
+import type { ProjectionMoisReel, ProjectionMonth } from '../../types/banking.types';
 import { ProjectionDashboard } from './ProjectionDashboard';
 import { ProjectionDetail } from './ProjectionDetail';
 import { ProjectionHypotheses } from './hypotheses/ProjectionHypotheses';
@@ -18,7 +19,7 @@ const TABS: readonly Segment<Tab>[] = [
 /** Section « Projections » (desktop) : tableau de bord, hypothèses et détail du scénario affiché. */
 export const ProjectionsSection: React.FC = () => {
   const projection = useProjection();
-  const { params, exists, save, rapport, loading, error } = projection;
+  const { params, exists, save, rapport, releves, loading, error } = projection;
   const [tab, setTab] = useState<Tab>('dashboard');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -32,6 +33,16 @@ export const ProjectionsSection: React.FC = () => {
     setSaveError(null);
     save({ ...params, scenarioAfficheId }).catch(() =>
       setSaveError("Le scénario n'a pas pu être enregistré. Réessayez."),
+    );
+  };
+
+  const changeMoisReel = (mois: ProjectionMonth, saisie: ProjectionMoisReel | undefined) => {
+    setSaveError(null);
+    const moisReels = { ...params.moisReels };
+    if (saisie) moisReels[mois] = saisie;
+    else delete moisReels[mois];
+    save({ ...params, moisReels }).catch(() =>
+      setSaveError("La saisie du mois n'a pas pu être enregistrée. Réessayez."),
     );
   };
 
@@ -50,7 +61,14 @@ export const ProjectionsSection: React.FC = () => {
   } else if (tab === 'hypotheses') {
     content = <ProjectionHypotheses projection={projection} />;
   } else if (tab === 'detail') {
-    content = <ProjectionDetail rapport={rapport} params={params} />;
+    content = (
+      <ProjectionDetail
+        rapport={rapport}
+        params={params}
+        releves={releves}
+        onSaisie={changeMoisReel}
+      />
+    );
   } else {
     content = <ProjectionDashboard rapport={rapport} params={params} />;
   }
