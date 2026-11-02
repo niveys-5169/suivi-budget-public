@@ -8,6 +8,7 @@ function mois(m: string, over: Partial<ProjectionMoisResultat> = {}): Projection
     phase: 'Salarié',
     revenusParPersonne: { a: 3000, b: 2800 },
     caf: 150,
+    autresRevenus: 0,
     revenus: 5950,
     creditsFixes: 1300,
     depensesCourantes: 4000,
@@ -23,6 +24,7 @@ function mois(m: string, over: Partial<ProjectionMoisResultat> = {}): Projection
     abondement: 0,
     patrimoineHorsPer: 0,
     patrimoineTotal: 100000,
+    source: 'theorique',
     ...over,
   };
 }
@@ -83,6 +85,14 @@ describe('buildBudgetMensuel', () => {
       true,
     );
     expect(lignes.map((l) => l.nbMois)).toEqual([1, 1, 1]);
+  });
+
+  it('ne regroupe pas un mois relevé avec un mois théorique identique', () => {
+    const lignes = buildBudgetMensuel(
+      [mois('2026-01', { source: 'releve' }), mois('2026-02')],
+      true,
+    );
+    expect(lignes.map((l) => l.source)).toEqual(['releve', 'theorique']);
   });
 
   it('distingue les revenus de chaque personne', () => {

@@ -21,6 +21,9 @@ dans `DESKTOP_ONLY_PATHS` (« Disponible sur ordinateur »). Pas d'entrée dans
 - **Import et saisie** : paramètres lus depuis le classeur (`importCalculateurs*.ts`), section
   « Calculateurs » de l'onglet Hypothèses (`components/projections/hypotheses/calculateurs/`).
 - **Tests de parité** : `*Parity.local.test.ts`, ignorés sans `PROJECTION_XLSX`.
+- **Mois réalisés** (`moisReels.ts`) : les mois révolus de l'horizon reprennent les montants
+  relevés dans les transactions (mois d'affectation) au lieu des théoriques ; saisies manuelles par
+  mois dans `params.moisReels` (prioritaires, champ par champ), éditables depuis l'onglet Détail.
 
 ## Enable Banking et contrôle Linxo (9 octobre 2026)
 

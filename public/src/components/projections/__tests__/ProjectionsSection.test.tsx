@@ -73,6 +73,7 @@ function buildProjection(over: Record<string, unknown> = {}, rapport?: Partial<P
       ]),
       ...rapport,
     },
+    releves: { '2026-01': { revenusParPersonne: { a: 2100, b: 1500 }, caf: 100, depenses: 2400 } },
     loading: false,
     error: null,
     ...over,
@@ -167,6 +168,38 @@ describe('ProjectionsSection', () => {
     fireEvent.click(screen.getByRole('switch', { name: 'Colonnes détaillées' }));
     expect(within(budget()).getByRole('columnheader', { name: 'Crédits' })).toBeInTheDocument();
     expect(within(budget()).getByRole('columnheader', { name: 'Rendements' })).toBeInTheDocument();
+  });
+
+  it('budget mensuel : saisie manuelle d un mois enregistrée dans moisReels', () => {
+    const projection = buildProjection();
+    m.projection = projection;
+    render(<ProjectionsSection />);
+    fireEvent.click(screen.getByRole('button', { name: 'Détail' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mois par mois' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Modifier janv.* 2026$/ }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Vide : montant relevé (2 400 €)')).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText('Dépenses'), { target: { value: '2600,5' } });
+    // Le mock global de framer-motion remonte la modale à chaque rendu : on la relit.
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Enregistrer' }),
+    );
+    expect(projection.save).toHaveBeenCalledWith({
+      ...projection.params,
+      moisReels: { '2026-01': { depenses: 2600.5 } },
+    });
+  });
+
+  it('budget mensuel : effacer la saisie retire le mois de moisReels', () => {
+    const projection = buildProjection();
+    projection.params = { ...projection.params, moisReels: { '2026-01': { caf: 0 } } };
+    m.projection = projection;
+    render(<ProjectionsSection />);
+    fireEvent.click(screen.getByRole('button', { name: 'Détail' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mois par mois' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Modifier janv.* 2026$/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Effacer la saisie' }));
+    expect(projection.save).toHaveBeenCalledWith({ ...projection.params, moisReels: {} });
   });
 
   it('bandeau d information quand aucun paramètre n est enregistré', () => {

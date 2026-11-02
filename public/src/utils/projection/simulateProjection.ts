@@ -19,7 +19,11 @@ function montantDuMois(
   return sum(liste.filter((e) => e.mois === mois).map((e) => e.montant));
 }
 
-/** Simule un scénario mois par mois (règles de l'onglet ⑤b du classeur de simulation). */
+/**
+ * Simule un scénario mois par mois (règles de l'onglet ⑤b du classeur de simulation).
+ * Un mois réalisé (`inputs.moisReels`) remplace, champ par champ, les revenus, la CAF, les
+ * dépenses et les flux exceptionnels théoriques ; les crédits gardent leur échéancier.
+ */
 export function simulateScenario(
   inputs: ProjectionInputs,
   scenario: ProjectionScenarioResolu,
@@ -36,21 +40,29 @@ export function simulateScenario(
   let capitalPrecedent = inputs.capitalInitial;
   let patrimoinePrecedent = inputs.patrimoineDepart;
   const resultats: ProjectionMoisResultat[] = listeMois.map((mois, i) => {
+    const reel = inputs.moisReels?.[mois];
+    const v = reel?.valeurs ?? {};
     const { activite, pension, phase } = monthlyIncome(inputs, scenario, mois);
     const revenusParPersonne: Record<string, number> = {};
     for (const id of Object.keys(activite))
-      revenusParPersonne[id] = (activite[id] ?? 0) + (pension[id] ?? 0);
-    const caf = cafAmount(inputs, mois);
-    const revenus = sum(Object.values(revenusParPersonne)) + caf;
+      revenusParPersonne[id] =
+        v.revenusParPersonne?.[id] ?? (activite[id] ?? 0) + (pension[id] ?? 0);
+    const caf = v.caf ?? cafAmount(inputs, mois);
+    const autresRevenus = v.autresRevenus ?? 0;
+    const revenus = sum(Object.values(revenusParPersonne)) + caf + autresRevenus;
 
     const creditsFixes = sum(credits.map((c) => creditPayment(c, mois)));
-    const depensesCourantes =
-      (inputs.budgetReference - mensualitesInitiales) * inflationIndex(inputs, mois);
-    const depenses = creditsFixes + depensesCourantes;
+    const depenses =
+      v.depenses ??
+      creditsFixes + (inputs.budgetReference - mensualitesInitiales) * inflationIndex(inputs, mois);
+    const depensesCourantes = depenses - creditsFixes;
     const capacite = revenus - depenses;
 
-    const depensesExceptionnelles = montantDuMois(inputs.exceptionnelles, mois);
-    const encaissements = montantDuMois(inputs.encaissements, mois);
+    const flux = v.fluxExceptionnels;
+    const depensesExceptionnelles =
+      flux === undefined ? montantDuMois(inputs.exceptionnelles, mois) : Math.max(0, -flux);
+    const encaissements =
+      flux === undefined ? montantDuMois(inputs.encaissements, mois) : Math.max(0, flux);
     const remboursementsAnticipes = sum(credits.map((c) => earlyRepayment(c, mois, horizon.fin)));
 
     const rendementCapital = i === 0 ? 0 : capitalPrecedent * tauxCapital;
@@ -80,6 +92,7 @@ export function simulateScenario(
       phase,
       revenusParPersonne,
       caf,
+      autresRevenus,
       revenus,
       creditsFixes,
       depensesCourantes,
@@ -95,6 +108,7 @@ export function simulateScenario(
       abondement: abondementMois,
       patrimoineHorsPer,
       patrimoineTotal: capital + patrimoineHorsPer,
+      source: reel?.source ?? 'theorique',
     };
   });
   return { scenarioId: scenario.id, nom: scenario.nom, mois: resultats };

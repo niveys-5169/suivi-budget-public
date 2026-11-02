@@ -1,5 +1,10 @@
 import React from 'react';
-import type { ProjectionParams, ProjectionRapport } from '../../types/banking.types';
+import type {
+  ProjectionMoisReel,
+  ProjectionMonth,
+  ProjectionParams,
+  ProjectionRapport,
+} from '../../types/banking.types';
 import { Stack } from '../../ui';
 import { ProjectionBudgetMensuel } from './ProjectionBudgetMensuel';
 import { ProjectionPhaseTable } from './ProjectionPhaseTable';
@@ -9,7 +14,9 @@ import { ProjectionYearTable } from './ProjectionYearTable';
 export const ProjectionDetail: React.FC<{
   rapport: ProjectionRapport;
   params: ProjectionParams;
-}> = ({ rapport, params }) => {
+  releves: Record<ProjectionMonth, ProjectionMoisReel>;
+  onSaisie: (mois: ProjectionMonth, saisie: ProjectionMoisReel | undefined) => void;
+}> = ({ rapport, params, releves, onSaisie }) => {
   const scenario =
     params.scenarios.find((s) => s.id === params.scenarioAfficheId) ?? params.scenarios[0];
   return (
@@ -19,7 +26,13 @@ export const ProjectionDetail: React.FC<{
         personnes={params.personnes}
         scenarioNom={scenario?.nom ?? ''}
       />
-      <ProjectionBudgetMensuel mois={rapport.mois} personnes={params.personnes} />
+      <ProjectionBudgetMensuel
+        mois={rapport.mois}
+        personnes={params.personnes}
+        releves={releves}
+        saisies={params.moisReels ?? {}}
+        onSaisie={onSaisie}
+      />
       <ProjectionYearTable annees={rapport.annees} />
     </Stack>
   );
