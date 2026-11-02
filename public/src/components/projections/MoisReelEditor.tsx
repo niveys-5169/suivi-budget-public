@@ -18,6 +18,7 @@ const CHAMPS: { key: Champ; label: string }[] = [
   { key: 'autresRevenus', label: 'Autres revenus' },
   { key: 'depenses', label: 'Dépenses' },
   { key: 'fluxExceptionnels', label: 'Flux exceptionnels (négatif = dépense)' },
+  { key: 'epargneNette', label: 'Épargne nette (versements − retraits)' },
 ];
 
 /** Retire les champs vides ; undefined si plus rien n'est saisi. */

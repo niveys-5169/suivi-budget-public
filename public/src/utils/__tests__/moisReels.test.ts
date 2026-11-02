@@ -53,7 +53,12 @@ function params(): ProjectionParams {
         pensions: [],
       },
     ],
-    classesCategories: { Prime: 'revenu', Remboursement: 'ponctuel', Épargne: 'tresorerie' },
+    classesCategories: {
+      Prime: 'revenu',
+      'Salaire Bruno': 'revenu',
+      Remboursement: 'ponctuel',
+      Épargne: 'tresorerie',
+    },
   };
 }
 
@@ -68,14 +73,17 @@ describe('computeMoisReleves', () => {
     tx('2026-09-12', 'Courses', -600),
     tx('2026-09-15', 'Crédit immo', -1300),
     tx('2026-09-20', 'Remboursement', 80),
+    tx('2026-09-20', 'Remboursement', -30),
     tx('2026-09-21', 'Épargne', -500),
+    tx('2026-09-21', 'Retrait épargne', 200),
     tx('2026-09-22', 'Exclu', -999),
+    tx('2026-09-22', 'Virement interne', -2000),
     tx('2026-09-23', 'Courses', -50, { bankStatus: 'pending' }),
     tx('2026-10-30', 'Salaire Alice', 3100, { moisAffectation: '2026-11' }),
     tx('2026-08-28', 'Salaire Alice', 3000),
   ];
 
-  it('ventile les transactions des mois révolus de l horizon', () => {
+  it('montants exacts hors virements internes, épargne nette à part', () => {
     const r = computeMoisReleves({
       transactions,
       params: params(),
@@ -86,9 +94,10 @@ describe('computeMoisReleves', () => {
     expect(r['2026-09']).toEqual({
       revenusParPersonne: { a: 3000, b: 2800 },
       caf: 150,
-      autresRevenus: 400,
-      depenses: 1900,
-      fluxExceptionnels: 80,
+      autresRevenus: 480,
+      depenses: 600 + 1300 + 30 + 999,
+      fluxExceptionnels: 0,
+      epargneNette: 300,
     });
     expect(r['2026-11']?.revenusParPersonne).toEqual({ a: 3100, b: 0 });
   });
@@ -101,6 +110,26 @@ describe('computeMoisReleves', () => {
       aujourdhui: new Date(2026, 10, 2),
     });
     expect(Object.keys(r)).toEqual(['2026-09']);
+  });
+
+  it('sans catégorie source, attribue les revenus dont le nom contient le prénom', () => {
+    const p = params();
+    p.scenarios = [{ id: 's1', nom: 'S1', phases: [], pensions: [] }];
+    p.classesCategories = {
+      ...p.classesCategories,
+      'Salaire Bruno': 'revenu',
+      'Cadeau Bruno': 'depense',
+    };
+    const r = computeMoisReleves({
+      transactions: [
+        tx('2026-09-28', 'Salaire Bruno', 2800),
+        tx('2026-09-12', 'Cadeau Bruno', -40),
+      ],
+      params: p,
+      ctx,
+      aujourdhui: new Date(2026, 11, 2),
+    });
+    expect(r['2026-09']).toMatchObject({ revenusParPersonne: { a: 0, b: 2800 }, depenses: 40 });
   });
 });
 

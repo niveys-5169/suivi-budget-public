@@ -93,6 +93,7 @@ export function simulateScenario(
       revenusParPersonne,
       caf,
       autresRevenus,
+      epargneNette: v.epargneNette ?? 0,
       revenus,
       creditsFixes,
       depensesCourantes,

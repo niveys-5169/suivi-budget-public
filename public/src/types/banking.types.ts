@@ -848,6 +848,11 @@ export interface ProjectionMoisReel {
   depenses?: number;
   /** Net signé : encaissements − dépenses exceptionnelles. */
   fluxExceptionnels?: number;
+  /**
+   * Épargne nette (versements − retraits sur les comptes d'épargne) : information sur
+   * l'emploi de la capacité ; ni une dépense ni un revenu, l'argent reste dans le patrimoine.
+   */
+  epargneNette?: number;
 }
 
 /** Origine des montants d'un mois de projection. */
@@ -977,6 +982,7 @@ export interface ProjectionMoisResultat {
   revenusParPersonne: Record<string, number>; // activité + pension
   caf: number;
   autresRevenus: number; // revenus réalisés non attribués (0 pour un mois théorique)
+  epargneNette: number; // versements nets vers l'épargne relevés (0 pour un mois théorique)
   revenus: number; // Σ personnes + CAF + autres revenus
   creditsFixes: number;
   depensesCourantes: number;

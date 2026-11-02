@@ -9,6 +9,7 @@ function mois(m: string, over: Partial<ProjectionMoisResultat> = {}): Projection
     revenusParPersonne: { a: 3000, b: 2800 },
     caf: 150,
     autresRevenus: 0,
+    epargneNette: 0,
     revenus: 5950,
     creditsFixes: 1300,
     depensesCourantes: 4000,

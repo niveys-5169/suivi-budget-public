@@ -4,6 +4,7 @@ import type {
   ProjectionMoisReel,
   ProjectionMonth,
   ProjectionParams,
+  ProjectionPersonne,
   Transaction,
 } from '../../types/banking.types';
 import { getAssignedMonthKey } from '../date';
@@ -18,6 +19,20 @@ const isBooked = (tx: Transaction) =>
 
 const moisCle = (d: Date): ProjectionMonth =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+/** Minuscules, sans accents. */
+const normaliser = (v: string) =>
+  v
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+
+/** Personne dont le prénom apparaît dans le nom de la catégorie (mot entier), sinon undefined. */
+function personneParPrenom(cat: string, personnes: ProjectionPersonne[]): string | undefined {
+  const mots = normaliser(cat).split(/[^a-z0-9]+/);
+  return personnes.find((p) => p.prenom.trim() && mots.includes(normaliser(p.prenom)))?.id;
+}
 
 /** Catégorie source -> personne : phases communes puis phases de tous les scénarios. */
 function categoriesParPersonne(params: ProjectionParams): Map<string, string> {
@@ -38,14 +53,16 @@ export interface MoisRelevesInput {
 }
 
 /**
- * Montants réalisés de chaque mois révolu de l'horizon, à partir des transactions (mois
- * d'affectation) :
- * - revenus d'une personne = catégories sources de ses phases (0 si aucune n'est associée) ;
+ * Montants réalisés exacts de chaque mois révolu de l'horizon, à partir de toutes les
+ * transactions (mois d'affectation), virements internes exceptés :
+ * - revenus d'une personne = catégories sources de ses phases ; à défaut, catégories de revenus
+ *   dont le nom contient son prénom (« Salaire Nicolas ») ;
  * - CAF = catégories sources de la CAF ;
- * - autres revenus = autres catégories de classe « revenu » ;
- * - dépenses = catégories « dépense » et « fixe » (comme le budget de référence) ;
- * - flux exceptionnels = catégories « ponctuel ».
- * Trésorerie, virements internes et catégories exclues sont ignorés.
+ * - autres revenus = autres catégories « revenu », et entrées des catégories « ponctuel » ;
+ * - dépenses = catégories « dépense », « fixe » et « exclu », et sorties des « ponctuel » ;
+ * - épargne nette = catégories « trésorerie » (versements − retraits d'épargne). Elle n'entre
+ *   ni dans les revenus ni dans les dépenses : l'argent épargné reste dans le patrimoine.
+ * Les flux exceptionnels théoriques sont neutralisés (0) : tout est déjà dans les montants exacts.
  */
 export function computeMoisReleves(
   input: MoisRelevesInput,
@@ -64,7 +81,9 @@ export function computeMoisReleves(
     autresRevenus: 0,
     depenses: 0,
     fluxExceptionnels: 0,
+    epargneNette: 0,
   });
+  const sansSource = params.personnes.filter((p) => ![...parPersonne.values()].includes(p.id));
 
   for (const tx of expandVentilations(transactions.filter(isBooked))) {
     const mois = getAssignedMonthKey(tx);
@@ -72,16 +91,20 @@ export function computeMoisReleves(
     if (mois < params.horizon.debut || mois > params.horizon.fin || mois >= moisCourant) continue;
     const cat = tx.categorie?.trim() ?? '';
     const r = (releves[mois] ??= vide());
-    const personne = parPersonne.get(cat);
+    const c = classe(cat || '(sans catégorie)');
+    const personne =
+      parPersonne.get(cat) ??
+      (c === 'revenu' && !cafCategories.has(cat) ? personneParPrenom(cat, sansSource) : undefined);
     if (personne !== undefined) {
       r.revenusParPersonne[personne] = (r.revenusParPersonne[personne] ?? 0) + tx.montant;
     } else if (cafCategories.has(cat)) {
       r.caf += tx.montant;
-    } else {
-      const c = classe(cat || '(sans catégorie)');
-      if (c === 'revenu') r.autresRevenus += tx.montant;
-      else if (c === 'depense' || c === 'fixe') r.depenses -= tx.montant;
-      else if (c === 'ponctuel') r.fluxExceptionnels += tx.montant;
+    } else if (c === 'revenu' || (c === 'ponctuel' && tx.montant > 0)) {
+      r.autresRevenus += tx.montant;
+    } else if (c === 'tresorerie') {
+      r.epargneNette -= tx.montant;
+    } else if (c !== 'interne') {
+      r.depenses -= tx.montant;
     }
   }
 
@@ -91,7 +114,7 @@ export function computeMoisReleves(
     r.caf = round2(r.caf);
     r.autresRevenus = round2(r.autresRevenus);
     r.depenses = round2(r.depenses);
-    r.fluxExceptionnels = round2(r.fluxExceptionnels);
+    r.epargneNette = round2(r.epargneNette);
   }
   return releves;
 }

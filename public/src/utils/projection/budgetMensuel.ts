@@ -26,6 +26,8 @@ export interface BudgetMensuelLigne {
   capacite: number;
   /** Encaissements − dépenses exceptionnelles − remboursements anticipés. */
   fluxExceptionnels: number;
+  /** Versements nets vers l'épargne relevés (information, déjà compris dans le patrimoine). */
+  epargneNette: number;
   rendements: number;
   patrimoineFin: number;
 }
@@ -46,6 +48,7 @@ function toLigne(m: ProjectionMoisResultat): BudgetMensuelLigne {
     depenses: m.depenses,
     capacite: m.capacite,
     fluxExceptionnels: m.encaissements - m.depensesExceptionnelles - m.remboursementsAnticipes,
+    epargneNette: m.epargneNette,
     rendements: m.rendementCapital + m.rendementPatrimoine,
     patrimoineFin: m.patrimoineTotal,
   };
@@ -69,6 +72,7 @@ function cle(l: BudgetMensuelLigne): string {
     r(l.depenses),
     r(l.capacite),
     r(l.fluxExceptionnels),
+    r(l.epargneNette),
   ].join('|');
 }
 

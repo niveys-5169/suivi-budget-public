@@ -53,6 +53,7 @@ export const ProjectionBudgetMensuel: React.FC<{
   const [edite, setEdite] = useState<ProjectionMonth | null>(null);
   const lignes = useMemo(() => buildBudgetMensuel(mois, vue === 'periodes'), [mois, vue]);
   const avecAutresRevenus = lignes.some((l) => Math.round(l.autresRevenus) !== 0);
+  const avecEpargne = lignes.some((l) => Math.round(l.epargneNette) !== 0);
 
   const controles = (
     <Stack direction="row" gap="md" align="center">
@@ -91,6 +92,7 @@ export const ProjectionBudgetMensuel: React.FC<{
                   {detail && <Th>Dépenses courantes</Th>}
                   <Th>Dépenses</Th>
                   <Th>Capacité d&apos;épargne</Th>
+                  {avecEpargne && <Th>Dont épargné</Th>}
                   <Th>Flux exceptionnels</Th>
                   {detail && <Th>Rendements</Th>}
                   <Th>Patrimoine</Th>
@@ -168,6 +170,17 @@ export const ProjectionBudgetMensuel: React.FC<{
                       <Td>
                         <Money value={l.capacite} tone="auto" strong />
                       </Td>
+                      {avecEpargne && (
+                        <Td>
+                          {l.source === 'theorique' ? (
+                            <Text as="span" variant="callout" tone="tertiary">
+                              —
+                            </Text>
+                          ) : (
+                            <Money value={l.epargneNette} tone="auto" />
+                          )}
+                        </Td>
+                      )}
                       <Td>
                         {l.fluxExceptionnels === 0 ? (
                           <Text as="span" variant="callout" tone="tertiary">
@@ -220,9 +233,12 @@ export const ProjectionBudgetMensuel: React.FC<{
       )}
       <Text variant="footnote" tone="tertiary" className="px-1">
         Montants mensuels en € courants, revenus après prélèvement à la source. Mois révolus :
-        montants relevés dans les transactions (« Relevé ») ou saisis (« Saisi »), qui remplacent
-        les montants théoriques ; le crayon d&apos;un mois permet de les corriger. Les revenus
-        d&apos;une personne viennent des catégories associées à ses phases dans les Hypothèses.
+        montants exacts de toutes les transactions hors virements internes (« Relevé »), ou saisis
+        (« Saisi ») ; le crayon d&apos;un mois permet de les corriger. Les revenus d&apos;une
+        personne viennent des catégories associées à ses phases dans les Hypothèses, à défaut des
+        catégories de revenus portant son prénom. « Dont épargné » : versements nets vers
+        l&apos;épargne (négatif = désépargne), compris dans la capacité et toujours dans le
+        patrimoine.
         {vue === 'periodes' &&
           ' Une période regroupe les mois consécutifs aux montants identiques ;'}
         {vue === 'periodes' && ' rendements cumulés sur la période.'} Le patrimoine est celui de fin
