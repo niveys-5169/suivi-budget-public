@@ -862,6 +862,11 @@ export interface ProjectionMoisReel {
    * l'emploi de la capacité ; ni une dépense ni un revenu, l'argent reste dans le patrimoine.
    */
   epargneNette?: number;
+  /**
+   * Patrimoine réel hors PER et hors immobilier en fin de mois (historique des comptes) : la
+   * projection se recale dessus et le capital initial, déjà présent sur les comptes, est soldé.
+   */
+  patrimoineFin?: number;
 }
 
 /** Origine des montants d'un mois de projection. */
@@ -1007,6 +1012,10 @@ export interface ProjectionMoisResultat {
   abondement: number;
   patrimoineHorsPer: number;
   patrimoineTotal: number;
+  /** Patrimoine réel − patrimoine calculé avant recalage (0 si le mois n'est pas recalé). */
+  ecartReel: number;
+  /** true : patrimoine recalé sur le patrimoine réel du mois. */
+  patrimoineReel: boolean;
   source: ProjectionSourceMois;
 }
 

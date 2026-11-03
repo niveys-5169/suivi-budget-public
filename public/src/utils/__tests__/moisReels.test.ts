@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { computeMoisReleves, mergeMoisReels } from '../projection/moisReels';
+import {
+  ajouterPatrimoineReel,
+  computeMoisReleves,
+  computePatrimoineReelParMois,
+  mergeMoisReels,
+} from '../projection/moisReels';
+import { buildProjectionReport } from '../projection/projectionReport';
 import { simulateAll } from '../projection/simulateProjection';
 import { createDefaultProjectionParams } from '../projection/defaults';
 import { makeInputs, makePhase } from './projectionFixtures';
@@ -182,5 +188,64 @@ describe('simulateScenario avec mois réalisés', () => {
       patrimoineTotal: 570,
     });
     expect(fev).toMatchObject({ source: 'theorique', revenus: 3100, depenses: 2000 });
+  });
+});
+
+describe('computePatrimoineReelParMois', () => {
+  const horizon = { debut: '2026-09', fin: '2030-12', anneeReferencePrix: 2026 };
+  const history = [
+    { assetId: 'cc', date: '2026-08-31', montant: 1000, type: 'courants' },
+    { assetId: 'cc', date: '2026-09-15', montant: 2000, type: 'courants' },
+    { assetId: 'livret', date: '2026-09-15', montant: 10000, type: 'epargne' },
+    { assetId: 'per', date: '2026-09-15', montant: 50000, type: 'per' },
+    { assetId: 'maison', date: '2026-09-15', montant: 300000, type: 'immobilier' },
+    { assetId: 'pea', date: '2026-09-15', montant: 5000, type: 'bourse' },
+    { assetId: 'cc', date: '2026-09-30', montant: 2500, type: 'courants' },
+    { assetId: 'cc', date: '2026-11-02', montant: 9999, type: 'courants' },
+  ];
+
+  it('dernier point du mois, hors PER et immobilier, mois révolus seulement', () => {
+    expect(computePatrimoineReelParMois(history, horizon, new Date(2026, 10, 3))).toEqual({
+      '2026-09': 2500 + 10000 + 5000,
+    });
+  });
+
+  it('un mois sans relevé de transactions ne garde que le patrimoine', () => {
+    const r = ajouterPatrimoineReel(
+      { '2026-09': { depenses: 100 } },
+      { '2026-09': 1, '2026-10': 2 },
+    );
+    expect(r).toEqual({
+      '2026-09': { depenses: 100, patrimoineFin: 1 },
+      '2026-10': { patrimoineFin: 2 },
+    });
+  });
+});
+
+describe('recalage sur le patrimoine réel', () => {
+  const inputs = makeInputs({
+    budgetReference: 2000,
+    capitalInitial: 40000,
+    patrimoineDepart: 100000,
+    scenarios: [{ id: 's1', nom: 'S1', phases: [makePhase('a', 3000, '2026-01')], pensions: [] }],
+    moisReels: { '2026-01': { source: 'releve', valeurs: { patrimoineFin: 145000 } } },
+  });
+
+  it('solde le capital initial, repart du réel et mesure l écart', () => {
+    const [s] = simulateAll(inputs);
+    const [janv, fev] = s!.mois;
+    expect(janv).toMatchObject({
+      patrimoineReel: true,
+      capital: 0,
+      patrimoineHorsPer: 145000,
+      patrimoineTotal: 145000,
+      ecartReel: 145000 - (40000 + 1000 + 100000),
+    });
+    expect(fev).toMatchObject({ patrimoineReel: false, ecartReel: 0, patrimoineTotal: 146000 });
+  });
+
+  it('le capital soldé par le recalage n est pas un épuisement', () => {
+    const rapport = buildProjectionReport(inputs, simulateAll(inputs), 's1', []);
+    expect(rapport.synthese[0]?.moisEpuisementCapital).toBeNull();
   });
 });

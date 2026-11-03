@@ -25,6 +25,10 @@ dans `DESKTOP_ONLY_PATHS` (« Disponible sur ordinateur »). Pas d'entrée dans
   exacts de toutes les transactions hors virements internes (mois d'affectation), épargne nette
   affichée à part sans réduire le patrimoine, au lieu des théoriques ; saisies manuelles par
   mois dans `params.moisReels` (prioritaires, champ par champ), éditables depuis l'onglet Détail.
+- **Recalage sur le patrimoine réel** : patrimoine hors PER et hors immobilier de fin de mois tiré
+  de `placement_history` ; chaque mois révolu relevé recale la simulation (patrimoine hors PER =
+  réel, capital soldé car déjà sur les comptes), ce qui supprime le double comptage du patrimoine
+  de départ et du capital initial. `ecartReel` mesure l'écart au calcul.
 
 ## Enable Banking et contrôle Linxo (9 octobre 2026)
 

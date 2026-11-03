@@ -28,7 +28,8 @@ function exhaustionMonth(
 ): ProjectionMonth | null {
   let precedent = capitalInitial;
   for (const m of mois) {
-    if (precedent > 0 && m.capital === 0) return m.mois;
+    // Un capital soldé par le recalage sur le patrimoine réel n'est pas un épuisement.
+    if (precedent > 0 && m.capital === 0 && !m.patrimoineReel) return m.mois;
     precedent = m.capital;
   }
   return null;
