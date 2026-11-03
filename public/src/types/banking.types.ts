@@ -251,6 +251,8 @@ export interface MonthlySavingsEntry {
   kind: MonthlySavingsEntryKind;
   /** Compte de la contrepartie appariée, pour un virement neutralisé. */
   counterpartAccount?: string;
+  /** Mois d'affectation saisi sur l'opération, s'il existe. */
+  moisAffectation?: string;
 }
 
 export type GapSuspectReason =
@@ -280,6 +282,11 @@ export interface MonthlySavingsAccountReconciliation {
 export interface MonthlySavingsBreakdown {
   entries: MonthlySavingsEntry[];
   accounts: MonthlySavingsAccountReconciliation[];
+  /**
+   * Flux comptés dont le mois d'affectation diffère du mois de la date, montant exprimé
+   * par leur effet sur le mois : négatif s'ils en sortent, positif s'ils y entrent.
+   */
+  reassigned: MonthlySavingsEntry[];
 }
 
 export interface MonthlySavingsPosition {
@@ -290,6 +297,8 @@ export interface MonthlySavingsPosition {
   savingsDeposits: number;
   savingsWithdrawals: number;
   netSavings: number;
+  /** Somme des flux réaffectés (`breakdown.reassigned`), incluse dans la capacité. */
+  affectationAdjustment: number;
   savingsCapacity: number | null;
   capacityFromTransactions: number;
   unallocatedSurplus: number | null;

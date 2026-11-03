@@ -820,7 +820,7 @@ const fr = {
   'monthlySavings.provisional': 'Provisoire',
   'monthlySavings.tooltip.label': "Comprendre le calcul de la capacité d'épargne",
   'monthlySavings.tooltip.capacity':
-    "Capacité d'épargne = variation des comptes courants + épargne nette.",
+    "Capacité d'épargne = variation des comptes courants + épargne nette, corrigée des opérations affectées à un autre mois.",
   'monthlySavings.tooltip.available': "Disponible à épargner = capacité d'épargne − épargne nette.",
   'monthlySavings.tooltip.transfers':
     'Les virements internes sont neutralisés pour éviter de compter deux fois le même mouvement.',
@@ -864,6 +864,9 @@ const fr = {
   'monthlySavings.details.account.closing': 'Solde réel',
   'monthlySavings.details.account.gap': 'Écart',
   'monthlySavings.details.otherGap': 'Écart hors comptes courants',
+  'monthlySavings.details.reassigned': 'Opérations affectées à un autre mois',
+  'monthlySavings.details.reassignedHint':
+    "Une opération datée de ce mois mais affectée à un autre en est retirée (montant négatif) ; une opération datée d'un autre mois et affectée à celui-ci y est ajoutée.",
   'monthlySavings.details.reconciliationHint':
     "Un écart négatif signifie que le solde a baissé plus que ne l'expliquent les opérations importées : opérations manquantes, en attente ou datées hors du mois.",
   'monthlySavings.details.otherGapHint':
