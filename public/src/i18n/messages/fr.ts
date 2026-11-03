@@ -866,7 +866,7 @@ const fr = {
   'monthlySavings.details.otherGap': 'Écart hors comptes courants',
   'monthlySavings.details.reassigned': 'Opérations affectées à un autre mois',
   'monthlySavings.details.reassignedHint':
-    "Une opération datée de ce mois mais affectée à un autre en est retirée (montant négatif) ; une opération datée d'un autre mois et affectée à celui-ci y est ajoutée.",
+    "Correction de la variation de trésorerie : une opération (ou un mouvement d'épargne) datée de ce mois mais affectée à un autre en est retirée ; une opération datée d'un autre mois et affectée à celui-ci y est ajoutée.",
   'monthlySavings.details.reconciliationHint':
     "Un écart négatif signifie que le solde a baissé plus que ne l'expliquent les opérations importées : opérations manquantes, en attente ou datées hors du mois.",
   'monthlySavings.details.otherGapHint':

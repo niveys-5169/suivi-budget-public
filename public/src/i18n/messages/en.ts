@@ -853,7 +853,7 @@ const en: Record<MessageId, string> = {
   'monthlySavings.details.otherGap': 'Difference outside operating accounts',
   'monthlySavings.details.reassigned': 'Transactions assigned to another month',
   'monthlySavings.details.reassignedHint':
-    'A transaction dated this month but assigned to another is removed from it (negative amount); one dated another month and assigned to this one is added.',
+    'Correction to the cash balance change: a transaction (or savings movement) dated this month but assigned to another is removed from it; one dated another month and assigned to this one is added.',
   'monthlySavings.details.reconciliationHint':
     'A negative difference means the balance fell more than imported transactions explain: missing, pending or out-of-month transactions.',
   'monthlySavings.details.otherGapHint':

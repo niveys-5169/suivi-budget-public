@@ -202,6 +202,46 @@ describe('MonthlySavingsCard', () => {
     expect(screen.queryByText('Virements internes neutralisés')).not.toBeInTheDocument();
   });
 
+  it("liste les versements d'épargne selon leur mois d'affectation", () => {
+    const assignedElsewhere = {
+      transactionId: 'aout',
+      date: '2026-09-15',
+      libelle: 'Versement pour août',
+      compte: 'Compte courant',
+      montant: -300,
+      kind: 'SAVINGS_DEPOSIT' as const,
+      moisAffectation: '2026-08',
+    };
+    render(
+      <MonthlySavingsCard
+        loading={false}
+        position={position({
+          breakdown: {
+            entries: [assignedElsewhere],
+            accounts: [],
+            reassigned: [
+              { ...assignedElsewhere, montant: 300 },
+              {
+                transactionId: 'sept',
+                date: '2026-10-02',
+                libelle: 'Versement pour septembre',
+                compte: 'Compte courant',
+                montant: -300,
+                kind: 'SAVINGS_DEPOSIT',
+                moisAffectation: '2026-09',
+              },
+            ],
+          },
+        })}
+      />,
+    );
+
+    // Hors de la liste des versements, seulement dans la ligne d'affectation.
+    expect(screen.getAllByText('Versement pour août')).toHaveLength(1);
+    // Dans la liste des versements et dans la ligne d'affectation.
+    expect(screen.getAllByText('Versement pour septembre')).toHaveLength(2);
+  });
+
   it('montre les opérations affectées à un autre mois', () => {
     render(
       <MonthlySavingsCard

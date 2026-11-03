@@ -569,22 +569,116 @@ describe('calculateMonthlySavingsPosition', () => {
       ]);
     });
 
-    it("ne déplace pas un versement d'épargne affecté à un autre mois", () => {
+    // Versement de 300 € effectué le 15 septembre mais affecté à août.
+    const reassignedDeposit = [
+      transaction({ id: 'income', montant: 450, categorie: 'Salaire' }),
+      transaction({
+        id: 'deposit',
+        montant: -300,
+        categorie: 'Épargne',
+        moisAffectation: '2026-08',
+      }),
+    ];
+
+    it("retire de l'épargne du mois un versement affecté à un mois antérieur", () => {
+      const result = calculateMonthlySavingsPosition(input({ transactions: reassignedDeposit }));
+
+      expect(result).toMatchObject({
+        operatingBalanceDelta: 150,
+        savingsDeposits: 0,
+        netSavings: 0,
+        affectationAdjustment: 300,
+        savingsCapacity: 450,
+        unallocatedSurplus: 450,
+        status: 'AVAILABLE_TO_SAVE',
+      });
+      expect(result.dataQuality.reconciliationDelta).toBe(0);
+      expect(result.breakdown.reassigned).toEqual([
+        expect.objectContaining({
+          transactionId: 'deposit',
+          kind: 'SAVINGS_DEPOSIT',
+          montant: 300,
+        }),
+      ]);
+    });
+
+    it("compte le versement dans l'épargne du mois auquel il est affecté", () => {
+      const result = calculateMonthlySavingsPosition(
+        input({
+          month: '2026-08',
+          accounts: [
+            {
+              id: 'checking',
+              name: 'Compte courant',
+              role: 'OPERATING',
+              openingBalance: 1_000,
+              closingBalance: 1_000,
+            },
+          ],
+          transactions: reassignedDeposit,
+        }),
+      );
+
+      expect(result).toMatchObject({
+        savingsDeposits: 300,
+        netSavings: 300,
+        affectationAdjustment: -300,
+        savingsCapacity: 0,
+        unallocatedSurplus: -300,
+      });
+      expect(result.dataQuality.reconciliationDelta).toBe(0);
+    });
+
+    it("suit le mois d'affectation saisi sur la seule jambe épargne d'un virement apparié", () => {
       const result = calculateMonthlySavingsPosition(
         input({
           transactions: [
             transaction({ id: 'income', montant: 450, categorie: 'Salaire' }),
+            transaction({ id: 'out', montant: -300, libelle: 'Virement' }),
             transaction({
-              id: 'deposit',
-              montant: -300,
-              categorie: 'Épargne',
+              id: 'in',
+              compte: 'Livret A',
+              montant: 300,
+              libelle: 'Virement',
               moisAffectation: '2026-08',
             }),
           ],
         }),
       );
 
-      expect(result).toMatchObject({ affectationAdjustment: 0, savingsCapacity: 450 });
+      expect(result).toMatchObject({ savingsDeposits: 0, netSavings: 0, savingsCapacity: 450 });
+    });
+
+    it("retire du mois un retrait d'épargne affecté à un autre mois", () => {
+      const result = calculateMonthlySavingsPosition(
+        input({
+          accounts: [
+            {
+              id: 'checking',
+              name: 'Compte courant',
+              role: 'OPERATING',
+              openingBalance: 2_000,
+              closingBalance: 2_200,
+            },
+          ],
+          transactions: [
+            transaction({
+              id: 'withdrawal',
+              montant: 200,
+              categorie: 'Retrait Épargne',
+              moisAffectation: '2026-08',
+            }),
+          ],
+        }),
+      );
+
+      expect(result).toMatchObject({
+        savingsWithdrawals: 0,
+        netSavings: 0,
+        affectationAdjustment: -200,
+        savingsCapacity: 0,
+        status: 'BALANCED',
+      });
     });
   });
 });

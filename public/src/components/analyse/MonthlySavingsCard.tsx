@@ -304,8 +304,18 @@ export const MonthlySavingsCard: React.FC<Props> = ({
   const quality = position.dataQuality.calculationStatus;
   const entriesOf = (...kinds: MonthlySavingsEntryKind[]) =>
     position.breakdown.entries.filter((entry) => kinds.includes(entry.kind));
-  const depositEntries = entriesOf('SAVINGS_DEPOSIT');
-  const withdrawalEntries = entriesOf('SAVINGS_WITHDRAWAL');
+  // Mouvements d'épargne du mois d'affectation : ceux datés ici et non affectés ailleurs,
+  // plus ceux datés d'un autre mois et affectés à celui-ci.
+  const savingsEntriesOf = (kind: MonthlySavingsEntryKind) => [
+    ...entriesOf(kind).filter(
+      (entry) => !entry.moisAffectation || entry.moisAffectation === position.month,
+    ),
+    ...position.breakdown.reassigned.filter(
+      (entry) => entry.kind === kind && entry.moisAffectation === position.month,
+    ),
+  ];
+  const depositEntries = savingsEntriesOf('SAVINGS_DEPOSIT');
+  const withdrawalEntries = savingsEntriesOf('SAVINGS_WITHDRAWAL');
   const countedEntries = entriesOf('COUNTED', 'UNCERTAIN');
   const internalEntries = entriesOf('INTERNAL_TRANSFER');
   const ignoredEntries = entriesOf('UNTRACKED', 'IGNORED');
