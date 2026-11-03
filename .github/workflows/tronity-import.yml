@@ -19,7 +19,7 @@ permissions:
 jobs:
   import:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 2
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -61,6 +61,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `⚡ Import Tronity en échec — ${new Date().toISOString().slice(0,10)}`,
-              body: `L'import automatique des recharges Tronity a échoué (ou a été annulé par le timeout de 2 minutes).\n\n👉 [Voir les logs du run](${runUrl})\n\nVérifier :\n- que l'API Tronity \`https://api.tronity.tech\` est accessible\n- que les secrets \`TRONITY_CLIENT_ID\` / \`TRONITY_CLIENT_SECRET\` sont valides\n- les logs du run pour le détail de l'erreur`,
+              body: `L'import automatique des recharges Tronity a échoué (ou a été annulé par le timeout de 5 minutes).\n\n👉 [Voir les logs du run](${runUrl})\n\nVérifier :\n- que l'API Tronity \`https://api.tronity.tech\` est accessible\n- que les secrets \`TRONITY_CLIENT_ID\` / \`TRONITY_CLIENT_SECRET\` sont valides\n- les logs du run pour le détail de l'erreur`,
               labels: ['bug'],
             });
