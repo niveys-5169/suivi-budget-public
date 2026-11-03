@@ -809,7 +809,7 @@ const en: Record<MessageId, string> = {
   'monthlySavings.provisional': 'Provisional',
   'monthlySavings.tooltip.label': 'Understand how savings capacity is calculated',
   'monthlySavings.tooltip.capacity':
-    'Savings capacity = change in operating account balances + net savings.',
+    'Savings capacity = change in operating account balances + net savings, adjusted for transactions assigned to another month.',
   'monthlySavings.tooltip.available': 'Available to save = savings capacity − net savings.',
   'monthlySavings.tooltip.transfers':
     'Internal transfers are neutralized so the same movement is not counted twice.',
@@ -851,6 +851,9 @@ const en: Record<MessageId, string> = {
   'monthlySavings.details.account.closing': 'Actual balance',
   'monthlySavings.details.account.gap': 'Difference',
   'monthlySavings.details.otherGap': 'Difference outside operating accounts',
+  'monthlySavings.details.reassigned': 'Transactions assigned to another month',
+  'monthlySavings.details.reassignedHint':
+    'A transaction dated this month but assigned to another is removed from it (negative amount); one dated another month and assigned to this one is added.',
   'monthlySavings.details.reconciliationHint':
     'A negative difference means the balance fell more than imported transactions explain: missing, pending or out-of-month transactions.',
   'monthlySavings.details.otherGapHint':

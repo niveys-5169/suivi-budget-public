@@ -506,6 +506,87 @@ describe('calculateMonthlySavingsPosition', () => {
     const result = calculateMonthlySavingsPosition(input({ isCompleteMonth: false }));
     expect(result.isCompleteMonth).toBe(false);
   });
+
+  describe("mois d'affectation", () => {
+    // Prime reçue le 28 septembre mais affectée manuellement à août.
+    const reassignedIncome = transaction({
+      id: 'prime',
+      date: '2026-09-28',
+      libelle: 'Prime',
+      montant: 2_000,
+      categorie: 'Salaire',
+      moisAffectation: '2026-08',
+    });
+    const withReassigned = (month: string, opening: number, closing: number) =>
+      input({
+        month,
+        accounts: [
+          {
+            id: 'checking',
+            name: 'Compte courant',
+            role: 'OPERATING',
+            openingBalance: opening,
+            closingBalance: closing,
+          },
+        ],
+        transactions: [...input().transactions, reassignedIncome],
+      });
+
+    it('retire du mois de réception une somme affectée à un mois antérieur', () => {
+      const result = calculateMonthlySavingsPosition(withReassigned('2026-09', 2_000, 4_150));
+
+      expect(result).toMatchObject({
+        operatingBalanceDelta: 2_150,
+        netSavings: 300,
+        affectationAdjustment: -2_000,
+        savingsCapacity: 450,
+        unallocatedSurplus: 150,
+        status: 'AVAILABLE_TO_SAVE',
+      });
+      // Le rapprochement soldes ↔ opérations reste calendaire : aucun écart créé.
+      expect(result.dataQuality.reconciliationDelta).toBe(0);
+      expect(result.breakdown.reassigned).toEqual([
+        expect.objectContaining({
+          transactionId: 'prime',
+          montant: -2_000,
+          moisAffectation: '2026-08',
+        }),
+      ]);
+    });
+
+    it('compte la somme dans le mois auquel elle est affectée', () => {
+      const result = calculateMonthlySavingsPosition(withReassigned('2026-08', 1_000, 1_000));
+
+      expect(result).toMatchObject({
+        operatingBalanceDelta: 0,
+        affectationAdjustment: 2_000,
+        savingsCapacity: 2_000,
+        unallocatedSurplus: 2_000,
+      });
+      expect(result.dataQuality.reconciliationDelta).toBe(0);
+      expect(result.breakdown.reassigned).toEqual([
+        expect.objectContaining({ transactionId: 'prime', montant: 2_000 }),
+      ]);
+    });
+
+    it("ne déplace pas un versement d'épargne affecté à un autre mois", () => {
+      const result = calculateMonthlySavingsPosition(
+        input({
+          transactions: [
+            transaction({ id: 'income', montant: 450, categorie: 'Salaire' }),
+            transaction({
+              id: 'deposit',
+              montant: -300,
+              categorie: 'Épargne',
+              moisAffectation: '2026-08',
+            }),
+          ],
+        }),
+      );
+
+      expect(result).toMatchObject({ affectationAdjustment: 0, savingsCapacity: 450 });
+    });
+  });
 });
 
 describe('summarizeYearToDateSavings', () => {

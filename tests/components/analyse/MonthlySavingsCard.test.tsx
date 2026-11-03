@@ -14,6 +14,7 @@ const position = (overrides: Partial<MonthlySavingsPosition> = {}): MonthlySavin
   savingsDeposits: 300,
   savingsWithdrawals: 0,
   netSavings: 300,
+  affectationAdjustment: 0,
   savingsCapacity: 450,
   capacityFromTransactions: 450,
   unallocatedSurplus: 150,
@@ -28,7 +29,7 @@ const position = (overrides: Partial<MonthlySavingsPosition> = {}): MonthlySavin
     untrackedTransactionAccounts: [],
     reconciliationDelta: 0,
   },
-  breakdown: { entries: [], accounts: [] },
+  breakdown: { entries: [], accounts: [], reassigned: [] },
   ...overrides,
 });
 
@@ -62,7 +63,7 @@ describe('MonthlySavingsCard', () => {
     fireEvent.click(trigger);
 
     expect(screen.getByRole('tooltip')).toHaveTextContent(
-      "Capacité d'épargne = variation des comptes courants + épargne nette.",
+      "Capacité d'épargne = variation des comptes courants + épargne nette, corrigée des opérations affectées à un autre mois.",
     );
     expect(screen.getByRole('tooltip')).toHaveTextContent(
       "Disponible à épargner = capacité d'épargne − épargne nette.",
@@ -146,6 +147,7 @@ describe('MonthlySavingsCard', () => {
             reconciliationDelta: 33.42,
           },
           breakdown: {
+            reassigned: [],
             entries: [
               {
                 transactionId: 'out',
@@ -200,6 +202,42 @@ describe('MonthlySavingsCard', () => {
     expect(screen.queryByText('Virements internes neutralisés')).not.toBeInTheDocument();
   });
 
+  it('montre les opérations affectées à un autre mois', () => {
+    render(
+      <MonthlySavingsCard
+        loading={false}
+        position={position({
+          affectationAdjustment: -2_000,
+          breakdown: {
+            entries: [],
+            accounts: [],
+            reassigned: [
+              {
+                transactionId: 'prime',
+                date: '2026-09-28',
+                libelle: 'Prime',
+                compte: 'Compte courant',
+                montant: -2_000,
+                kind: 'COUNTED',
+                moisAffectation: '2026-08',
+              },
+            ],
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Opérations affectées à un autre mois')).toBeInTheDocument();
+    expect(screen.getByText('Prime')).toBeInTheDocument();
+    expect(screen.getByText(/→ 2026-08/)).toBeInTheDocument();
+  });
+
+  it('masque la ligne d’affectation quand aucune opération n’est réaffectée', () => {
+    render(<MonthlySavingsCard position={position()} loading={false} />);
+
+    expect(screen.queryByText('Opérations affectées à un autre mois')).not.toBeInTheDocument();
+  });
+
   it('isole la part de l’écart non portée par les comptes courants', () => {
     render(
       <MonthlySavingsCard
@@ -207,6 +245,7 @@ describe('MonthlySavingsCard', () => {
         position={position({
           dataQuality: { ...position().dataQuality, reconciliationDelta: -50 },
           breakdown: {
+            reassigned: [],
             entries: [],
             accounts: [
               {

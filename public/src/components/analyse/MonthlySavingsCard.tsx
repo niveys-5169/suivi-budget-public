@@ -59,6 +59,7 @@ const EntryList: React.FC<{ entries: MonthlySavingsEntry[] }> = ({ entries }) =>
               {' · '}
               {entry.compte}
               {entry.counterpartAccount ? ` → ${entry.counterpartAccount}` : ''}
+              {entry.moisAffectation ? ` · → ${entry.moisAffectation}` : ''}
             </Text>
           </Stack>
           <Stack direction="row" gap="sm" align="center" className="shrink-0">
@@ -308,6 +309,7 @@ export const MonthlySavingsCard: React.FC<Props> = ({
   const countedEntries = entriesOf('COUNTED', 'UNCERTAIN');
   const internalEntries = entriesOf('INTERNAL_TRANSFER');
   const ignoredEntries = entriesOf('UNTRACKED', 'IGNORED');
+  const reassignedEntries = position.breakdown.reassigned;
   const reconciliationDelta = position.dataQuality.reconciliationDelta;
   const otherGap =
     reconciliationDelta === null
@@ -434,6 +436,24 @@ export const MonthlySavingsCard: React.FC<Props> = ({
               value={position.netSavings}
               signed
             />
+            {reassignedEntries.length > 0 ? (
+              <>
+                <Separator />
+                <ExpandableRow
+                  label={t({ id: 'monthlySavings.details.reassigned' })}
+                  value={position.affectationAdjustment}
+                  count={reassignedEntries.length}
+                  signed
+                >
+                  <Stack gap="md">
+                    <Text variant="caption" tone="tertiary" className="pl-4">
+                      {t({ id: 'monthlySavings.details.reassignedHint' })}
+                    </Text>
+                    <EntryList entries={reassignedEntries} />
+                  </Stack>
+                </ExpandableRow>
+              </>
+            ) : null}
             <Separator />
             <ExpandableRow
               label={t({ id: 'monthlySavings.details.transactionCapacity' })}

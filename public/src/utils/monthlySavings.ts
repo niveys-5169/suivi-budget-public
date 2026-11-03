@@ -84,26 +84,29 @@ const statusFor = (capacity: number, unallocated: number): MonthlySavingsStatus 
   return 'FULLY_ALLOCATED';
 };
 
-/**
- * Calcule la position d'épargne mensuelle à partir de données déjà chargées.
- * Cette interface pure est l'unique seam métier : aucune dépendance React ou Firestore.
- */
-export function calculateMonthlySavingsPosition(
-  input: MonthlySavingsInput,
-): MonthlySavingsPosition {
-  const operatingAccounts = input.accounts.filter((account) => account.role === 'OPERATING');
-  const missingOpeningBalances = operatingAccounts
-    .filter((account) => account.openingBalance === null)
-    .map((account) => account.name);
-  const missingClosingBalances = operatingAccounts
-    .filter((account) => account.closingBalance === null)
-    .map((account) => account.name);
+interface MonthClassification {
+  relevantTransactions: Transaction[];
+  entries: MonthlySavingsEntry[];
+  savingsDeposits: number;
+  savingsWithdrawals: number;
+  capacityFromTransactions: number;
+  unmatchedTransfers: number;
+  uncertainTransfers: number;
+  hasUncertain: boolean;
+  untrackedAccounts: Set<string>;
+}
 
-  const accountRoles = new Map(
-    input.accounts.map((account) => [normalize(account.name), account.role] as const),
-  );
-  const relevantTransactions = input.transactions.filter(
-    (transaction) => transaction.date.slice(0, 7) === input.month,
+const isCountedFlow = (entry: MonthlySavingsEntry): boolean =>
+  entry.kind === 'COUNTED' || entry.kind === 'UNCERTAIN';
+
+/** Classe les opérations datées du mois : virements appariés, épargne, flux comptés. */
+function classifyMonth(
+  month: string,
+  transactions: Transaction[],
+  accountRoles: Map<string, AccountEconomicRole>,
+): MonthClassification {
+  const relevantTransactions = transactions.filter(
+    (transaction) => transaction.date.slice(0, 7) === month,
   );
   const processed = new Set<string>();
   const uncertainIds = new Set<string>();
@@ -122,6 +125,7 @@ export function calculateMonthlySavingsPosition(
       montant: transaction.montant,
       kind,
       ...(counterpartAccount !== undefined ? { counterpartAccount } : {}),
+      ...(transaction.moisAffectation ? { moisAffectation: transaction.moisAffectation } : {}),
     });
   };
 
@@ -223,10 +227,81 @@ export function calculateMonthlySavingsPosition(
     capacityFromTransactions += transaction.montant;
   }
 
-  savingsDeposits = roundCurrency(savingsDeposits);
-  savingsWithdrawals = roundCurrency(savingsWithdrawals);
+  return {
+    relevantTransactions,
+    entries,
+    savingsDeposits: roundCurrency(savingsDeposits),
+    savingsWithdrawals: roundCurrency(savingsWithdrawals),
+    capacityFromTransactions: roundCurrency(capacityFromTransactions),
+    unmatchedTransfers,
+    uncertainTransfers,
+    hasUncertain: uncertainIds.size > 0,
+    untrackedAccounts,
+  };
+}
+
+/**
+ * Flux comptés (hors transferts) dont le mois d'affectation diffère du mois de la date,
+ * exprimés par leur effet sur `month` : négatif s'ils en sortent, positif s'ils y entrent.
+ */
+function reassignedFlows(
+  month: string,
+  monthEntries: MonthlySavingsEntry[],
+  transactions: Transaction[],
+  accountRoles: Map<string, AccountEconomicRole>,
+): MonthlySavingsEntry[] {
+  const assignedElsewhere = monthEntries
+    .filter(
+      (entry) => isCountedFlow(entry) && entry.moisAffectation && entry.moisAffectation !== month,
+    )
+    .map((entry) => ({ ...entry, montant: -entry.montant }));
+  const sourceMonths = new Set(
+    transactions
+      .filter((tx) => tx.moisAffectation === month && tx.date.slice(0, 7) !== month)
+      .map((tx) => tx.date.slice(0, 7)),
+  );
+  const assignedHere = [...sourceMonths].flatMap((sourceMonth) =>
+    classifyMonth(sourceMonth, transactions, accountRoles).entries.filter(
+      (entry) => isCountedFlow(entry) && entry.moisAffectation === month,
+    ),
+  );
+  return [...assignedElsewhere, ...assignedHere].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Calcule la position d'épargne mensuelle à partir de données déjà chargées.
+ * Cette interface pure est l'unique seam métier : aucune dépendance React ou Firestore.
+ */
+export function calculateMonthlySavingsPosition(
+  input: MonthlySavingsInput,
+): MonthlySavingsPosition {
+  const operatingAccounts = input.accounts.filter((account) => account.role === 'OPERATING');
+  const missingOpeningBalances = operatingAccounts
+    .filter((account) => account.openingBalance === null)
+    .map((account) => account.name);
+  const missingClosingBalances = operatingAccounts
+    .filter((account) => account.closingBalance === null)
+    .map((account) => account.name);
+
+  const accountRoles = new Map(
+    input.accounts.map((account) => [normalize(account.name), account.role] as const),
+  );
+  const {
+    relevantTransactions,
+    entries,
+    savingsDeposits,
+    savingsWithdrawals,
+    capacityFromTransactions,
+    unmatchedTransfers,
+    uncertainTransfers,
+    hasUncertain,
+    untrackedAccounts,
+  } = classifyMonth(input.month, input.transactions, accountRoles);
   const netSavings = roundCurrency(savingsDeposits - savingsWithdrawals);
-  capacityFromTransactions = roundCurrency(capacityFromTransactions);
+  const reassigned = reassignedFlows(input.month, entries, input.transactions, accountRoles);
+  const affectationAdjustment = roundCurrency(
+    reassigned.reduce((sum, entry) => sum + entry.montant, 0),
+  );
 
   const boundariesAvailable =
     operatingAccounts.length > 0 &&
@@ -250,10 +325,14 @@ export function calculateMonthlySavingsPosition(
       operatingAccounts.reduce((sum, account) => sum + account.closingBalance!, 0),
     );
     operatingBalanceDelta = roundCurrency(closingOperatingBalance - openingOperatingBalance);
-    savingsCapacity = roundCurrency(operatingBalanceDelta + netSavings);
+    // Les soldes sont calendaires : on y réintègre les flux affectés à un autre mois.
+    savingsCapacity = roundCurrency(operatingBalanceDelta + netSavings + affectationAdjustment);
     unallocatedSurplus = roundCurrency(savingsCapacity - netSavings);
     status = statusFor(savingsCapacity, unallocatedSurplus);
-    reconciliationDelta = roundCurrency(savingsCapacity - capacityFromTransactions);
+    // Le rapprochement soldes ↔ opérations reste calendaire, hors affectation.
+    reconciliationDelta = roundCurrency(
+      operatingBalanceDelta + netSavings - capacityFromTransactions,
+    );
     accountReconciliations = operatingAccounts.map((account) => {
       const transactionsTotal = roundCurrency(
         relevantTransactions
@@ -280,7 +359,7 @@ export function calculateMonthlySavingsPosition(
   }
 
   const hasPartialSignal =
-    uncertainIds.size > 0 ||
+    hasUncertain ||
     untrackedAccounts.size > 0 ||
     (reconciliationDelta !== null && Math.abs(reconciliationDelta) > CURRENCY_TOLERANCE);
 
@@ -292,6 +371,7 @@ export function calculateMonthlySavingsPosition(
     savingsDeposits,
     savingsWithdrawals,
     netSavings,
+    affectationAdjustment,
     savingsCapacity,
     capacityFromTransactions,
     unallocatedSurplus,
@@ -313,6 +393,7 @@ export function calculateMonthlySavingsPosition(
     breakdown: {
       entries: entries.sort((a, b) => a.date.localeCompare(b.date)),
       accounts: accountReconciliations,
+      reassigned,
     },
   };
 }
