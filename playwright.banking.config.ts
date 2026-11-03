@@ -5,7 +5,14 @@ export default defineConfig({
   testMatch: 'banking.spec.ts',
   timeout: 30000,
   workers: 2,
-  use: { baseURL: 'http://127.0.0.1:4184', screenshot: 'only-on-failure' },
+  use: {
+    baseURL: 'http://127.0.0.1:4184',
+    screenshot: 'only-on-failure',
+    // Bac à sable Chromium, désactivé par défaut par Playwright : actif sur Windows/macOS
+    // (laptop, runner auto-hébergé). Sous Linux (CI, conteneurs jetables, souvent en root)
+    // il ne peut pas démarrer.
+    launchOptions: { chromiumSandbox: process.platform !== 'linux' },
+  },
   projects: [
     {
       name: 'banking-desktop',
