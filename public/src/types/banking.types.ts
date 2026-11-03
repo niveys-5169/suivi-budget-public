@@ -283,8 +283,9 @@ export interface MonthlySavingsBreakdown {
   entries: MonthlySavingsEntry[];
   accounts: MonthlySavingsAccountReconciliation[];
   /**
-   * Flux comptés dont le mois d'affectation diffère du mois de la date, montant exprimé
-   * par leur effet sur le mois : négatif s'ils en sortent, positif s'ils y entrent.
+   * Flux comptés et mouvements d'épargne dont le mois d'affectation diffère du mois de la
+   * date. Montant : correction de la variation des comptes courants du mois (opposé de leur
+   * effet s'ils en sortent, leur effet s'ils y entrent).
    */
   reassigned: MonthlySavingsEntry[];
 }

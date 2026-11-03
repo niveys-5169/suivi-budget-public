@@ -96,8 +96,18 @@ interface MonthClassification {
   untrackedAccounts: Set<string>;
 }
 
-const isCountedFlow = (entry: MonthlySavingsEntry): boolean =>
-  entry.kind === 'COUNTED' || entry.kind === 'UNCERTAIN';
+const isSavingsMovement = (entry: MonthlySavingsEntry): boolean =>
+  entry.kind === 'SAVINGS_DEPOSIT' || entry.kind === 'SAVINGS_WITHDRAWAL';
+
+const isReassignable = (entry: MonthlySavingsEntry): boolean =>
+  entry.kind === 'COUNTED' || entry.kind === 'UNCERTAIN' || isSavingsMovement(entry);
+
+/** Effet de l'opération sur les comptes courants : un versement d'épargne en sort. */
+const operatingAmount = (entry: MonthlySavingsEntry): number => {
+  if (entry.kind === 'SAVINGS_DEPOSIT') return -Math.abs(entry.montant);
+  if (entry.kind === 'SAVINGS_WITHDRAWAL') return Math.abs(entry.montant);
+  return entry.montant;
+};
 
 /** Classe les opérations datées du mois : virements appariés, épargne, flux comptés. */
 function classifyMonth(
@@ -116,7 +126,9 @@ function classifyMonth(
     transaction: Transaction,
     kind: MonthlySavingsEntryKind,
     counterpartAccount?: string,
+    counterpartMoisAffectation?: string,
   ): void => {
+    const moisAffectation = transaction.moisAffectation || counterpartMoisAffectation;
     entries.push({
       transactionId: transaction.id,
       date: transaction.date,
@@ -125,7 +137,7 @@ function classifyMonth(
       montant: transaction.montant,
       kind,
       ...(counterpartAccount !== undefined ? { counterpartAccount } : {}),
-      ...(transaction.moisAffectation ? { moisAffectation: transaction.moisAffectation } : {}),
+      ...(moisAffectation ? { moisAffectation } : {}),
     });
   };
 
@@ -185,6 +197,7 @@ function classifyMonth(
         shown,
         kind === 'SAVINGS_DEPOSIT' || kind === 'SAVINGS_WITHDRAWAL' ? kind : 'INTERNAL_TRANSFER',
         other.compte,
+        other.moisAffectation,
       );
       continue;
     }
@@ -241,8 +254,9 @@ function classifyMonth(
 }
 
 /**
- * Flux comptés (hors transferts) dont le mois d'affectation diffère du mois de la date,
- * exprimés par leur effet sur `month` : négatif s'ils en sortent, positif s'ils y entrent.
+ * Flux comptés et mouvements d'épargne dont le mois d'affectation diffère du mois de la date,
+ * exprimés par leur correction de la variation des comptes courants de `month` : l'opposé
+ * de leur effet s'ils en sortent, leur effet s'ils y entrent.
  */
 function reassignedFlows(
   month: string,
@@ -252,19 +266,21 @@ function reassignedFlows(
 ): MonthlySavingsEntry[] {
   const assignedElsewhere = monthEntries
     .filter(
-      (entry) => isCountedFlow(entry) && entry.moisAffectation && entry.moisAffectation !== month,
+      (entry) => isReassignable(entry) && entry.moisAffectation && entry.moisAffectation !== month,
     )
-    .map((entry) => ({ ...entry, montant: -entry.montant }));
+    .map((entry) => ({ ...entry, montant: -operatingAmount(entry) }));
   const sourceMonths = new Set(
     transactions
       .filter((tx) => tx.moisAffectation === month && tx.date.slice(0, 7) !== month)
       .map((tx) => tx.date.slice(0, 7)),
   );
-  const assignedHere = [...sourceMonths].flatMap((sourceMonth) =>
-    classifyMonth(sourceMonth, transactions, accountRoles).entries.filter(
-      (entry) => isCountedFlow(entry) && entry.moisAffectation === month,
-    ),
-  );
+  const assignedHere = [...sourceMonths]
+    .flatMap((sourceMonth) =>
+      classifyMonth(sourceMonth, transactions, accountRoles).entries.filter(
+        (entry) => isReassignable(entry) && entry.moisAffectation === month,
+      ),
+    )
+    .map((entry) => ({ ...entry, montant: operatingAmount(entry) }));
   return [...assignedElsewhere, ...assignedHere].sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -289,19 +305,27 @@ export function calculateMonthlySavingsPosition(
   const {
     relevantTransactions,
     entries,
-    savingsDeposits,
-    savingsWithdrawals,
+    savingsDeposits: calendarDeposits,
+    savingsWithdrawals: calendarWithdrawals,
     capacityFromTransactions,
     unmatchedTransfers,
     uncertainTransfers,
     hasUncertain,
     untrackedAccounts,
   } = classifyMonth(input.month, input.transactions, accountRoles);
-  const netSavings = roundCurrency(savingsDeposits - savingsWithdrawals);
   const reassigned = reassignedFlows(input.month, entries, input.transactions, accountRoles);
-  const affectationAdjustment = roundCurrency(
-    reassigned.reduce((sum, entry) => sum + entry.montant, 0),
+  const adjustmentOf = (kind?: MonthlySavingsEntryKind): number =>
+    reassigned
+      .filter((entry) => kind === undefined || entry.kind === kind)
+      .reduce((sum, entry) => sum + entry.montant, 0);
+  const affectationAdjustment = roundCurrency(adjustmentOf());
+  // Un versement affecté ailleurs corrige la trésorerie à la hausse et sort de l'épargne du mois.
+  const savingsDeposits = roundCurrency(calendarDeposits - adjustmentOf('SAVINGS_DEPOSIT'));
+  const savingsWithdrawals = roundCurrency(
+    calendarWithdrawals + adjustmentOf('SAVINGS_WITHDRAWAL'),
   );
+  const netSavings = roundCurrency(savingsDeposits - savingsWithdrawals);
+  const calendarNetSavings = roundCurrency(calendarDeposits - calendarWithdrawals);
 
   const boundariesAvailable =
     operatingAccounts.length > 0 &&
@@ -331,7 +355,7 @@ export function calculateMonthlySavingsPosition(
     status = statusFor(savingsCapacity, unallocatedSurplus);
     // Le rapprochement soldes ↔ opérations reste calendaire, hors affectation.
     reconciliationDelta = roundCurrency(
-      operatingBalanceDelta + netSavings - capacityFromTransactions,
+      operatingBalanceDelta + calendarNetSavings - capacityFromTransactions,
     );
     accountReconciliations = operatingAccounts.map((account) => {
       const transactionsTotal = roundCurrency(
