@@ -7,8 +7,9 @@ import type {
   ProjectionPersonne,
   Transaction,
 } from '../../types/banking.types';
-import { getAssignedMonthKey } from '../date';
+import { getAssignedMonthKey, parseDateInput } from '../date';
 import { expandVentilations } from '../ventilation';
+import { buildWealthTimeline, type RawHistoryEntry } from '../wealthTimeline';
 import { defaultCategoryClass, type CategoryClassContext } from './categoryClasses';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -74,8 +75,9 @@ export function computeMoisReleves(
   const classe = (cat: string): ProjectionClasseCategorie =>
     params.classesCategories[cat] ?? defaultCategoryClass(cat, ctx);
 
-  const releves: Record<ProjectionMonth, Required<ProjectionMoisReel>> = {};
-  const vide = (): Required<ProjectionMoisReel> => ({
+  type Flux = Required<Omit<ProjectionMoisReel, 'patrimoineFin'>>;
+  const releves: Record<ProjectionMonth, Flux> = {};
+  const vide = (): Flux => ({
     revenusParPersonne: Object.fromEntries(params.personnes.map((p) => [p.id, 0])),
     caf: 0,
     autresRevenus: 0,
@@ -117,6 +119,41 @@ export function computeMoisReleves(
     r.epargneNette = round2(r.epargneNette);
   }
   return releves;
+}
+
+/**
+ * Patrimoine réel hors PER et hors immobilier (comptes courants + épargne + investissements,
+ * comme le patrimoine de départ) à la fin de chaque mois révolu de l'horizon : dernier point
+ * de l'historique des comptes daté dans le mois. Un mois sans point n'est pas recalé.
+ */
+export function computePatrimoineReelParMois(
+  history: RawHistoryEntry[],
+  horizon: ProjectionParams['horizon'],
+  aujourdhui: Date,
+): Record<ProjectionMonth, number> {
+  const moisCourant = moisCle(aujourdhui);
+  const result: Record<ProjectionMonth, number> = {};
+  // Timeline triée par date : le dernier point d'un mois écrase les précédents.
+  for (const point of buildWealthTimeline(history)) {
+    const date = parseDateInput(point.timestamp);
+    if (!date) continue;
+    const mois = moisCle(date);
+    if (mois < horizon.debut || mois > horizon.fin || mois >= moisCourant) continue;
+    const { courants, epargne, investissements } = point.byCat;
+    result[mois] = round2(courants + epargne + investissements);
+  }
+  return result;
+}
+
+/** Ajoute le patrimoine réel de fin de mois aux montants relevés (un mois peut n'avoir que lui). */
+export function ajouterPatrimoineReel(
+  releves: Record<ProjectionMonth, ProjectionMoisReel>,
+  patrimoineParMois: Record<ProjectionMonth, number>,
+): Record<ProjectionMonth, ProjectionMoisReel> {
+  const result = { ...releves };
+  for (const [mois, patrimoineFin] of Object.entries(patrimoineParMois))
+    result[mois] = { ...result[mois], patrimoineFin };
+  return result;
 }
 
 /** Relevés complétés des saisies manuelles (une saisie prime, champ par champ). */

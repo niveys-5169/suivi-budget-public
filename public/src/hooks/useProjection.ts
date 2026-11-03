@@ -11,7 +11,12 @@ import { simulateAll } from '../utils/projection/simulateProjection';
 import { buildProjectionReport } from '../utils/projection/projectionReport';
 import { computePatrimoineHorsPer } from '../utils/projection/patrimoineHorsPer';
 import { toStoredTransactions } from '../utils/projection/storedTransactions';
-import { computeMoisReleves, mergeMoisReels } from '../utils/projection/moisReels';
+import {
+  ajouterPatrimoineReel,
+  computeMoisReleves,
+  computePatrimoineReelParMois,
+  mergeMoisReels,
+} from '../utils/projection/moisReels';
 
 /**
  * Projection long terme : paramètres persistés + données de l'app (transactions des 12 derniers
@@ -28,7 +33,7 @@ export function useProjection() {
   } = useProjectionParams();
   const tx = useTransactionContext();
   const { credits, loading: creditsLoading, error: creditsError } = useCredits();
-  const { totals, loading: patrimoineLoading } = usePatrimoine();
+  const { totals, placementHistory, loading: patrimoineLoading } = usePatrimoine();
   const { ravConfig } = useGlobalData();
   const { excluded } = useBudgetExclusions();
 
@@ -62,10 +67,15 @@ export function useProjection() {
   );
 
   // Mois révolus : montants relevés dans les transactions, qui remplacent les théoriques.
-  const releves = useMemo(
-    () => computeMoisReleves({ transactions: stored, params, ctx, aujourdhui: new Date() }),
-    [stored, params, ctx],
-  );
+  // Et patrimoine réel de fin de mois (historique des comptes) : la projection s'y recale.
+  const releves = useMemo(() => {
+    const aujourdhui = new Date();
+    const flux = computeMoisReleves({ transactions: stored, params, ctx, aujourdhui });
+    return ajouterPatrimoineReel(
+      flux,
+      computePatrimoineReelParMois(placementHistory, params.horizon, aujourdhui),
+    );
+  }, [stored, params, ctx, placementHistory]);
 
   const inputs = useMemo(
     () => ({

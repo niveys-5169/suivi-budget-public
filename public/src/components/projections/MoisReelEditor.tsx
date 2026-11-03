@@ -19,6 +19,7 @@ const CHAMPS: { key: Champ; label: string }[] = [
   { key: 'depenses', label: 'Dépenses' },
   { key: 'fluxExceptionnels', label: 'Flux exceptionnels (négatif = dépense)' },
   { key: 'epargneNette', label: 'Épargne nette (versements − retraits)' },
+  { key: 'patrimoineFin', label: 'Patrimoine réel fin de mois (hors PER et immobilier)' },
 ];
 
 /** Retire les champs vides ; undefined si plus rien n'est saisi. */

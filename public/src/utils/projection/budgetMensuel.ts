@@ -29,7 +29,11 @@ export interface BudgetMensuelLigne {
   /** Versements nets vers l'épargne relevés (information, déjà compris dans le patrimoine). */
   epargneNette: number;
   rendements: number;
+  /** Écart entre patrimoine réel et calculé, cumulé sur la période (0 sans recalage). */
+  ecartReel: number;
   patrimoineFin: number;
+  /** true : le patrimoine de fin est le patrimoine réel relevé. */
+  patrimoineReel: boolean;
 }
 
 function toLigne(m: ProjectionMoisResultat): BudgetMensuelLigne {
@@ -50,7 +54,9 @@ function toLigne(m: ProjectionMoisResultat): BudgetMensuelLigne {
     fluxExceptionnels: m.encaissements - m.depensesExceptionnelles - m.remboursementsAnticipes,
     epargneNette: m.epargneNette,
     rendements: m.rendementCapital + m.rendementPatrimoine,
+    ecartReel: m.ecartReel,
     patrimoineFin: m.patrimoineTotal,
+    patrimoineReel: m.patrimoineReel,
   };
 }
 
@@ -63,6 +69,7 @@ function cle(l: BudgetMensuelLigne): string {
   return [
     l.phase,
     l.source,
+    l.patrimoineReel,
     ...personnes,
     r(l.caf),
     r(l.autresRevenus),
@@ -90,6 +97,7 @@ export function buildBudgetMensuel(
       precedente.fin = ligne.fin;
       precedente.nbMois += 1;
       precedente.rendements += ligne.rendements;
+      precedente.ecartReel += ligne.ecartReel;
       precedente.patrimoineFin = ligne.patrimoineFin;
     } else {
       groupes.push({ ...ligne });

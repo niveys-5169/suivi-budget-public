@@ -95,6 +95,7 @@ export const ProjectionBudgetMensuel: React.FC<{
                   {avecEpargne && <Th>Dont épargné</Th>}
                   <Th>Flux exceptionnels</Th>
                   {detail && <Th>Rendements</Th>}
+                  {detail && <Th>Écart au réel</Th>}
                   <Th>Patrimoine</Th>
                   <Th>
                     <span className="sr-only">Saisie</span>
@@ -195,8 +196,24 @@ export const ProjectionBudgetMensuel: React.FC<{
                           <Money value={l.rendements} />
                         </Td>
                       )}
+                      {detail && (
+                        <Td>
+                          {l.patrimoineReel ? (
+                            <Money value={l.ecartReel} tone="auto" />
+                          ) : (
+                            <Text as="span" variant="callout" tone="tertiary">
+                              —
+                            </Text>
+                          )}
+                        </Td>
+                      )}
                       <Td>
-                        <Money value={l.patrimoineFin} />
+                        <Money value={l.patrimoineFin} strong={l.patrimoineReel} />
+                        {l.patrimoineReel && (
+                          <Text as="span" variant="footnote" tone="tertiary" className="ml-1">
+                            réel
+                          </Text>
+                        )}
                       </Td>
                       <td className="py-1 text-right">
                         {l.nbMois === 1 && (
@@ -238,7 +255,11 @@ export const ProjectionBudgetMensuel: React.FC<{
         personne viennent des catégories associées à ses phases dans les Hypothèses, à défaut des
         catégories de revenus portant son prénom. « Dont épargné » : versements nets vers
         l&apos;épargne (négatif = désépargne), compris dans la capacité et toujours dans le
-        patrimoine.
+        patrimoine. Patrimoine « réel » : soldes des comptes en fin de mois (courants, épargne,
+        investissements ; hors PER et immobilier) ; la projection repart de cette valeur et le
+        capital initial, déjà sur les comptes, n&apos;est plus ajouté. « Écart au réel » (détail) :
+        différence avec le patrimoine calculé (plus-values, flux non catégorisés, double comptage
+        évité).
         {vue === 'periodes' &&
           ' Une période regroupe les mois consécutifs aux montants identiques ;'}
         {vue === 'periodes' && ' rendements cumulés sur la période.'} Le patrimoine est celui de fin

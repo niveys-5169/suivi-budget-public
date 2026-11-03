@@ -23,6 +23,8 @@ function montantDuMois(
  * Simule un scénario mois par mois (règles de l'onglet ⑤b du classeur de simulation).
  * Un mois réalisé (`inputs.moisReels`) remplace, champ par champ, les revenus, la CAF, les
  * dépenses et les flux exceptionnels théoriques ; les crédits gardent leur échéancier.
+ * Avec un patrimoine réel de fin de mois, la projection s'y recale : le patrimoine hors PER
+ * prend sa valeur et le capital est soldé (il est déjà sur les comptes), sans double comptage.
  */
 export function simulateScenario(
   inputs: ProjectionInputs,
@@ -73,7 +75,7 @@ export function simulateScenario(
       encaissements -
       remboursementsAnticipes +
       rendementCapital;
-    const capital = Math.max(0, brut);
+    let capital = Math.max(0, brut);
     const prelevementPatrimoine = Math.max(0, -brut);
 
     const rendementPatrimoine = i === 0 ? 0 : patrimoinePrecedent * tauxPatrimoine;
@@ -82,8 +84,15 @@ export function simulateScenario(
       monthOfYear(mois) === abondement.mois &&
       (abondement.finMois === undefined || mois <= abondement.finMois);
     const abondementMois = verse && abondement ? abondement.montantAnnuel : 0;
-    const patrimoineHorsPer =
+    let patrimoineHorsPer =
       patrimoinePrecedent + rendementPatrimoine + abondementMois - prelevementPatrimoine;
+
+    const reelFin = v.patrimoineFin;
+    const ecartReel = reelFin === undefined ? 0 : reelFin - (capital + patrimoineHorsPer);
+    if (reelFin !== undefined) {
+      capital = 0;
+      patrimoineHorsPer = reelFin;
+    }
 
     capitalPrecedent = capital;
     patrimoinePrecedent = patrimoineHorsPer;
@@ -109,6 +118,8 @@ export function simulateScenario(
       abondement: abondementMois,
       patrimoineHorsPer,
       patrimoineTotal: capital + patrimoineHorsPer,
+      ecartReel,
+      patrimoineReel: reelFin !== undefined,
       source: reel?.source ?? 'theorique',
     };
   });

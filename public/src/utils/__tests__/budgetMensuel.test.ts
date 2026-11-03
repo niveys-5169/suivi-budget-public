@@ -25,6 +25,8 @@ function mois(m: string, over: Partial<ProjectionMoisResultat> = {}): Projection
     abondement: 0,
     patrimoineHorsPer: 0,
     patrimoineTotal: 100000,
+    ecartReel: 0,
+    patrimoineReel: false,
     source: 'theorique',
     ...over,
   };
