@@ -108,6 +108,26 @@ describe('computeMoisReleves', () => {
     expect(r['2026-11']?.revenusParPersonne).toEqual({ a: 3100, b: 0 });
   });
 
+  it('compte une opération en attente dès qu’elle est certifiée, jamais une annulée', () => {
+    const r = computeMoisReleves({
+      transactions: [
+        tx('2026-11-03', 'Salaire Alice', 2324.11, {
+          moisAffectation: '2026-10',
+          bankStatus: 'pending',
+          enAttente: true,
+          pointe: true,
+        }),
+        tx('2026-10-28', 'Salaire Bruno', 2800, { bankStatus: 'pending' }),
+        tx('2026-10-29', 'Courses', -70, { bankStatus: 'cancelled', pointe: true }),
+      ],
+      params: params(),
+      ctx,
+      aujourdhui: new Date(2026, 10, 4),
+    });
+    expect(r['2026-10']?.revenusParPersonne).toEqual({ a: 2324.11, b: 0 });
+    expect(r['2026-10']?.depenses).toBe(0);
+  });
+
   it('ignore le mois courant (incomplet)', () => {
     const r = computeMoisReleves({
       transactions,
