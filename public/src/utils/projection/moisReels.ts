@@ -14,9 +14,9 @@ import { defaultCategoryClass, type CategoryClassContext } from './categoryClass
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Opération comptabilisée : ni annulée, ni encore « en attente ». */
+/** Opération acquise : non annulée, et comptabilisée ou certifiée (pointée) malgré l'attente bancaire. */
 const isBooked = (tx: Transaction) =>
-  tx.bankStatus !== 'cancelled' && tx.bankStatus !== 'pending' && !tx.enAttente;
+  tx.bankStatus !== 'cancelled' && (!!tx.pointe || (tx.bankStatus !== 'pending' && !tx.enAttente));
 
 const moisCle = (d: Date): ProjectionMonth =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
