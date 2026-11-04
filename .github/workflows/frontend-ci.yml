@@ -47,7 +47,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version: '24'
           check-latest: true
           # Sur le runner self-hosted (CI_RUNNER défini), la machine est
           # persistante : son cache npm local survit déjà entre les runs.
@@ -64,7 +64,7 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        # npm fourni avec Node 22 (npm 10) : aucune dépendance n'est plus une
+        # npm fourni avec Node 24 (npm 11) : aucune dépendance n'est plus une
         # URL de tarball distante depuis la migration xlsx → @e965/xlsx, donc
         # plus besoin de `npm install -g npm@latest` (npm 12 pour `--allow-remote`).
         # Retirer cette montée de version évite aussi la corruption du npm global
