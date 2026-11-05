@@ -28,6 +28,10 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    // Bac à sable Chromium, désactivé par défaut par Playwright : actif sur Windows/macOS
+    // (laptop, runner auto-hébergé). Sous Linux (CI, conteneurs jetables, souvent en root)
+    // il ne peut pas démarrer.
+    launchOptions: { chromiumSandbox: process.platform !== 'linux' },
   },
 
   projects: [
