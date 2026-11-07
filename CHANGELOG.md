@@ -4,6 +4,19 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 
 Le format s'inspire de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/).
 
+## [Unreleased] - Semaine du 02/11/2026
+
+### Added
+
+- **Fiche « Ma semaine »** : chaque email hebdomadaire enregistre son bilan dans
+  `weekly_recaps/<date de fin>` (avec toutes les dépenses de la semaine) et porte un
+  bouton « Voir la semaine dans l'application » (`EB_APP_URL`). Nouvelle route
+  `/semaine/:weekId?` (desktop et mobile, sans entrée de menu) : navigation entre
+  semaines (flèches et menu déroulant), sections dépliables (dépenses par catégorie
+  avec leurs opérations, budgets du mois, enveloppes annuelles, soldes). Historique
+  recalculable par le workflow « Backfill fiches « Ma semaine » »
+  (`scripts/backfill_weekly_recaps.py`). Voir [docs/ARCH_STATE.md](docs/ARCH_STATE.md).
+
 ## [Unreleased] - Semaine du 26/10/2026
 
 ### Added

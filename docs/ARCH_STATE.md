@@ -1,5 +1,18 @@
 # 🏗 Current Architectural State (mise à jour octobre 2026)
 
+## Fiche « Ma semaine » (novembre 2026)
+
+Route `/semaine/:weekId?` (dernière semaine par défaut), commune desktop et PWA, sans
+entrée dans les menus : on y arrive par le bouton de l'email hebdomadaire.
+
+- **Source** : `weekly_recap.py` (copies `src/` et `functions/` identiques) enregistre à
+  chaque envoi le résultat de `build_weekly_recap_data` dans `weekly_recaps/<AAAA-MM-JJ>`
+  (date de fin de semaine), avant l'envoi : une photo figée, identique au mail.
+- **Historique** : `backfill_weekly_recaps` (workflow `backfill-weekly-recaps.yml`) recalcule
+  les semaines passées alignées sur le jour d'envoi ; soldes absents (non historisés) sauf
+  pour la plus récente, budgets et récurrences d'aujourd'hui, fiches existantes conservées.
+- **UI** : `components/weekly/WeeklyRecapPage.tsx` + hook `useWeeklyRecaps`.
+
 ## Projections long terme (novembre 2026)
 
 Route `/projections`, **desktop uniquement** : `MobileSwipeContainer` l'affiche

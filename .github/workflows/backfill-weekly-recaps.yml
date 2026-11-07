@@ -1,0 +1,49 @@
+name: Backfill fiches « Ma semaine »
+
+on:
+  workflow_dispatch:
+    inputs:
+      weeks:
+        description: 'Nombre de semaines à recalculer'
+        type: string
+        default: '12'
+      overwrite:
+        description: 'Remplacer les fiches existantes (dont celles des emails envoyés)'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Simulation (liste les fiches sans toucher Firestore)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Backfill des fiches hebdomadaires
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+          WEEKS: ${{ inputs.weeks }}
+        run: |
+          ARGS="--weeks $WEEKS"
+          if [ "${{ inputs.overwrite }}" = "true" ]; then ARGS="$ARGS --overwrite"; fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          python scripts/backfill_weekly_recaps.py $ARGS

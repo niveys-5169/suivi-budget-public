@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from unittest.mock import MagicMock
 
 from weekly_recap import (
+    backfill_weekly_recaps,
     build_weekly_recap_data,
     format_eur,
     normalize_category,
@@ -407,3 +408,117 @@ def test_recap_ignore_les_charges_fixes_et_suit_les_budgets_variables():
         assert "Crédit voiture" not in body
         assert "Crédit Maison" not in body
         assert "Fibre SFR" not in body
+
+
+class _FakeSnap:
+    def __init__(self, doc_id, data):
+        self.id = doc_id
+        self._data = data
+        self.exists = data is not None
+
+    def to_dict(self):
+        return dict(self._data) if self._data is not None else None
+
+
+class _FakeDoc:
+    def __init__(self, store, doc_id):
+        self._store, self._id = store, doc_id
+
+    def get(self):
+        return _FakeSnap(self._id, self._store.get(self._id))
+
+    def set(self, data, merge=False):
+        self._store[self._id] = {**(self._store.get(self._id) or {}), **data} if merge else dict(data)
+
+
+class _FakeCollection:
+    def __init__(self, store):
+        self._store = store
+
+    def document(self, doc_id):
+        return _FakeDoc(self._store, doc_id)
+
+    def stream(self):
+        return [_FakeSnap(k, v) for k, v in self._store.items()]
+
+    def where(self, field, op, value):
+        assert op == ">="
+        filtered = {k: v for k, v in self._store.items() if str(v.get(field, "")) >= value}
+        return _FakeCollection(filtered)
+
+
+class _FakeDb:
+    def __init__(self, data):
+        self.data = data
+
+    def collection(self, name):
+        return _FakeCollection(self.data.setdefault(name, {}))
+
+
+def _fake_db(config):
+    return _FakeDb({
+        "config": {"weekly_report": config},
+        "account_balances": {"lcl": {"compte": "LCL", "solde": 1200.0}},
+        "transactions": {
+            "t1": {"date": "2026-11-06", "libelle": "Monoprix", "montant": -40.0, "categorie": "Courses"},
+            "t2": {"date": "2026-11-05", "libelle": "Boulangerie", "montant": -6.5, "categorie": "Courses"},
+            "t3": {"date": "2026-10-30", "libelle": "Cinéma", "montant": -24.0, "categorie": "Loisirs"},
+        },
+        "budgets": {"Courses": {"categorie": "Courses", "montant": 400.0}},
+    })
+
+
+def test_run_weekly_recap_enregistre_la_fiche_et_lie_l_application(monkeypatch):
+    monkeypatch.setenv("EB_APP_URL", "https://app.example/")
+    db = _fake_db({"enabled": True, "recipients": ["a@example.com"]})
+    gmail = MagicMock()
+    gmail.send_html_email.return_value = "msg"
+
+    run_weekly_recap(db, gmail, force=True, now=datetime(2026, 11, 7, 8, 0, tzinfo=timezone.utc))
+
+    fiche = db.data["weekly_recaps"]["2026-11-07"]
+    assert fiche["source"] == "email"
+    assert fiche["period"] == {"start": "2026-11-01", "end": "2026-11-07", "month": "2026-11"}
+    assert [t["libelle"] for t in fiche["expenses"]["transactions"]] == ["Monoprix", "Boulangerie"]
+    kwargs = gmail.send_html_email.call_args.kwargs
+    assert 'href="https://app.example/semaine/2026-11-07"' in kwargs["html_body"]
+    assert "https://app.example/semaine/2026-11-07" in kwargs["text_body"]
+
+
+def test_run_weekly_recap_sans_url_d_application_n_affiche_pas_de_lien(monkeypatch):
+    monkeypatch.delenv("EB_APP_URL", raising=False)
+    db = _fake_db({"enabled": True, "recipients": ["a@example.com"]})
+    gmail = MagicMock()
+
+    run_weekly_recap(db, gmail, force=True, now=datetime(2026, 11, 7, 8, 0, tzinfo=timezone.utc))
+
+    assert "/semaine/" not in gmail.send_html_email.call_args.kwargs["html_body"]
+
+
+def test_backfill_aligne_les_semaines_sur_le_jour_d_envoi_et_garde_les_fiches_existantes():
+    db = _fake_db({"dayOfWeek": 6})  # samedi
+    db.data["weekly_recaps"] = {"2026-11-07": {"source": "email"}}
+
+    written = backfill_weekly_recaps(db, weeks=3, now=datetime(2026, 11, 9, 12, 0, tzinfo=timezone.utc))
+
+    assert written == ["2026-10-31", "2026-10-24"]
+    assert db.data["weekly_recaps"]["2026-11-07"] == {"source": "email"}
+    fiche = db.data["weekly_recaps"]["2026-10-31"]
+    assert fiche["source"] == "backfill"
+    assert fiche["period"]["start"] == "2026-10-25"
+    assert fiche["expenses"]["total_expenses"] == 24.0
+    # Soldes non historisés : absents des semaines passées
+    assert fiche["balances"]["accounts"] == []
+
+
+def test_backfill_semaine_la_plus_recente_avec_soldes_actuels_et_dry_run():
+    db = _fake_db({"dayOfWeek": 6})
+
+    planned = backfill_weekly_recaps(db, weeks=2, now=datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc), dry_run=True)
+    assert planned == ["2026-11-07", "2026-10-31"]
+    assert db.data["weekly_recaps"] == {}
+
+    backfill_weekly_recaps(db, weeks=1, now=datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc))
+    fiche = db.data["weekly_recaps"]["2026-11-07"]
+    assert fiche["balances"]["total"] == 1200.0
+    assert fiche["expenses"]["total_expenses"] == 46.5
