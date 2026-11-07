@@ -775,6 +775,60 @@ export interface WeeklyReportConfig {
   updatedAt?: FirestoreDateLike;
 }
 
+/** Fiche « Ma semaine » (collection `weekly_recaps`, ID = date de fin AAAA-MM-JJ). */
+export interface WeeklyRecapTransaction {
+  date: string;
+  libelle: string;
+  montant: number; // positif (dépense)
+  categorie: string;
+  compte: string;
+}
+
+export interface WeeklyRecapBudget {
+  categorie: string;
+  budget: number;
+  depense: number;
+  pourcentage: number;
+  reste: number;
+  depassement: number;
+  depense_mois_precedent?: number;
+  ecart_mois_precedent?: number;
+}
+
+export interface WeeklyRecapEnvelope {
+  categorie: string;
+  budget: number;
+  depense: number;
+  reste: number;
+  pourcentage: number;
+  echeance: string; // YYYY-MM
+}
+
+export interface WeeklyRecap {
+  id: string;
+  period: { start: string; end: string; month: string };
+  options: { warning_threshold: number };
+  balances: {
+    accounts: { compte: string; solde: number; status_label: string; status_tone: string }[];
+    total: number;
+    savings_accounts: { compte: string; solde: number }[];
+    total_savings: number;
+  };
+  expenses: {
+    total_expenses: number;
+    categories: { categorie: string; montant: number; pourcentage: number }[];
+    transactions?: WeeklyRecapTransaction[];
+    top_transactions: WeeklyRecapTransaction[];
+  };
+  budgets: {
+    variables: WeeklyRecapBudget[];
+    exceeded: WeeklyRecapBudget[];
+    warning: WeeklyRecapBudget[];
+    envelopes: WeeklyRecapEnvelope[];
+  };
+  source?: 'email' | 'backfill';
+}
+
 // ─── Projections long terme (route /projections, desktop) ───
 /** Mois au format 'YYYY-MM'. */
 export type ProjectionMonth = string;

@@ -48,6 +48,9 @@ const ProjectionsSection = lazy(() =>
 const FinanceQASection = lazy(() =>
   import('./components/FinanceQASection').then((m) => ({ default: m.FinanceQASection })),
 );
+const WeeklyRecapPage = lazy(() =>
+  import('./components/weekly/WeeklyRecapPage').then((m) => ({ default: m.WeeklyRecapPage })),
+);
 const SettingsPage = lazy(() =>
   import('./components/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
@@ -208,6 +211,7 @@ export const MainApp: React.FC = () => {
                   <Route path="/patrimoine" element={<PatrimoineSection />} />
                   <Route path="/projections" element={<ProjectionsSection />} />
                   <Route path="/qa" element={<FinanceQASection />} />
+                  <Route path="/semaine/:weekId?" element={<WeeklyRecapPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/connexions" element={<BankConnectionsPage />} />
                   <Route

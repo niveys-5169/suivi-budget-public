@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from html import escape as html_escape
 import logging
+import os
 from urllib.parse import quote
 import unicodedata
 from datetime import date, datetime, timedelta, timezone
@@ -375,6 +376,7 @@ def build_weekly_recap_data(
             "net": total_weekly_income - total_weekly_expenses,
             "categories": category_breakdown,
             "top_transactions": top_expenses,
+            "transactions": weekly_expenses_txs,
         },
         "budgets": {
             "variables": variable_budgets,
@@ -385,7 +387,14 @@ def build_weekly_recap_data(
     }
 
 
-def render_weekly_recap_html(data: Dict[str, Any]) -> str:
+def weekly_recap_url(app_url: Optional[str], data: Dict[str, Any]) -> Optional[str]:
+    """Lien vers la fiche de la semaine dans l'application (None sans URL d'app)."""
+    if not app_url:
+        return None
+    return f"{app_url.rstrip('/')}/semaine/{data['period']['end']}"
+
+
+def render_weekly_recap_html(data: Dict[str, Any], app_url: Optional[str] = None) -> str:
     """Génère le corps HTML de l'email avec le Design System AURUM."""
     p_start = data["period"]["start"].split("-")[::-1]
     p_end = data["period"]["end"].split("-")[::-1]
@@ -576,6 +585,15 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
         </div>
         """
 
+    link_html = ""
+    recap_url = weekly_recap_url(app_url, data)
+    if recap_url:
+        link_html = f"""
+    <div style="text-align: center; margin-bottom: 24px;">
+      <a href="{_esc(recap_url)}" style="display: inline-block; padding: 10px 20px; border-radius: 999px; background-color: #D4AF37; color: #0B0B14; font-size: 14px; font-weight: 600; text-decoration: none;">Voir la semaine dans l'application</a>
+    </div>
+        """
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -591,6 +609,8 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
       <h1 style="color: #F5F5F7; font-size: 22px; font-weight: 600; margin: 6px 0 2px 0;">Bilan de la semaine</h1>
       <div style="color: #9E9EA7; font-size: 13px;">{period_str}</div>
     </div>
+
+    {link_html}
 
     <!-- Sections configurées -->
     {checking_section_html}
@@ -611,7 +631,7 @@ def render_weekly_recap_html(data: Dict[str, Any]) -> str:
     return html
 
 
-def render_weekly_recap_text(data: Dict[str, Any]) -> str:
+def render_weekly_recap_text(data: Dict[str, Any], app_url: Optional[str] = None) -> str:
     """Génère la version texte brut de l'email."""
     opts = data.get("options", {})
     include_checking = opts.get("include_checking", True)
@@ -624,6 +644,9 @@ def render_weekly_recap_text(data: Dict[str, Any]) -> str:
         f"Période : {data['period']['start']} au {data['period']['end']}",
         "=" * 40,
     ]
+    recap_url = weekly_recap_url(app_url, data)
+    if recap_url:
+        lines.append(f"Voir la semaine dans l'application : {recap_url}")
 
     if include_checking and data["balances"]["accounts"]:
         lines.append("")
@@ -675,6 +698,128 @@ def render_weekly_recap_text(data: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+WEEKLY_RECAPS_COLLECTION = "weekly_recaps"
+
+
+def _load_recap_sources(
+    db: Any,
+    now_utc: datetime,
+    include_checking: bool,
+    include_savings: bool,
+    include_activity: bool,
+    history_days: int = 400,
+) -> Dict[str, Any]:
+    """Lit dans Firestore les données d'entrée de `build_weekly_recap_data`."""
+    balances = []
+    if include_checking:
+        balances = [doc.to_dict() or {} for doc in db.collection("account_balances").stream()]
+
+    savings_balances = []
+    if include_savings:
+        savings_balances = [doc.to_dict() or {} for doc in db.collection("savings_balances").stream()]
+
+    # Transactions : 13 mois pour couvrir la semaine, le mois précédent et le cycle des enveloppes
+    transactions = []
+    budgets = []
+    monthly_overrides = []
+    recurrences = []
+    if include_activity:
+        cutoff = (now_utc - timedelta(days=history_days)).strftime("%Y-%m-%d")
+        tx_stream = db.collection("transactions").where("date", ">=", cutoff).stream()
+        transactions = [doc.to_dict() or {} for doc in tx_stream]
+        budgets = [{**(doc.to_dict() or {}), "id": doc.id} for doc in db.collection("budgets").stream()]
+        monthly_overrides = [doc.to_dict() or {} for doc in db.collection("budgets_monthly").stream()]
+        recurrences = [doc.to_dict() or {} for doc in db.collection("recurrences").stream()]
+
+    excluded_categories = []
+    ex_doc = db.collection("metadata").document("budget_excluded_categories").get()
+    if ex_doc.exists:
+        data = ex_doc.to_dict() or {}
+        if isinstance(data.get("categories"), list):
+            excluded_categories = data["categories"]
+
+    return {
+        "balances": balances,
+        "savings_balances": savings_balances,
+        "transactions": transactions,
+        "budgets": budgets,
+        "monthly_overrides": monthly_overrides,
+        "recurrences": recurrences,
+        "excluded_categories": excluded_categories,
+    }
+
+
+def save_weekly_recap_snapshot(db: Any, data: Dict[str, Any], now_utc: datetime, source: str) -> str:
+    """Enregistre la fiche de la semaine dans `weekly_recaps/<date de fin>` et renvoie son ID."""
+    doc_id = data["period"]["end"]
+    db.collection(WEEKLY_RECAPS_COLLECTION).document(doc_id).set({
+        **data,
+        "generatedAt": now_utc,
+        "source": source,
+    })
+    return doc_id
+
+
+def backfill_weekly_recaps(
+    db: Any,
+    weeks: int,
+    now: Optional[datetime] = None,
+    overwrite: bool = False,
+    dry_run: bool = False,
+) -> List[str]:
+    """
+    Recalcule les fiches des `weeks` dernières semaines, alignées sur le jour d'envoi
+    configuré (la plus récente se termine au dernier jour d'envoi passé, aujourd'hui compris).
+
+    Les soldes ne sont pas historisés : seule la semaine la plus récente reprend les
+    soldes actuels, les autres n'ont que dépenses et budgets. Budgets et récurrences sont
+    ceux d'aujourd'hui. Les fiches existantes (envoyées par email) sont conservées
+    sauf `overwrite`.
+    """
+    now_utc = now or datetime.now(timezone.utc)
+    config_snap = db.collection("config").document("weekly_report").get()
+    config_data = config_snap.to_dict() or {} if config_snap.exists else {}
+
+    target_day = int(config_data.get("dayOfWeek", 5))
+    include_checking = config_data.get("includeCheckingBalances", True)
+    include_savings = config_data.get("includeSavingsBalances", False)
+    warning_threshold = float(config_data.get("budgetWarningThreshold", 80.0))
+
+    today = now_utc.astimezone(PARIS_TZ).date()
+    last_end = today - timedelta(days=(today.isoweekday() - target_day) % 7)
+    end_dates = [last_end - timedelta(days=7 * i) for i in range(weeks)]
+
+    sources = _load_recap_sources(
+        db,
+        now_utc,
+        include_checking=include_checking,
+        include_savings=include_savings,
+        include_activity=True,
+        history_days=400 + 7 * weeks,
+    )
+    collection = db.collection(WEEKLY_RECAPS_COLLECTION)
+    written: List[str] = []
+    for i, end in enumerate(end_dates):
+        doc_id = end.strftime("%Y-%m-%d")
+        if not overwrite and collection.document(doc_id).get().exists:
+            log.info(f"Fiche {doc_id} déjà présente — conservée.")
+            continue
+        latest = i == 0
+        data = build_weekly_recap_data(
+            **sources,
+            reference_date=end,
+            include_checking=include_checking and latest,
+            include_savings=include_savings and latest,
+            include_expenses=True,
+            include_budgets=True,
+            warning_threshold=warning_threshold,
+        )
+        if not dry_run:
+            save_weekly_recap_snapshot(db, data, now_utc, source="backfill")
+        written.append(doc_id)
+    return written
+
+
 def run_weekly_recap(
     db: Any,
     gmail: Any,
@@ -722,56 +867,34 @@ def run_weekly_recap(
         else:
             raise RuntimeError("Impossible de déterminer le destinataire de l'email récapitulatif.")
 
-    # Chargement Firestore
-    balances = []
-    if include_checking:
-        balances = [doc.to_dict() or {} for doc in db.collection("account_balances").stream()]
-
-    savings_balances = []
-    if include_savings:
-        savings_balances = [doc.to_dict() or {} for doc in db.collection("savings_balances").stream()]
-
-    # Transactions : 13 mois pour couvrir la semaine, le mois précédent et le cycle des enveloppes
-    transactions = []
-    if include_expenses or include_budgets:
-        cutoff = (now_utc - timedelta(days=400)).strftime("%Y-%m-%d")
-        tx_stream = db.collection("transactions").where("date", ">=", cutoff).stream()
-        transactions = [doc.to_dict() or {} for doc in tx_stream]
-
-    budgets = []
-    monthly_overrides = []
-    recurrences = []
-    if include_expenses or include_budgets:
-        budgets = [{**(doc.to_dict() or {}), "id": doc.id} for doc in db.collection("budgets").stream()]
-        monthly_overrides = [doc.to_dict() or {} for doc in db.collection("budgets_monthly").stream()]
-        recurrences = [doc.to_dict() or {} for doc in db.collection("recurrences").stream()]
-
-    excluded_categories = []
-    ex_doc = db.collection("metadata").document("budget_excluded_categories").get()
-    if ex_doc.exists:
-        data = ex_doc.to_dict() or {}
-        if isinstance(data.get("categories"), list):
-            excluded_categories = data["categories"]
+    sources = _load_recap_sources(
+        db,
+        now_utc,
+        include_checking=include_checking,
+        include_savings=include_savings,
+        include_activity=include_expenses or include_budgets,
+    )
 
     # Construction des données
     data = build_weekly_recap_data(
-        balances=balances,
-        transactions=transactions,
-        budgets=budgets,
-        monthly_overrides=monthly_overrides,
-        excluded_categories=excluded_categories,
+        **sources,
         reference_date=now_utc.astimezone(PARIS_TZ).date(),
         include_checking=include_checking,
         include_savings=include_savings,
-        savings_balances=savings_balances,
         include_expenses=include_expenses,
         include_budgets=include_budgets,
         warning_threshold=warning_threshold,
-        recurrences=recurrences,
     )
 
-    html_body = render_weekly_recap_html(data)
-    text_body = render_weekly_recap_text(data)
+    # La fiche de l'application est enregistrée même si l'envoi échoue ensuite.
+    try:
+        save_weekly_recap_snapshot(db, data, now_utc, source="email")
+    except Exception:
+        log.exception("Enregistrement de la fiche de la semaine impossible")
+
+    app_url = os.environ.get("EB_APP_URL")
+    html_body = render_weekly_recap_html(data, app_url=app_url)
+    text_body = render_weekly_recap_text(data, app_url=app_url)
 
     subject = f"📊 Récapitulatif de la semaine — {data['period']['end']}"
 

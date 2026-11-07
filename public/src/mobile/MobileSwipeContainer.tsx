@@ -44,6 +44,10 @@ const AurumRecurringPage = lazy(() =>
   })),
 );
 
+const WeeklyRecapPage = lazy(() =>
+  import('../components/weekly/WeeklyRecapPage').then((m) => ({ default: m.WeeklyRecapPage })),
+);
+
 // Pages réelles du desktop sans écran mobile : on le dit plutôt que « introuvable ».
 const DESKTOP_ONLY_PATHS = [
   '/settings',
@@ -139,6 +143,14 @@ export const MobileSwipeContainer: React.FC = () => {
                 element={
                   <div className="h-full overflow-y-auto">
                     <AurumNotificationPage onBack={() => window.history.back()} />
+                  </div>
+                }
+              />
+              <Route
+                path="/semaine/:weekId?"
+                element={
+                  <div className="h-full overflow-y-auto">
+                    <WeeklyRecapPage />
                   </div>
                 }
               />
