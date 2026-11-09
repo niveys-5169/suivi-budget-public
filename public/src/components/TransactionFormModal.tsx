@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIntl } from 'react-intl';
@@ -101,12 +101,16 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
     if (isOpen) setSubmitError(null);
   }
 
-  // Le formulaire (store react-hook-form, externe à React) suit les props.
+  // Le formulaire (store react-hook-form, externe à React) est rechargé à
+  // l'ouverture ou au changement de transaction — pas à chaque nouvel objet
+  // reçu (snapshot Firestore, re-rendu parent), qui écraserait la saisie.
+  const formKey = isOpen ? (transaction?.id ?? 'new') : null;
+  const loadedFormKey = useRef<string | null>(null);
   useEffect(() => {
-    if (isOpen) {
-      reset(buildDefaults(transaction, accounts));
-    }
-  }, [transaction, isOpen, accounts, reset]);
+    if (formKey === loadedFormKey.current) return;
+    loadedFormKey.current = formKey;
+    if (formKey !== null) reset(buildDefaults(transaction, accounts));
+  }, [formKey, transaction, accounts, reset]);
 
   const handleMarkAsRecurring = async () => {
     const values = getValues();
