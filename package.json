@@ -33,7 +33,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@e965/xlsx": "0.20.3",
-    "@hookform/resolvers": "^5.9.1",
+    "@hookform/resolvers": "^7.0.3",
     "@sentry/react": "^11.10.0",
     "firebase": "^13.1.0",
     "framer-motion": "^14.8.0",
