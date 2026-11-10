@@ -288,3 +288,21 @@ def test_pending_operation_with_other_amount_is_not_merged(store):
     other = instant_transfer('2026-10-28', transaction_amount={'amount': '11', 'currency': 'EUR'})
     store.observe(normalize_enable([other], ACCOUNT, NOW)); run_reconciliation(store, NOW)
     assert len(store.all('transactions')) == 2
+
+
+def test_pending_then_long_then_short_booked_forms_stay_one_certified_row(store):
+    """Incident du 10/11 : provisoire (libellé court, sans référence) publié et pointé, puis la forme
+    longue comptabilisée (avec référence) reçue, puis la forme courte comptabilisée qui reprend le
+    provisoire. La forme longue ne doit pas être publiée en nouvelle ligne une fois son prédécesseur remplacé."""
+    pending = raw(None, 'PDNG', remittance_information=['PRLV SEPA CAFE PARIS'])
+    store.observe(normalize_enable([pending], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    row = store.all('transactions')[0]
+    store.put('transactions', row['id'], {'categorie': 'Mon choix', 'pointe': True})
+    store.observe(normalize_enable([long_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    store.observe(normalize_enable([short_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    rows = store.all('transactions')
+    assert [r['id'] for r in rows] == [row['id']]
+    assert rows[0]['pointe'] and rows[0]['categorie'] == 'Mon choix'
+    # Rejouer la synchro ne change rien.
+    store.observe(normalize_enable([long_form(), short_form()], ACCOUNT, NOW)); run_reconciliation(store, NOW)
+    assert len(store.all('transactions')) == 1
