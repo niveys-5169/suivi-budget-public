@@ -49,11 +49,11 @@ export const Sidebar: React.FC = () => {
   const { formatMessage: t } = useIntl();
 
   const items: NavEntry[] = [
-    { to: '/', icon: LayoutDashboard, labelId: 'nav.console' },
-    { to: '/transactions', icon: ArrowLeftRight, labelId: 'nav.flux' },
+    { to: '/', icon: LayoutDashboard, labelId: 'nav.dashboard' },
+    { to: '/transactions', icon: ArrowLeftRight, labelId: 'nav.transactions' },
     { to: '/budgets', icon: BarChart3, labelId: 'nav.budgets' },
     { to: '/recurring', icon: RefreshCw, labelId: 'nav.recurring' },
-    { to: '/patrimoine', icon: TrendingUp, labelId: 'nav.audit' },
+    { to: '/patrimoine', icon: TrendingUp, labelId: 'nav.patrimoine' },
     { to: '/projections', icon: LineChart, labelId: 'nav.projections' },
   ];
 
@@ -101,9 +101,6 @@ export const Sidebar: React.FC = () => {
 
       <Separator />
       <div className="flex flex-col items-center gap-4 p-6">
-        <Text variant="caption" tone="tertiary">
-          {t({ id: 'nav.sidebar.version' })}
-        </Text>
         <LogoutButton />
       </div>
     </aside>

@@ -11,6 +11,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { hideLoader } from './utils/loader';
 import { Toast } from './components/Toast';
 import { ConfirmHost } from './components/ConfirmHost';
+import { GlobalCommandPalette } from './components/shared/GlobalCommandPalette';
 import { AriaLiveRegion } from './components/shared/AriaLiveRegion';
 import { OfflineBanner } from './components/shared/OfflineBanner';
 import { PageLayout } from './components/shared/PageLayout';
@@ -21,6 +22,8 @@ import { BankingDataProvider } from './hooks/useBankingData';
 import { BankingBanner } from './components/banking/BankingBanner';
 import { BankConnectionsPage } from './components/banking/BankConnectionsPage';
 import { AurumNotificationPage } from './components/dashboard/v2/AurumNotificationPage';
+import { useDocumentTitle } from './hooks/useDocumentTitle';
+import { useBackOrHome } from './hooks/useBackOrHome';
 
 // ─── Route code-splitting ─────────────────────────────────────────────────────
 // DashboardSection is the landing route — kept eager so the first paint has no
@@ -103,6 +106,7 @@ const RouteSpinner: React.FC = () => {
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
+  useDocumentTitle();
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
@@ -113,6 +117,7 @@ export const MainApp: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { formatMessage: t } = useIntl();
   const iosLoginTab = isIOSLoginTab();
+  const goBack = useBackOrHome();
 
   useEffect(() => {
     if (authLoading) return;
@@ -216,7 +221,7 @@ export const MainApp: React.FC = () => {
                   <Route path="/connexions" element={<BankConnectionsPage />} />
                   <Route
                     path="/notifications"
-                    element={<AurumNotificationPage onBack={() => window.history.back()} />}
+                    element={<AurumNotificationPage onBack={goBack} />}
                   />
                   <Route path="/advanced" element={<Navigate to="/settings" replace />} />
 
@@ -228,10 +233,7 @@ export const MainApp: React.FC = () => {
                   <Route path="/reparse" element={<ReparsePage />} />
                   <Route path="/excluded" element={<ExcludedEmailsPage />} />
                   <Route path="/rules" element={<RulesPage />} />
-                  <Route
-                    path="/recurring"
-                    element={<AurumRecurringPage onBack={() => window.history.back()} />}
-                  />
+                  <Route path="/recurring" element={<AurumRecurringPage onBack={goBack} />} />
 
                   {/* Legacy path stubs — prevent 404 redirects during migration */}
                   <Route path="/budget" element={<Navigate to="/budgets" replace />} />
@@ -252,6 +254,7 @@ export const MainApp: React.FC = () => {
         {FLAGS.BOTTOMNAV_V2 && <BottomNav />}
         <Toast />
         <ConfirmHost />
+        <GlobalCommandPalette />
         <AriaLiveRegion />
       </div>
     </BankingDataProvider>

@@ -16,7 +16,7 @@ export const color = {
 
   label: '#F5F5F7',
   labelSecondary: 'rgba(245, 245, 247, 0.60)',
-  labelTertiary: 'rgba(245, 245, 247, 0.38)',
+  labelTertiary: 'rgba(245, 245, 247, 0.5)',
 
   gold: '#D4AF37',
   goldLight: '#E5C158',

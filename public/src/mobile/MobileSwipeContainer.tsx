@@ -9,6 +9,8 @@ import { AurumNotificationPage } from '../components/dashboard/v2/AurumNotificat
 import { BankingBanner } from '../components/banking/BankingBanner';
 import { LoadingFallback } from '../components/shared/LoadingFallback';
 import { NotFoundPage } from '../components/shared/NotFoundPage';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useBackOrHome } from '../hooks/useBackOrHome';
 
 // Écrans secondaires en chunks séparés (Recharts n'est plus dans le chargement
 // initial), préchargés dès que le navigateur est inactif pour que le premier
@@ -85,6 +87,8 @@ export const MobileSwipeContainer: React.FC = () => {
   const location = useLocation();
   const { onTouchStart, onTouchEnd } = useEdgeSwipeNav();
   const reduceMotion = useReducedMotion();
+  const goBack = useBackOrHome();
+  useDocumentTitle();
 
   useEffect(() => {
     if (typeof window.requestIdleCallback === 'function') {
@@ -142,7 +146,7 @@ export const MobileSwipeContainer: React.FC = () => {
                 path="/notifications"
                 element={
                   <div className="h-full overflow-y-auto">
-                    <AurumNotificationPage onBack={() => window.history.back()} />
+                    <AurumNotificationPage onBack={goBack} />
                   </div>
                 }
               />
@@ -160,10 +164,7 @@ export const MobileSwipeContainer: React.FC = () => {
               <Route path="/budgets/*" element={<BudgetsScreen />} />
               <Route path="/analyse" element={<AnalyseScreen />} />
               <Route path="/patrimoine" element={<PatrimoineScreen />} />
-              <Route
-                path="/recurring"
-                element={<AurumRecurringPage onBack={() => window.history.back()} />}
-              />
+              <Route path="/recurring" element={<AurumRecurringPage onBack={goBack} />} />
               {DESKTOP_ONLY_PATHS.map((path) => (
                 <Route
                   key={path}

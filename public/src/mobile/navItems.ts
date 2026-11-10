@@ -9,14 +9,14 @@ export interface MobileNavItem {
 /**
  * Ordered list of the main mobile tabs. Single source of truth shared by the
  * bottom navigation bar and the edge-swipe navigation. The order here defines
- * the left-to-right swipe sequence: Console → Flux → Analyse → Budgets → Audit.
+ * the left-to-right swipe sequence: Accueil → Transactions → Analyse → Budgets → Patrimoine.
  */
 export const NAV_ITEMS: MobileNavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Console' },
-  { to: '/transactions', icon: Receipt, label: 'Flux' },
+  { to: '/', icon: LayoutDashboard, label: 'Accueil' },
+  { to: '/transactions', icon: Receipt, label: 'Transactions' },
   { to: '/analyse', icon: PieChart, label: 'Analyse' },
   { to: '/budgets', icon: Wallet, label: 'Budgets' },
-  { to: '/patrimoine', icon: Shield, label: 'Audit' },
+  { to: '/patrimoine', icon: Shield, label: 'Patrimoine' },
 ];
 
 /**

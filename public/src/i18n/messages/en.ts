@@ -16,9 +16,6 @@ const en: Record<MessageId, string> = {
   'nav.recurring': 'Recurring',
   'nav.settings': 'Settings',
   'nav.premium': 'Premium',
-  'nav.console': 'Console',
-  'nav.flux': 'Activity',
-  'nav.audit': 'Audit',
   'nav.assistant': 'Assistant',
   'nav.sidebar.aria': 'AURUM sidebar',
   'nav.sidebar.title': 'AURUM',
@@ -26,7 +23,6 @@ const en: Record<MessageId, string> = {
   'nav.sidebar.aria.brand': 'AURUM — Private Wealth Management',
   'nav.sidebar.main.aria': 'Main navigation',
   'nav.sidebar.tools.aria': 'Tools & settings',
-  'nav.sidebar.version': 'Aurum v2.0',
 
   // ── Actions communes ─────────────────────────────────────────────────────
   'action.save': 'Save',

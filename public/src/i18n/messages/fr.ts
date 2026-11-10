@@ -15,9 +15,6 @@ const fr = {
   'nav.recurring': 'Récurrences',
   'nav.settings': 'Paramètres',
   'nav.premium': 'Premium',
-  'nav.console': 'Console',
-  'nav.flux': 'Flux',
-  'nav.audit': 'Audit',
   'nav.assistant': 'Assistant',
   'nav.sidebar.aria': 'Barre latérale AURUM',
   'nav.sidebar.title': 'AURUM',
@@ -25,7 +22,6 @@ const fr = {
   'nav.sidebar.aria.brand': 'AURUM — Private Wealth Management',
   'nav.sidebar.main.aria': 'Navigation principale',
   'nav.sidebar.tools.aria': 'Outils & paramètres',
-  'nav.sidebar.version': 'Aurum v2.0',
 
   // ── Actions communes ─────────────────────────────────────────────────────
   'action.save': 'Enregistrer',

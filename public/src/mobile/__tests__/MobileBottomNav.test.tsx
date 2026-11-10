@@ -11,11 +11,11 @@ describe('MobileBottomNav', () => {
         <MobileBottomNav />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Console')).toBeInTheDocument();
-    expect(screen.getByText('Flux')).toBeInTheDocument();
+    expect(screen.getByText('Accueil')).toBeInTheDocument();
+    expect(screen.getByText('Transactions')).toBeInTheDocument();
     expect(screen.getByText('Analyse')).toBeInTheDocument();
     expect(screen.getByText('Budgets')).toBeInTheDocument();
-    expect(screen.getByText('Audit')).toBeInTheDocument();
+    expect(screen.getByText('Patrimoine')).toBeInTheDocument();
   });
 
   it('has correct route path references', () => {
@@ -24,11 +24,11 @@ describe('MobileBottomNav', () => {
         <MobileBottomNav />
       </MemoryRouter>,
     );
-    const consoleLink = screen.getByText('Console').closest('a');
-    expect(consoleLink).toHaveAttribute('href', '/');
+    const homeLink = screen.getByText('Accueil').closest('a');
+    expect(homeLink).toHaveAttribute('href', '/');
 
-    const auditLink = screen.getByText('Audit').closest('a');
-    expect(auditLink).toHaveAttribute('href', '/patrimoine');
+    const patrimoineLink = screen.getByText('Patrimoine').closest('a');
+    expect(patrimoineLink).toHaveAttribute('href', '/patrimoine');
   });
 
   it('applies active styling class to active routes', () => {
@@ -37,7 +37,7 @@ describe('MobileBottomNav', () => {
         <MobileBottomNav />
       </MemoryRouter>,
     );
-    const activeLink = screen.getByText('Flux').closest('a');
+    const activeLink = screen.getByText('Transactions').closest('a');
     expect(activeLink).toHaveClass('text-gold');
   });
 });

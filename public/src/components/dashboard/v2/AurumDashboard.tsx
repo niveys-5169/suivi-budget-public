@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AurumAccountsList } from './AurumAccountsList';
 import { AurumUnpointedCard } from './AurumUnpointedCard';
 import { AurumPointageModal } from './AurumPointageModal';
@@ -36,7 +36,6 @@ const AurumSettingsPage = React.lazy(() =>
   import('./AurumSettingsPage').then((m) => ({ default: m.AurumSettingsPage })),
 );
 
-import { CommandPalette } from './CommandPalette';
 import { useAlerts } from '../../../hooks/useAlerts';
 import { useBalances } from '../../../hooks/useBalances';
 import { useDashboard } from '../../../hooks/useDashboard';
@@ -45,6 +44,7 @@ import { useSyncTransactions } from '../../../hooks/useSyncTransactions';
 import { PullToRefreshWrapper } from '../../PullToRefreshWrapper';
 import { AnimatedBalance } from '../../shared/AnimatedBalance';
 import { SafeToSpendPill } from '../../shared/SafeToSpendPill';
+import { openCommandPalette } from '../../shared/GlobalCommandPalette';
 import { FLAGS } from '../../../lib/featureFlags';
 import { Button, IconButton, Section, Skeleton, Stack, Text } from '../../../ui';
 import { Bell, Search, Sparkles, RefreshCw } from 'lucide-react';
@@ -77,7 +77,6 @@ export const AurumDashboard: React.FC = () => {
     const tab = (location.state as { tab?: DashboardTab } | null)?.tab;
     if (tab) setActiveTab(tab);
   }
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   const {
@@ -109,17 +108,6 @@ export const AurumDashboard: React.FC = () => {
   }, [balances]);
   const { sync, isSyncing } = useSyncTransactions();
   const { unreadErrorCount } = useAlerts();
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setPaletteOpen((p) => !p);
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const handleAccountClick = (name: string) => {
     if (updateFilters) {
@@ -262,7 +250,7 @@ export const AurumDashboard: React.FC = () => {
                             <IconButton
                               label="Rechercher"
                               variant="plain"
-                              onClick={() => setPaletteOpen(true)}
+                              onClick={openCommandPalette}
                             >
                               <Search size={20} />
                             </IconButton>
@@ -376,20 +364,6 @@ export const AurumDashboard: React.FC = () => {
           accounts={accountNames}
         />
       </AnimatePresence>
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        onNavigate={(tab) => {
-          setPaletteOpen(false);
-          // La vue patrimoine canonique vit sur sa propre route (WealthPage),
-          // pas dans un onglet du dashboard.
-          if (tab === 'wealth') {
-            navigate('/patrimoine');
-            return;
-          }
-          setActiveTab(tab as DashboardTab);
-        }}
-      />
     </>
   );
 };
