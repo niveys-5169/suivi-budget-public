@@ -21,10 +21,10 @@ export const BottomNav: React.FC = () => {
   const { formatMessage: t } = useIntl();
 
   const entries: { to: string; icon: TabItem['icon']; labelId: MessageId }[] = [
-    { to: '/', icon: LayoutDashboard, labelId: 'nav.console' },
-    { to: '/transactions', icon: ArrowLeftRight, labelId: 'nav.flux' },
+    { to: '/', icon: LayoutDashboard, labelId: 'nav.dashboard' },
+    { to: '/transactions', icon: ArrowLeftRight, labelId: 'nav.transactions' },
     { to: '/budgets', icon: BarChart3, labelId: 'nav.budgets' },
-    { to: '/patrimoine', icon: TrendingUp, labelId: 'nav.audit' },
+    { to: '/patrimoine', icon: TrendingUp, labelId: 'nav.patrimoine' },
   ];
 
   if (FLAGS.ANALYSE_PAGE) {

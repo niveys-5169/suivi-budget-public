@@ -36,7 +36,7 @@
   /* Texte — hiérarchie par opacité (modèle iOS) plutôt que gris arbitraires */
   --color-label: #f5f5f7;
   --color-label-secondary: rgba(245, 245, 247, 0.6);
-  --color-label-tertiary: rgba(245, 245, 247, 0.38);
+  --color-label-tertiary: rgba(245, 245, 247, 0.5);
 
   /* Or — ACCENT DE MARQUE uniquement : CTA, sélection, focus, icône active.
      Ne porte plus la valeur des montants (voir positive/negative). */

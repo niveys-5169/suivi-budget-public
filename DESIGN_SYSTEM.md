@@ -116,7 +116,7 @@ Plancher à 12 px. `text-micro` (10 px) est supprimé. Un seul letter-spacing
 | `border-separator`     | `rgba(255,255,255,.08)` | Filet 1 px — la seule bordure                |
 | `text-label`           | `#F5F5F7`               | Texte principal                              |
 | `text-label-secondary` | 60 %                    | Texte secondaire                             |
-| `text-label-tertiary`  | 38 %                    | Métadonnées                                  |
+| `text-label-tertiary`  | 50 %                    | Métadonnées                                  |
 | `text-gold`            | `#D4AF37`               | **Accent de marque** — CTA, sélection, focus |
 | `bg-gold-subtle`       | 10 %                    | Fond de badge, état sélectionné              |
 | `text-positive`        | `#4ADE80`               | **Montant positif**                          |
