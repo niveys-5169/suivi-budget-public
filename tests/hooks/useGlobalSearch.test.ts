@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { searchGlobal } from '../../public/src/utils/searchGlobal';
+import { NAVIGABLE_PAGES } from '../../public/src/hooks/useGlobalSearch';
 
 const PAGES = [
-  { label: 'Budget', tab: 'budget' },
-  { label: 'Patrimoine', tab: 'wealth' },
-  { label: 'Abonnements', tab: 'recurring' },
-  { label: 'Automatisations', tab: 'rules' },
-  { label: 'Transactions', tab: 'flux' },
-  { label: 'Analyses', tab: 'insights' },
+  { label: 'Budgets', tab: '/budgets' },
+  { label: 'Patrimoine', tab: '/patrimoine' },
+  { label: 'Récurrences', tab: '/recurring' },
+  { label: 'Règles', tab: '/rules' },
+  { label: 'Transactions', tab: '/transactions' },
+  { label: 'Notifications', tab: '/notifications' },
 ];
 
 function makeTx(libelle: string, categorie: string, montant: number) {
@@ -34,7 +35,7 @@ describe('searchGlobal', () => {
     const results = searchGlobal('budget', [], PAGES);
     const pageResults = results.filter((r) => r.type === 'page');
     expect(pageResults).toHaveLength(1);
-    expect(pageResults[0]!.tab).toBe('budget');
+    expect(pageResults[0]!.tab).toBe('/budgets');
   });
 
   it('retourne des résultats de type category depuis les transactions', () => {
@@ -79,5 +80,14 @@ describe('searchGlobal', () => {
     const types = new Set(results.map((r) => r.type));
     expect(types.has('page')).toBe(true);
     expect(types.has('transaction')).toBe(true);
+  });
+});
+
+describe('NAVIGABLE_PAGES', () => {
+  it('ne contient que des chemins de route uniques', () => {
+    const paths = NAVIGABLE_PAGES.map((p) => p.tab);
+    expect(paths.every((p) => p.startsWith('/'))).toBe(true);
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(paths).toEqual(expect.arrayContaining(['/', '/notifications', '/connexions']));
   });
 });

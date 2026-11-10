@@ -11,6 +11,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { hideLoader } from './utils/loader';
 import { Toast } from './components/Toast';
 import { ConfirmHost } from './components/ConfirmHost';
+import { GlobalCommandPalette } from './components/shared/GlobalCommandPalette';
 import { AriaLiveRegion } from './components/shared/AriaLiveRegion';
 import { OfflineBanner } from './components/shared/OfflineBanner';
 import { PageLayout } from './components/shared/PageLayout';
@@ -253,6 +254,7 @@ export const MainApp: React.FC = () => {
         {FLAGS.BOTTOMNAV_V2 && <BottomNav />}
         <Toast />
         <ConfirmHost />
+        <GlobalCommandPalette />
         <AriaLiveRegion />
       </div>
     </BankingDataProvider>

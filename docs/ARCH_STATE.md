@@ -1,5 +1,13 @@
 # 🏗 Current Architectural State (mise à jour octobre 2026)
 
+## Shell : palette globale, titre d'onglet, retour avec repli (novembre 2026)
+
+- **Palette Ctrl/Cmd+K** : `components/shared/GlobalCommandPalette.tsx`, montée dans `MainApp`
+  (desktop uniquement, pas de PWA). Ouverture par raccourci ou `openCommandPalette()`
+  (événement `open-command-palette`). `NAVIGABLE_PAGES` liste de vraies routes.
+- **Titre d'onglet** : `hooks/useDocumentTitle.ts` pose `document.title` selon la route.
+- **Retour** : `hooks/useBackOrHome.ts` fait `navigate(-1)`, ou retombe sur `/` en arrivée directe.
+
 ## Fiche « Ma semaine » (novembre 2026)
 
 Route `/semaine/:weekId?` (dernière semaine par défaut), commune desktop et PWA, sans
