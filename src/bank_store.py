@@ -43,6 +43,7 @@ class BankStore:
                            (not o.get('reference') or not item.get('reference'))]
                 if len(pending) == 1 and sum(strong_match(other, pending[0]) for other in items) == 1:
                     previous = self._take_over(pending[0], item)
+                    self._supersede_held_back_twin(item, existing, items)
                 elif (twin := self._other_shape_twin(item, existing, items)):
                     # Same booked operation, other bank representation: keep the row already published.
                     item['supersededBy'] = twin['id']
@@ -74,6 +75,16 @@ class BankStore:
         if previous.get('linxoObservationId'):
             self.put('bank_observations', previous['linxoObservationId'], {'enableObservationId': item['id']})
         return previous
+
+    def _supersede_held_back_twin(self, item, existing, items):
+        """`item` just took over a pending row. The bank may already have served that same booked operation in
+        its other shape: it was held back as a transition from the pending row, which is now superseded, so
+        it would be published as a second row. `item` is now the operation's representation; never touch a twin
+        that already has its own published row."""
+        twin = self._other_shape_twin(item, existing, items)
+        if twin and not twin.get('canonicalId'):
+            self.put('bank_observations', twin['id'], {'supersededBy': item['id'],
+                                                       **({'canonicalId': item['canonicalId']} if item.get('canonicalId') else {})})
 
     @staticmethod
     def _moved_pending(item, existing, items):
