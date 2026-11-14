@@ -3,7 +3,7 @@ import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useIntl } from 'react-intl';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import {
   Pencil,
   X,
@@ -25,7 +25,7 @@ import { ravConfigSchema, type RavConfigFormValues } from '../../lib/schemas/for
 import { CategoryTagSection } from './CategoryTagSection';
 import { RavSummaryBar } from './RavSummaryBar';
 import { computeDerivedRav, EMPTY_RAV_CONFIG, toRavFormConfig } from '../../utils/ravCalculations';
-import { withRetry } from '../../utils/withRetry';
+import { auditedMerge } from '../../services/auditLog';
 
 interface Props {
   monthKey: string;
@@ -119,7 +119,7 @@ export const RAVEditor: React.FC<Props> = ({ monthKey, onClose }) => {
     setError(null);
     try {
       const newConfig = { ...values, revenu_mensuel_net: null };
-      await withRetry(() => setDoc(doc(db, 'metadata', 'rav_config'), newConfig, { merge: true }));
+      await auditedMerge('budget', doc(db, 'metadata', 'rav_config'), newConfig, 'Reste-à-vivre');
       setEditing(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : t({ id: 'rav.error.saveFailed' });

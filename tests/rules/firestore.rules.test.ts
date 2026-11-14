@@ -14,7 +14,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
 const OWNER_UID = 'owner-uid';
 const OWNER = { email: 'niveys@gmail.com', email_verified: true };
@@ -166,5 +166,53 @@ describe('access_allowlist', () => {
       await assertFails(setDoc(doc(db, 'access_allowlist/autre@gmail.com'), { v: 1 }));
       await assertFails(deleteDoc(doc(db, `access_allowlist/${GUEST_EMAIL}`)));
     }
+  });
+});
+
+describe('audit_log', () => {
+  const entry = (byEmail: string) => ({
+    at: serverTimestamp(),
+    byEmail,
+    domain: 'transaction',
+    action: 'update',
+    path: 'transactions/tx1',
+    docId: 'tx1',
+    label: 'CB CARREFOUR',
+    changes: [{ field: 'categorie', from: 'Divers', to: 'Courses' }],
+  });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'audit_log/e1'), { byEmail: GUEST_EMAIL, at: new Date() });
+    });
+  });
+
+  it('comptes autorisés : lecture, et création signée de leur propre email', async () => {
+    await assertSucceeds(getDoc(doc(owner(), 'audit_log/e1')));
+    await assertSucceeds(getDoc(doc(guest(), 'audit_log/e1')));
+    await assertSucceeds(setDoc(doc(owner(), 'audit_log/o1'), entry(OWNER.email)));
+    await assertSucceeds(setDoc(doc(guest(), 'audit_log/g1'), entry(GUEST_EMAIL)));
+  });
+
+  it("création refusée au nom d'un autre, ou avec une date choisie", async () => {
+    await assertFails(setDoc(doc(guest(), 'audit_log/g2'), entry(OWNER.email)));
+    await assertFails(setDoc(doc(owner(), 'audit_log/o2'), entry(GUEST_EMAIL)));
+    await assertFails(
+      setDoc(doc(guest(), 'audit_log/g3'), { ...entry(GUEST_EMAIL), at: new Date(2020, 0, 1) }),
+    );
+  });
+
+  it('ni modification ni suppression, même par le propriétaire', async () => {
+    for (const db of [owner(), guest()]) {
+      await assertFails(updateDoc(doc(db, 'audit_log/e1'), { byEmail: 'autre@gmail.com' }));
+      await assertFails(setDoc(doc(db, 'audit_log/e1'), entry(GUEST_EMAIL)));
+      await assertFails(deleteDoc(doc(db, 'audit_log/e1')));
+    }
+  });
+
+  it('autres comptes : aucun accès', async () => {
+    await assertFails(getDoc(doc(stranger(), 'audit_log/e1')));
+    await assertFails(setDoc(doc(stranger(), 'audit_log/s1'), entry('autre@gmail.com')));
+    await assertFails(getDoc(doc(anonymous(), 'audit_log/e1')));
   });
 });

@@ -17,6 +17,7 @@ import {
 import { z } from 'zod';
 import { db, auth } from './firebase';
 import { withRetry } from '../utils/withRetry';
+import { audited, recordAudit, type AuditSpec } from './auditLog';
 import { Transaction } from '../types/banking.types';
 import { toCalendarKey } from '../utils/date';
 
@@ -133,45 +134,72 @@ export function buildTransactionQuery(loadAll: boolean): Query {
   );
 }
 
+const txRef = (id: string) => doc(db, 'transactions', id);
+
+/** Ligne de journal d'une suppression : garde de quoi reconnaître la transaction. */
+const deletionSpec = (id: string): AuditSpec => ({
+  domain: 'transaction',
+  ref: txRef(id),
+  action: 'delete',
+  keep: ['date', 'montant', 'categorie'],
+});
+
 export async function updatePointe(id: string, checked: boolean): Promise<void> {
-  await withRetry(() => updateDoc(doc(db, 'transactions', id), { pointe: checked }));
+  const patch = { pointe: checked };
+  await audited({ domain: 'transaction', ref: txRef(id), patch }, () =>
+    withRetry(() => updateDoc(txRef(id), patch)),
+  );
 }
 
 export async function removeTransaction(id: string): Promise<void> {
   // Batch atomique : sans tombstone, un reparse ou un mail non étiqueté
   // réimporterait la transaction supprimée.
-  await withRetry(() => {
-    const batch = writeBatch(db);
-    batch.delete(doc(db, 'transactions', id));
-    batch.set(
-      doc(db, 'deleted_transactions', id),
-      {
-        transactionId: id,
-        deletedAt: serverTimestamp(),
-        deletedBy: auth.currentUser?.email || '',
-        source: 'react_hook',
-      },
-      { merge: true },
-    );
-    return batch.commit();
-  });
+  await audited(deletionSpec(id), () =>
+    withRetry(() => {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'transactions', id));
+      batch.set(
+        doc(db, 'deleted_transactions', id),
+        {
+          transactionId: id,
+          deletedAt: serverTimestamp(),
+          deletedBy: auth.currentUser?.email || '',
+          source: 'react_hook',
+        },
+        { merge: true },
+      );
+      return batch.commit();
+    }),
+  );
 }
 
 export async function persistTransaction(
   transaction: Partial<Transaction> & { id?: string },
 ): Promise<void> {
   const { id, ...data } = transaction;
-  await withRetry(async () => {
-    if (id) {
-      await updateDoc(doc(db, 'transactions', id), data);
-    } else {
-      await addDoc(collection(db, 'transactions'), {
-        ...data,
-        importedAt: serverTimestamp(),
-        source: data.source || 'manuel',
-        pointe: data.pointe ?? false,
-      });
-    }
+  if (id) {
+    await audited({ domain: 'transaction', ref: txRef(id), patch: data }, () =>
+      withRetry(() => updateDoc(txRef(id), data)),
+    );
+    return;
+  }
+  const ref = await withRetry(() =>
+    addDoc(collection(db, 'transactions'), {
+      ...data,
+      importedAt: serverTimestamp(),
+      source: data.source || 'manuel',
+      pointe: data.pointe ?? false,
+    }),
+  );
+  await recordAudit({
+    domain: 'transaction',
+    ref,
+    action: 'create',
+    label: data.libelle ?? '',
+    changes: [
+      { field: 'date', to: data.date ?? null },
+      { field: 'montant', to: data.montant ?? null },
+    ],
   });
 }
 
@@ -235,13 +263,20 @@ export async function deleteAllEdfCredits(rechargeId: string): Promise<void> {
 /** Updates the `pointe` field on a set of transactions in Firestore batches of 499. */
 export async function batchSetPointe(txs: Transaction[], pointe: boolean): Promise<void> {
   const CHUNK_SIZE = 499;
-  for (let i = 0; i < txs.length; i += CHUNK_SIZE) {
-    const batch = writeBatch(db);
-    txs.slice(i, i + CHUNK_SIZE).forEach((tx) => {
-      batch.update(doc(db, 'transactions', tx.id), { pointe });
-    });
-    await batch.commit();
-  }
+  const specs = txs.map((tx): AuditSpec => ({
+    domain: 'transaction',
+    ref: txRef(tx.id),
+    patch: { pointe },
+  }));
+  await audited(specs, async () => {
+    for (let i = 0; i < txs.length; i += CHUNK_SIZE) {
+      const batch = writeBatch(db);
+      txs.slice(i, i + CHUNK_SIZE).forEach((tx) => {
+        batch.update(doc(db, 'transactions', tx.id), { pointe });
+      });
+      await batch.commit();
+    }
+  });
 }
 
 /** Applique le même `patch` partiel à un ensemble de transactions par batches de 499. */
@@ -250,15 +285,18 @@ export async function batchUpdateTransactions(
   patch: Partial<Transaction>,
 ): Promise<void> {
   const CHUNK_SIZE = 499;
-  await withRetry(async () => {
-    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-      const batch = writeBatch(db);
-      ids.slice(i, i + CHUNK_SIZE).forEach((id) => {
-        batch.update(doc(db, 'transactions', id), patch);
-      });
-      await batch.commit();
-    }
-  });
+  const specs = ids.map((id): AuditSpec => ({ domain: 'transaction', ref: txRef(id), patch }));
+  await audited(specs, () =>
+    withRetry(async () => {
+      for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const batch = writeBatch(db);
+        ids.slice(i, i + CHUNK_SIZE).forEach((id) => {
+          batch.update(doc(db, 'transactions', id), patch);
+        });
+        await batch.commit();
+      }
+    }),
+  );
 }
 
 /**
@@ -270,23 +308,25 @@ export async function batchUpdateTransactions(
 export async function batchRemoveTransactions(ids: string[]): Promise<void> {
   const CHUNK_SIZE = 249;
   const deletedBy = auth.currentUser?.email || '';
-  await withRetry(async () => {
-    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-      const batch = writeBatch(db);
-      ids.slice(i, i + CHUNK_SIZE).forEach((id) => {
-        batch.delete(doc(db, 'transactions', id));
-        batch.set(
-          doc(db, 'deleted_transactions', id),
-          {
-            transactionId: id,
-            deletedAt: serverTimestamp(),
-            deletedBy,
-            source: 'react_hook',
-          },
-          { merge: true },
-        );
-      });
-      await batch.commit();
-    }
-  });
+  await audited(ids.map(deletionSpec), () =>
+    withRetry(async () => {
+      for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const batch = writeBatch(db);
+        ids.slice(i, i + CHUNK_SIZE).forEach((id) => {
+          batch.delete(doc(db, 'transactions', id));
+          batch.set(
+            doc(db, 'deleted_transactions', id),
+            {
+              transactionId: id,
+              deletedAt: serverTimestamp(),
+              deletedBy,
+              source: 'react_hook',
+            },
+            { merge: true },
+          );
+        });
+        await batch.commit();
+      }
+    }),
+  );
 }

@@ -17,6 +17,7 @@ const PAGE_LABELS: [string, string][] = [
   ['/connexions', 'Connexions bancaires'],
   ['/notifications', 'Notifications'],
   ['/semaine', 'Ma semaine'],
+  ['/journal', 'Journal'],
   ['/rules', 'Règles'],
   ['/mappings', 'Correspondances'],
   ['/fusion', 'Fusion'],

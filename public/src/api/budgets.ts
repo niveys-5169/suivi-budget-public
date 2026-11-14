@@ -3,7 +3,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
   deleteDoc,
   query,
   where,
@@ -16,6 +15,7 @@ import {
 import { db } from '../services/firebase';
 import { budgetDocKey } from '../utils/budgetKey';
 import { withRetry } from '../utils/withRetry';
+import { audited, auditedMerge } from '../services/auditLog';
 import { toCalendarKey } from '../utils/date';
 
 const COLLECTION_NAME = 'budgets';
@@ -37,9 +37,7 @@ export async function createBudget(data: BudgetWriteData): Promise<string> {
   // category upserts the same document instead of spawning a duplicate (auto-id).
   const id = budgetDocKey(data.categorie || data.nom || '');
   const docRef = doc(db, COLLECTION_NAME, id);
-  await withRetry(() =>
-    setDoc(docRef, { ...data, createdAt: now, updatedAt: now }, { merge: true }),
-  );
+  await auditedMerge('budget', docRef, { ...data, createdAt: now, updatedAt: now });
   return id;
 }
 
@@ -55,21 +53,15 @@ export async function getBudget(id: string): Promise<BudgetRecord | null> {
 export async function updateBudget(id: string, updates: BudgetWriteData): Promise<void> {
   const docRef = doc(db, COLLECTION_NAME, id);
   // Use setDoc with merge: true instead of updateDoc to support "upsert"
-  await withRetry(() =>
-    setDoc(
-      docRef,
-      {
-        ...updates,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    ),
-  );
+  await auditedMerge('budget', docRef, { ...updates, updatedAt: serverTimestamp() });
 }
 
 export async function deleteBudget(id: string): Promise<void> {
   const docRef = doc(db, COLLECTION_NAME, id);
-  await withRetry(() => deleteDoc(docRef));
+  await audited(
+    { domain: 'budget', ref: docRef, action: 'delete', keep: ['montant', 'type'] },
+    () => withRetry(() => deleteDoc(docRef)),
+  );
 }
 
 export async function listBudgets({ actifOnly = true } = {}): Promise<BudgetRecord[]> {

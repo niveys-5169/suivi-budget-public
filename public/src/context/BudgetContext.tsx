@@ -27,6 +27,7 @@ import { withRetry } from '../utils/withRetry';
 import { useFirestoreErrorHandler } from '../hooks/useFirestoreErrorHandler';
 import { BudgetBase } from '../types/banking.types';
 import { budgetDocKey } from '../utils/budgetKey';
+import { audited, auditedMerge, type AuditSpec } from '../services/auditLog';
 import { dedupeBudgetsByCategory } from '../utils/budgetHelpers';
 import { resolveEffectiveBudgets } from '../utils/budgetResolution';
 import { FALLBACK_CATEGORIES } from '../constants/categories';
@@ -272,17 +273,16 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     async (categorie: string, montant: number) => {
       const docId = `${monthKey}__${budgetDocKey(categorie)}`;
       try {
-        await withRetry(() =>
-          setDoc(
-            doc(db, 'budgets_monthly', docId),
-            {
-              month: monthKey,
-              categorie,
-              montant,
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          ),
+        await auditedMerge(
+          'budget',
+          doc(db, 'budgets_monthly', docId),
+          {
+            month: monthKey,
+            categorie,
+            montant,
+            updatedAt: serverTimestamp(),
+          },
+          `${categorie} (${monthKey})`,
         );
       } catch (err) {
         handleFsError(err, {
@@ -301,17 +301,16 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const year = monthKey.split('-')[0];
       const docId = `${year}__${budgetDocKey(categorie)}`;
       try {
-        await withRetry(() =>
-          setDoc(
-            doc(db, 'budgets_annual_defaults', docId),
-            {
-              year,
-              categorie,
-              annualMontant,
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          ),
+        await auditedMerge(
+          'budget',
+          doc(db, 'budgets_annual_defaults', docId),
+          {
+            year,
+            categorie,
+            annualMontant,
+            updatedAt: serverTimestamp(),
+          },
+          `${categorie} (${year})`,
         );
       } catch (err) {
         handleFsError(err, {
@@ -334,20 +333,19 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     ) => {
       const docId = budgetDocKey(categorie);
       try {
-        await withRetry(() =>
-          setDoc(
-            doc(db, 'budgets', docId),
-            {
-              categorie,
-              nom: categorie,
-              montant,
-              type,
-              actif: true,
-              isIncome: isIncome !== undefined ? isIncome : type === 'revenu',
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          ),
+        await auditedMerge(
+          'budget',
+          doc(db, 'budgets', docId),
+          {
+            categorie,
+            nom: categorie,
+            montant,
+            type,
+            actif: true,
+            isIncome: isIncome !== undefined ? isIncome : type === 'revenu',
+            updatedAt: serverTimestamp(),
+          },
+          categorie,
         );
       } catch (err) {
         handleFsError(err, {
@@ -365,22 +363,21 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     async (categorie: string, montant: number, moisEcheance: number) => {
       const docId = budgetDocKey(categorie);
       try {
-        await withRetry(() =>
-          setDoc(
-            doc(db, 'budgets', docId),
-            {
-              categorie,
-              nom: categorie,
-              montant,
-              type: 'annuel',
-              actif: true,
-              isIncome: false,
-              moisAttendus: [moisEcheance],
-              periode: { type: 'annee_civile' },
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          ),
+        await auditedMerge(
+          'budget',
+          doc(db, 'budgets', docId),
+          {
+            categorie,
+            nom: categorie,
+            montant,
+            type: 'annuel',
+            actif: true,
+            isIncome: false,
+            moisAttendus: [moisEcheance],
+            periode: { type: 'annee_civile' },
+            updatedAt: serverTimestamp(),
+          },
+          categorie,
         );
       } catch (err) {
         handleFsError(err, {
@@ -399,22 +396,21 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const convertToMonthly = useCallback(
     async (categorie: string, montant: number) => {
       try {
-        await withRetry(() =>
-          setDoc(
-            doc(db, 'budgets', budgetDocKey(categorie)),
-            {
-              categorie,
-              nom: categorie,
-              montant,
-              type: 'mensuel',
-              actif: true,
-              isIncome: false,
-              moisAttendus: deleteField(),
-              periode: { type: 'mois_courant' },
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true },
-          ),
+        await auditedMerge(
+          'budget',
+          doc(db, 'budgets', budgetDocKey(categorie)),
+          {
+            categorie,
+            nom: categorie,
+            montant,
+            type: 'mensuel',
+            actif: true,
+            isIncome: false,
+            moisAttendus: deleteField(),
+            periode: { type: 'mois_courant' },
+            updatedAt: serverTimestamp(),
+          },
+          categorie,
         );
       } catch (err) {
         handleFsError(err, {
@@ -436,21 +432,31 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const ids = matching.length > 0 ? matching.map((b) => b.id) : [budgetDocKey(categorie)];
       await Promise.all(
         ids.map(async (id) => {
-          try {
-            await deleteDoc(doc(db, 'budgets', id));
-          } catch (err) {
-            console.warn('[BudgetContext] deleteDoc failed, falling back to soft-delete:', err);
-            await setDoc(
-              doc(db, 'budgets', id),
-              {
-                categorie,
-                nom: categorie,
-                actif: false,
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true },
-            );
-          }
+          const ref = doc(db, 'budgets', id);
+          const spec: AuditSpec = {
+            domain: 'budget',
+            ref,
+            action: 'delete',
+            label: categorie,
+            keep: ['montant', 'type'],
+          };
+          await audited(spec, async () => {
+            try {
+              await deleteDoc(ref);
+            } catch (err) {
+              console.warn('[BudgetContext] deleteDoc failed, falling back to soft-delete:', err);
+              await setDoc(
+                ref,
+                {
+                  categorie,
+                  nom: categorie,
+                  actif: false,
+                  updatedAt: serverTimestamp(),
+                },
+                { merge: true },
+              );
+            }
+          });
         }),
       );
     },

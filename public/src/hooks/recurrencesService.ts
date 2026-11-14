@@ -14,8 +14,14 @@ import { db } from '../services/firebase';
 import { Recurrence, RecurrenceApproval, Transaction } from '../types/banking.types';
 import { getApprovalEntries, normalizeLabel } from '../utils/recurrenceEngine';
 import { withRetry } from '../utils/withRetry';
+import { audited, recordAudit } from '../services/auditLog';
+import type { AuditChange } from '../types/banking.types';
 
 const COLLECTION_NAME = 'recurrences';
+
+/** Consigne dans le journal une action faite sur une récurrence. */
+const logChange = (id: string, change: AuditChange) =>
+  recordAudit({ domain: 'recurrence', ref: doc(db, COLLECTION_NAME, id), changes: [change] });
 
 /**
  * Crée une nouvelle récurrence déterministe à partir d'une transaction existante.
@@ -57,6 +63,13 @@ export async function createRecurrenceFromTransaction(tx: Transaction) {
     };
 
     await withRetry(() => setDoc(recRef, newRecurrence));
+    await recordAudit({
+      domain: 'recurrence',
+      ref: recRef,
+      action: 'create',
+      label,
+      changes: [{ field: 'expectedAmount', to: amount }],
+    });
     return recRef.id;
   } catch (error) {
     console.error('Erreur lors de la création de la récurrence:', error);
@@ -76,7 +89,9 @@ export async function updateRecurrence(
 ) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await withRetry(() => updateDoc(docRef, patch));
+    await audited({ domain: 'recurrence', ref: docRef, patch }, () =>
+      withRetry(() => updateDoc(docRef, patch)),
+    );
   } catch (error) {
     console.error('Erreur lors de la modification de la récurrence:', error);
     throw error;
@@ -90,6 +105,7 @@ export async function skipRecurrencePeriod(id: string, periodKey: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
     await withRetry(() => updateDoc(docRef, { skippedPeriods: arrayUnion(periodKey) }));
+    await logChange(id, { field: 'skippedPeriod', to: periodKey });
   } catch (error) {
     console.error("Erreur lors de l'ignorance de la récurrence pour la période:", error);
     throw error;
@@ -104,6 +120,7 @@ export async function rejectRecurrenceMatch(id: string, txId: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
     await withRetry(() => updateDoc(docRef, { rejectedTxIds: arrayUnion(txId) }));
+    await logChange(id, { field: 'rejectedTx', to: txId });
   } catch (error) {
     console.error('Erreur lors du refus du rattachement suggéré:', error);
     throw error;
@@ -117,6 +134,7 @@ export async function unskipRecurrencePeriod(id: string, periodKey: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
     await withRetry(() => updateDoc(docRef, { skippedPeriods: arrayRemove(periodKey) }));
+    await logChange(id, { field: 'skippedPeriod', from: periodKey });
   } catch (error) {
     console.error('Erreur lors du rétablissement de la récurrence pour la période:', error);
     throw error;
@@ -164,6 +182,7 @@ export async function approveRecurrenceMatch(id: string, monthKey: string, tx: T
     };
 
     await withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: approval }));
+    await logChange(id, { field: 'linkedTx', to: `${monthKey} · ${tx.libelle}` });
   } catch (error) {
     console.error('Erreur lors de l’approbation de la récurrence:', error);
     throw error;
@@ -190,6 +209,7 @@ export async function unlinkRecurrenceTx(id: string, txId: string) {
 
     if (remaining.length === 0) {
       await withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: deleteField() }));
+      await logChange(id, { field: 'linkedTx', from: monthKey });
       return;
     }
 
@@ -202,6 +222,7 @@ export async function unlinkRecurrenceTx(id: string, txId: string) {
       entries: remaining,
     };
     await withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: next }));
+    await logChange(id, { field: 'linkedTx', from: monthKey });
   } catch (error) {
     console.error('Erreur lors du déliage de la transaction de la récurrence:', error);
     throw error;
@@ -219,6 +240,7 @@ export async function unapproveRecurrenceMonth(id: string, monthKey: string) {
         [`approvedMonths.${monthKey}`]: deleteField(),
       }),
     );
+    await logChange(id, { field: 'linkedTx', from: monthKey });
   } catch (error) {
     console.error('Erreur lors de la désapprobation de la récurrence:', error);
     throw error;
@@ -231,7 +253,9 @@ export async function unapproveRecurrenceMonth(id: string, monthKey: string) {
 export async function setRecurrenceActive(id: string, active: boolean) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await withRetry(() => updateDoc(docRef, { active }));
+    await audited({ domain: 'recurrence', ref: docRef, patch: { active } }, () =>
+      withRetry(() => updateDoc(docRef, { active })),
+    );
   } catch (error) {
     console.error('Erreur lors de la modification de l’état actif de la récurrence:', error);
     throw error;
@@ -244,7 +268,10 @@ export async function setRecurrenceActive(id: string, active: boolean) {
 export async function removeRecurrence(id: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await withRetry(() => deleteDoc(docRef));
+    await audited(
+      { domain: 'recurrence', ref: docRef, action: 'delete', keep: ['expectedAmount', 'category'] },
+      () => withRetry(() => deleteDoc(docRef)),
+    );
   } catch (error) {
     console.error('Erreur lors de la suppression de la récurrence:', error);
     throw error;

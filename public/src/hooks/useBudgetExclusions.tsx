@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { DEFAULT_BUDGET_EXCLUDED_CATEGORIES } from '../constants/budgetExclusions';
-import { withRetry } from '../utils/withRetry';
+import { auditedMerge } from '../services/auditLog';
 
 const EXCLUSIONS_DOC = doc(db, 'metadata', 'budget_excluded_categories');
 
@@ -30,8 +30,11 @@ export const useBudgetExclusions = () => {
   }, []);
 
   const setExcluded = useCallback(async (next: string[]) => {
-    await withRetry(() =>
-      setDoc(EXCLUSIONS_DOC, { categories: next, updatedAt: serverTimestamp() }, { merge: true }),
+    await auditedMerge(
+      'budget',
+      EXCLUSIONS_DOC,
+      { categories: next, updatedAt: serverTimestamp() },
+      'Catégories exclues du budget',
     );
   }, []);
 

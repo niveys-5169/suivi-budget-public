@@ -14,6 +14,7 @@ import { useFirestoreErrorHandler } from '../hooks/useFirestoreErrorHandler';
 import { confirm } from '../lib/confirm';
 import { toVentilationParts } from '../utils/ventilation';
 import { toCalendarKey } from '../utils/date';
+import { TransactionAuditTrail } from './journal/TransactionAuditTrail';
 
 type TransactionFormModalProps = {
   isOpen: boolean;
@@ -364,6 +365,12 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
               <div className="sm:col-span-2">
                 <VentilationField control={control} errors={errors} categories={categories} />
               </div>
+
+              {transaction?.id && (
+                <div className="sm:col-span-2">
+                  <TransactionAuditTrail txId={transaction.id} />
+                </div>
+              )}
             </div>
           </Stack>
         </Sheet.Body>

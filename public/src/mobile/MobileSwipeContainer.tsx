@@ -46,6 +46,9 @@ const AurumRecurringPage = lazy(() =>
   })),
 );
 
+const JournalPage = lazy(() =>
+  import('../components/journal/JournalPage').then((m) => ({ default: m.JournalPage })),
+);
 const WeeklyRecapPage = lazy(() =>
   import('../components/weekly/WeeklyRecapPage').then((m) => ({ default: m.WeeklyRecapPage })),
 );
@@ -147,6 +150,14 @@ export const MobileSwipeContainer: React.FC = () => {
                 element={
                   <div className="h-full overflow-y-auto">
                     <AurumNotificationPage onBack={goBack} />
+                  </div>
+                }
+              />
+              <Route
+                path="/journal"
+                element={
+                  <div className="h-full overflow-y-auto">
+                    <JournalPage />
                   </div>
                 }
               />
