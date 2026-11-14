@@ -43,6 +43,27 @@ describe('diffChanges', () => {
     ).toEqual([]);
   });
 
+  it('détecte une modification au-delà du 300e caractère, valeur stockée tronquée', () => {
+    const base = 'x'.repeat(350);
+    const [change] = diffChanges({ commentaire: `${base}a` }, { commentaire: `${base}b` });
+    expect(change).toEqual({ field: 'commentaire', from: 'x'.repeat(300), to: 'x'.repeat(300) });
+  });
+
+  it("un même objet aux clés dans un autre ordre n'est pas une modification", () => {
+    expect(
+      diffChanges(
+        {
+          ventilation: [{ categorie: 'Courses', montant: -10 }],
+          meta: { a: 1, b: { c: 2, d: 3 } },
+        },
+        {
+          ventilation: [{ montant: -10, categorie: 'Courses' }],
+          meta: { b: { d: 3, c: 2 }, a: 1 },
+        },
+      ),
+    ).toEqual([]);
+  });
+
   it('traite deleteField comme un effacement et ignore les autres sentinelles', () => {
     expect(
       diffChanges(

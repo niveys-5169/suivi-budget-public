@@ -15,6 +15,7 @@ import { useTransactionContext } from '../../context/TransactionContext';
 import { PageShell, BackButton } from './PageShell';
 import { confirm } from '../../lib/confirm';
 import { withRetry } from '../../utils/withRetry';
+import { audited, type AuditSpec } from '../../services/auditLog';
 
 export const FusionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -76,14 +77,21 @@ export const FusionPage: React.FC = () => {
         });
       }
       const CHUNK_SIZE = 400;
-      for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
-        const chunk = updates.slice(i, i + CHUNK_SIZE);
-        const batch = writeBatch(db);
-        chunk.forEach(({ ref, target }) => {
-          batch.update(ref, { categorie: target, updatedAt: serverTimestamp() });
-        });
-        await withRetry(() => batch.commit());
-      }
+      const specs = updates.map(({ ref, target }): AuditSpec => ({
+        domain: 'transaction',
+        ref,
+        patch: { categorie: target },
+      }));
+      await audited(specs, async () => {
+        for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+          const chunk = updates.slice(i, i + CHUNK_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach(({ ref, target }) => {
+            batch.update(ref, { categorie: target, updatedAt: serverTimestamp() });
+          });
+          await withRetry(() => batch.commit());
+        }
+      });
       setAssignments({});
       setStatus('Fusions appliquées avec succès. Rafraîchissez la page pour voir les résultats.');
     } catch (error) {

@@ -14,6 +14,9 @@ import type { AuditAction, AuditChange, AuditDomain } from '../types/banking.typ
 
 const COLLECTION_NAME = 'audit_log';
 const CHUNK_SIZE = 499;
+/** Bornes imposées par `firestore.rules` à une ligne du journal. */
+const MAX_LABEL_LENGTH = 300;
+const MAX_CHANGES = 50;
 
 /** Une modification à consigner dans le journal (`audit_log`). */
 export interface AuditSpec {
@@ -22,7 +25,7 @@ export interface AuditSpec {
   ref: DocumentReference;
   /** `update` par défaut. */
   action?: AuditAction;
-  /** Champs écrits : comparés à l'état précédent lu dans le cache local. */
+  /** Champs écrits : comparés à l'état précédent lu dans le cache local (création : valeurs seules). */
   patch?: Record<string, unknown>;
   /** Changements déjà formulés (liaison, mois ignoré…), à la place de `patch`. */
   changes?: AuditChange[];
@@ -53,6 +56,8 @@ async function prepareOne(spec: AuditSpec): Promise<PreparedEntry | null> {
 
   let changes = spec.changes ?? [];
   if (spec.patch && action === 'update') changes = diffChanges(before, spec.patch);
+  // Création : seules les nouvelles valeurs comptent.
+  if (spec.patch && action === 'create') changes = diffChanges(undefined, spec.patch);
   if (spec.keep && before) {
     changes = spec.keep
       .filter((field) => before[field] !== undefined)
@@ -66,8 +71,8 @@ async function prepareOne(spec: AuditSpec): Promise<PreparedEntry | null> {
     action,
     path: spec.ref.path,
     docId: spec.ref.id,
-    label: spec.label ?? auditLabel(spec.domain, before, spec.patch),
-    changes,
+    label: (spec.label ?? auditLabel(spec.domain, before, spec.patch)).slice(0, MAX_LABEL_LENGTH),
+    changes: changes.slice(0, MAX_CHANGES),
   };
 }
 
@@ -86,6 +91,8 @@ async function commit(entries: PreparedEntry[]): Promise<void> {
   try {
     const user = auth.currentUser;
     if (!user?.email || entries.length === 0) return;
+    // Tous les lots sont mis en file avant d'attendre le serveur.
+    const commits: Promise<void>[] = [];
     for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
       const batch = writeBatch(db);
       entries.slice(i, i + CHUNK_SIZE).forEach((entry) => {
@@ -96,8 +103,9 @@ async function commit(entries: PreparedEntry[]): Promise<void> {
           ...entry,
         });
       });
-      await batch.commit();
+      commits.push(batch.commit());
     }
+    await Promise.all(commits);
   } catch (err) {
     console.warn('[auditLog] Écriture du journal impossible :', err);
   }
@@ -105,21 +113,21 @@ async function commit(entries: PreparedEntry[]): Promise<void> {
 
 /**
  * Exécute une écriture métier et la consigne dans le journal. L'état précédent
- * est lu avant l'écriture ; la ligne n'est écrite que si l'écriture réussit.
+ * est lu avant l'écriture ; la ligne est mise en file juste après le lancement
+ * de l'écriture, sans attendre l'accusé de réception du serveur, pour qu'une
+ * modification faite hors ligne soit journalisée même si l'app est fermée
+ * avant le retour du réseau. Revers assumé : si le serveur rejette l'écriture
+ * métier, la ligne peut subsister. L'erreur métier remonte toujours à
+ * l'appelant ; un échec du journal ne fait jamais échouer l'action.
  */
 export async function audited<T>(
   specs: AuditSpec | AuditSpec[],
   write: () => Promise<T>,
 ): Promise<T> {
   const entries = await prepare(specs);
-  const result = await write();
-  await commit(entries);
+  const written = write();
+  const [result] = await Promise.all([written, commit(entries)]);
   return result;
-}
-
-/** Consigne une modification déjà faite (création, liaison, mois ignoré…). */
-export async function recordAudit(specs: AuditSpec | AuditSpec[]): Promise<void> {
-  await commit(await prepare(specs));
 }
 
 /** `setDoc(ref, data, { merge: true })` consigné dans le journal. */

@@ -5,19 +5,20 @@ import type { Transaction } from '../../types/banking.types';
 const auditedMock = vi.fn((_specs: AuditSpec | AuditSpec[], write: () => Promise<unknown>) =>
   write(),
 );
-const recordAuditMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('../auditLog', () => ({
   audited: (specs: AuditSpec | AuditSpec[], write: () => Promise<unknown>) =>
     auditedMock(specs, write),
-  recordAudit: (specs: AuditSpec | AuditSpec[]) => recordAuditMock(specs),
 }));
 
+const setDocMock = vi.fn().mockResolvedValue(undefined);
 const batch = { update: vi.fn(), delete: vi.fn(), set: vi.fn(), commit: vi.fn() };
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn((_db, name) => ({ collection: name })),
-  doc: vi.fn((_db, coll, id) => ({ id, path: `${coll}/${id}` })),
+  doc: vi.fn((parent: { collection?: string }, coll?: string, id?: string) =>
+    coll ? { id, path: `${coll}/${id}` } : { id: 'new-id', path: `${parent.collection}/new-id` },
+  ),
   updateDoc: vi.fn().mockResolvedValue(undefined),
-  addDoc: vi.fn().mockResolvedValue({ id: 'new-id', path: 'transactions/new-id' }),
+  setDoc: (...args: unknown[]) => setDocMock(...args),
   serverTimestamp: vi.fn(() => 'ts'),
   writeBatch: vi.fn(() => batch),
   Timestamp: class {},
@@ -54,9 +55,11 @@ describe('journal des transactions', () => {
     });
   });
 
-  it('création manuelle', async () => {
+  it('création manuelle : référence générée avant, écriture exécutée par audited', async () => {
+    auditedMock.mockImplementationOnce(() => Promise.resolve(undefined));
     await persistTransaction({ libelle: 'Marché', montant: -12, date: '2026-11-14' });
-    expect(recordAuditMock).toHaveBeenCalledWith({
+    expect(setDocMock).not.toHaveBeenCalled();
+    expect(lastSpecs()).toEqual({
       domain: 'transaction',
       ref: { id: 'new-id', path: 'transactions/new-id' },
       action: 'create',
@@ -65,6 +68,16 @@ describe('journal des transactions', () => {
         { field: 'date', to: '2026-11-14' },
         { field: 'montant', to: -12 },
       ],
+    });
+
+    await persistTransaction({ libelle: 'Marché', montant: -12, date: '2026-11-14' });
+    expect(setDocMock).toHaveBeenCalledWith(ref('new-id'), {
+      libelle: 'Marché',
+      montant: -12,
+      date: '2026-11-14',
+      importedAt: 'ts',
+      source: 'manuel',
+      pointe: false,
     });
   });
 

@@ -18,13 +18,14 @@ vi.mock('../../public/src/hooks/useAuth', () => ({
 vi.mock('../../public/src/utils/withRetry', () => ({
   withRetry: (fn: () => Promise<unknown>) => fn(),
 }));
+const deleteDocMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('firebase/firestore', () => ({
   collection: vi.fn(),
   onSnapshot: vi.fn(() => () => {}),
   query: vi.fn(),
   doc: vi.fn((_db, coll, id) => ({ id, path: `${coll}/${id}` })),
   setDoc: vi.fn(),
-  deleteDoc: vi.fn().mockResolvedValue(undefined),
+  deleteDoc: (...args: unknown[]) => deleteDocMock(...args),
   serverTimestamp: vi.fn(() => 'ts'),
   deleteField: vi.fn(() => 'del'),
 }));
@@ -89,6 +90,18 @@ describe('journal des budgets', () => {
       label: 'Loisirs',
       keep: ['montant', 'type'],
     });
+    expect(auditedMergeMock).not.toHaveBeenCalled();
+  });
+
+  it('suppression refusée : la désactivation de repli est consignée comme une modification', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    deleteDocMock.mockRejectedValueOnce(new Error('refusé'));
+    await click('supprimer');
+    const [domain, ref, data, label] = auditedMergeMock.mock.calls[0]!;
+    expect(domain).toBe('budget');
+    expect(ref.path).toBe('budgets/Loisirs');
+    expect(data).toMatchObject({ categorie: 'Loisirs', actif: false });
+    expect(label).toBe('Loisirs');
   });
 });
 
@@ -97,15 +110,16 @@ describe('journal des budgets (api)', () => {
 
   it('création et modification', async () => {
     await createBudget({ categorie: 'Courses', montant: 300 });
-    expect(auditedMergeMock.mock.calls[0]![0]).toBe('budget');
-    expect(auditedMergeMock.mock.calls[0]![2]).toMatchObject({
-      categorie: 'Courses',
-      montant: 300,
+    expect(auditedMock.mock.calls[0]![0]).toMatchObject({
+      domain: 'budget',
+      ref: { id: 'Courses', path: 'budgets/Courses' },
+      action: 'create',
+      patch: { categorie: 'Courses', montant: 300 },
     });
 
     await updateBudget('courses', { montant: 350 });
-    expect(auditedMergeMock.mock.calls[1]![1]).toEqual({ id: 'courses', path: 'budgets/courses' });
-    expect(auditedMergeMock.mock.calls[1]![2]).toMatchObject({ montant: 350 });
+    expect(auditedMergeMock.mock.calls[0]![1]).toEqual({ id: 'courses', path: 'budgets/courses' });
+    expect(auditedMergeMock.mock.calls[0]![2]).toMatchObject({ montant: 350 });
   });
 
   it('suppression', async () => {

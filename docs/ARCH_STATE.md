@@ -4,15 +4,32 @@
 
 - **Accès** : `isOwner()` (`firestore.rules`) accepte le propriétaire ou un compte dont
   l'email vérifié est l'identifiant d'un document de `access_allowlist` (gérée dans la
-  console Firebase, aucun accès client). Les Cloud Functions `on_call` restent réservées
+  console Firebase, aucun accès client). L'identifiant doit être l'email **exactement en
+  minuscules**, tel que le jeton le porte. Les Cloud Functions `on_call` restent réservées
   au propriétaire (`require_owner`, par UID).
+- **Réglages privés par compte** : `users/{uid}/**` (préférences, conversations de
+  l'assistant, catégories et icônes personnalisées) et `user_settings/{uid}` (clés d'API IA,
+  GitHub) ne sont lisibles et modifiables que par le compte autorisé dont c'est l'UID.
+  Chaque compte a donc ses propres réglages ; le reste des données est commun.
 - **Journal** : collection `audit_log` (qui, quand, document, champs modifiés). Les règles
-  imposent l'email du jeton et l'heure serveur à la création ; ni modification ni suppression.
-- **Écriture** : `services/auditLog.ts` (`audited`, `auditedMerge`, `recordAudit`) et
-  `utils/auditLog.ts` (écarts, libellés). Instrumentés : `transactionRepository`,
-  `recurrencesService`, `BudgetContext`, `api/budgets`, `useBudgetExclusions`, `RAVEditor`.
-  Toute nouvelle écriture sur ces trois domaines doit passer par ces fonctions. La ligne est
-  écrite juste après l'écriture métier (non atomique) ; un échec du journal ne bloque rien.
+  imposent à la création l'email et l'UID du jeton, l'heure serveur, les seules clés
+  attendues, un domaine et une action connus, des chaînes bornées (`label` ≤ 300,
+  `path` et `docId` ≤ 500) et au plus 50 changements ; ni modification ni suppression.
+  Le journal est **déclaratif** : un compte autorisé qui écrit hors de l'app (console,
+  SDK) peut modifier des données sans ligne de journal.
+- **Écriture** : `services/auditLog.ts` (`audited`, `auditedMerge`) et `utils/auditLog.ts`
+  (écarts sur valeurs complètes et JSON aux clés triées, libellés). Instrumentés :
+  `transactionRepository`, `recurrencesService`, `BudgetContext`, `api/budgets`,
+  `useBudgetExclusions`, `RAVEditor`, `useAdvancedSettings` (reste-à-vivre), `FusionPage`.
+  Toute nouvelle écriture sur ces trois domaines doit passer par ces fonctions. La ligne
+  est mise en file juste après le lancement de l'écriture métier, sans attendre le serveur
+  (une modification hors ligne est journalisée même si l'app est fermée avant le retour du
+  réseau) ; si le serveur rejette l'écriture métier, la ligne peut subsister. Un échec du
+  journal ne bloque rien.
+- **Exclusions voulues** (non journalisées) : crédits EDF automatiques liés aux recharges
+  (`createEdfCreditForRecharge`, `deleteEdfCredit`, `deleteAllEdfCredits`), alias appris
+  d'une récurrence (`addRecurrenceAlias`), préférences de catégories
+  (`users/{uid}/preferences/categories`).
 - **Lecture** : route `/journal` commune desktop et PWA (`components/journal/JournalPage.tsx`,
   `hooks/useAuditLog.ts`), entrée dans la sidebar et dans les réglages mobiles ;
   `TransactionAuditTrail` dans `TransactionFormModal`.

@@ -31,19 +31,39 @@ service cloud.firestore {
     match /bank_sync_runs/{document} { allow read: if isOwner(); }
     match /bank_runtime/{document} { allow read: if isOwner(); }
     match /recurring_expense_settings/{document=**} { allow read: if isOwner(); }
-    // Journal des modifications : chaque ligne est signée de l'email du compte
-    // connecté et datée par le serveur ; ni modification ni suppression.
+    // Réglages privés (clés d'API IA, GitHub, conversations de l'assistant,
+    // préférences) : réservés au compte autorisé dont c'est l'UID.
+    match /users/{uid}/{document=**} {
+      allow read, write: if isOwner() && request.auth.uid == uid;
+    }
+    match /user_settings/{uid} {
+      allow read, write: if isOwner() && request.auth.uid == uid;
+    }
+    // Journal des modifications : chaque ligne est signée de l'email et de l'UID
+    // du compte connecté et datée par le serveur ; ni modification ni suppression.
+    function isValidAuditEntry(data) {
+      return data.keys().hasOnly(['at', 'byEmail', 'byUid', 'domain', 'action', 'path', 'docId', 'label', 'changes'])
+             && data.keys().hasAll(['at', 'byEmail', 'byUid', 'domain', 'action', 'path', 'docId', 'label', 'changes'])
+             && data.byEmail == request.auth.token.email
+             && data.byUid == request.auth.uid
+             && data.at == request.time
+             && data.domain in ['transaction', 'budget', 'recurrence']
+             && data.action in ['create', 'update', 'delete']
+             && data.path is string && data.path.size() <= 500
+             && data.docId is string && data.docId.size() <= 500
+             && data.label is string && data.label.size() <= 300
+             && data.changes is list && data.changes.size() <= 50;
+    }
     match /audit_log/{entry} {
       allow read: if isOwner();
-      allow create: if isOwner()
-                    && request.resource.data.byEmail == request.auth.token.email
-                    && request.resource.data.at == request.time;
+      allow create: if isOwner() && isValidAuditEntry(request.resource.data);
     }
     match /{collection}/{document=**} {
 
       // Propriétaire uniquement : lecture + écriture (recurring_expense_settings gelé en lecture seule)
       allow read, write: if !isBankingCollection(collection) && collection != 'recurring_expense_settings'
                          && collection != 'access_allowlist' && collection != 'audit_log'
+                         && collection != 'users' && collection != 'user_settings'
                          && isOwner();
     }
   }

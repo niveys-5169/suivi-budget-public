@@ -440,23 +440,23 @@ export const BudgetProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             label: categorie,
             keep: ['montant', 'type'],
           };
-          await audited(spec, async () => {
-            try {
-              await deleteDoc(ref);
-            } catch (err) {
-              console.warn('[BudgetContext] deleteDoc failed, falling back to soft-delete:', err);
-              await setDoc(
-                ref,
-                {
-                  categorie,
-                  nom: categorie,
-                  actif: false,
-                  updatedAt: serverTimestamp(),
-                },
-                { merge: true },
-              );
-            }
-          });
+          try {
+            await audited(spec, () => deleteDoc(ref));
+          } catch (err) {
+            // Repli : désactivation, consignée comme une modification (« Actif »).
+            console.warn('[BudgetContext] deleteDoc failed, falling back to soft-delete:', err);
+            await auditedMerge(
+              'budget',
+              ref,
+              {
+                categorie,
+                nom: categorie,
+                actif: false,
+                updatedAt: serverTimestamp(),
+              },
+              categorie,
+            );
+          }
         }),
       );
     },
