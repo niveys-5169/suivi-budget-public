@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   deleteDoc,
+  setDoc,
   query,
   where,
   serverTimestamp,
@@ -37,7 +38,10 @@ export async function createBudget(data: BudgetWriteData): Promise<string> {
   // category upserts the same document instead of spawning a duplicate (auto-id).
   const id = budgetDocKey(data.categorie || data.nom || '');
   const docRef = doc(db, COLLECTION_NAME, id);
-  await auditedMerge('budget', docRef, { ...data, createdAt: now, updatedAt: now });
+  const payload = { ...data, createdAt: now, updatedAt: now };
+  await audited({ domain: 'budget', ref: docRef, action: 'create', patch: payload }, () =>
+    withRetry(() => setDoc(docRef, payload, { merge: true })),
+  );
   return id;
 }
 

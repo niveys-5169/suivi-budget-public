@@ -24,17 +24,36 @@ const sentinelName = (value: unknown): string | null =>
     ? String((value as { _methodName: unknown })._methodName)
     : null;
 
-/** Réduit une valeur Firestore à une valeur simple, stockable et affichable. */
-export function toAuditValue(value: unknown): AuditValue {
+/** JSON aux clés d'objet triées : l'ordre des clés ne compte pas comme une modification. */
+const stableStringify = (value: unknown): string =>
+  JSON.stringify(value, (_key, v: unknown) =>
+    typeof v === 'object' && v !== null && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.keys(v)
+            .sort()
+            .map((k) => [k, (v as Doc)[k]]),
+        )
+      : v,
+  );
+
+/** Valeur simple complète, avant troncature (pour comparer). */
+function toFullValue(value: unknown): AuditValue {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'number' || typeof value === 'boolean') return value;
-  if (typeof value === 'string') return value.slice(0, MAX_LENGTH);
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string') {
+    return value;
+  }
   if (value instanceof Date) return value.toISOString();
   if (typeof (value as { toDate?: unknown }).toDate === 'function') {
     return (value as { toDate: () => Date }).toDate().toISOString();
   }
-  return JSON.stringify(value).slice(0, MAX_LENGTH);
+  return stableStringify(value);
 }
+
+const truncate = (value: AuditValue): AuditValue =>
+  typeof value === 'string' ? value.slice(0, MAX_LENGTH) : value;
+
+/** Réduit une valeur Firestore à une valeur simple, stockable et affichable. */
+export const toAuditValue = (value: unknown): AuditValue => truncate(toFullValue(value));
 
 const isEmpty = (value: AuditValue) => value === null || value === '';
 
@@ -48,14 +67,15 @@ export function diffChanges(before: Doc | undefined, patch: Doc): AuditChange[] 
     if (IGNORED_FIELDS.has(field)) continue;
     const sentinel = sentinelName(raw);
     if (sentinel && sentinel !== 'deleteField') continue;
-    const to = sentinel ? null : toAuditValue(raw);
+    // Comparaison sur les valeurs complètes ; seule la valeur stockée est tronquée.
+    const to = sentinel ? null : toFullValue(raw);
     if (!before) {
-      changes.push({ field, to });
+      changes.push({ field, to: truncate(to) });
       continue;
     }
-    const from = toAuditValue(before[field]);
+    const from = toFullValue(before[field]);
     if (from === to || (isEmpty(from) && isEmpty(to))) continue;
-    changes.push({ field, from, to });
+    changes.push({ field, from: truncate(from), to: truncate(to) });
   }
   return changes;
 }

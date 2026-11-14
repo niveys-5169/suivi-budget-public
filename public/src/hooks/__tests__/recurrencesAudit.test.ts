@@ -3,13 +3,13 @@ import type { AuditSpec } from '../../services/auditLog';
 import type { Transaction } from '../../types/banking.types';
 
 const auditedMock = vi.fn((_specs: AuditSpec, write: () => Promise<unknown>) => write());
-const recordAuditMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../services/auditLog', () => ({
   audited: (specs: AuditSpec, write: () => Promise<unknown>) => auditedMock(specs, write),
-  recordAudit: (specs: AuditSpec) => recordAuditMock(specs),
 }));
 
 const getDocMock = vi.fn();
+const setDocMock = vi.fn().mockResolvedValue(undefined);
+const updateDocMock = vi.fn().mockResolvedValue(undefined);
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn((...args: unknown[]) =>
     args.length === 1
@@ -17,8 +17,8 @@ vi.mock('firebase/firestore', () => ({
       : { id: args[2], path: `recurrences/${args[2]}` },
   ),
   collection: vi.fn(() => 'col'),
-  setDoc: vi.fn().mockResolvedValue(undefined),
-  updateDoc: vi.fn().mockResolvedValue(undefined),
+  setDoc: (...args: unknown[]) => setDocMock(...args),
+  updateDoc: (...args: unknown[]) => updateDocMock(...args),
   deleteDoc: vi.fn().mockResolvedValue(undefined),
   getDoc: (...args: unknown[]) => getDocMock(...args),
   deleteField: () => '__del__',
@@ -51,8 +51,8 @@ const tx = {
   categorie: 'Abonnement',
   montant: -13.99,
 } as Transaction;
-const recorded = () => recordAuditMock.mock.calls.at(-1)![0];
 const wrapped = () => auditedMock.mock.calls.at(-1)![0];
+const recorded = wrapped;
 
 describe('journal des récurrences', () => {
   beforeEach(() => {
@@ -69,6 +69,16 @@ describe('journal des récurrences', () => {
       label: 'Netflix',
       changes: [{ field: 'expectedAmount', to: -13.99 }],
     });
+  });
+
+  it("l'écriture métier est exécutée par audited, pas avant", async () => {
+    auditedMock.mockImplementationOnce(() => Promise.resolve(undefined));
+    await skipRecurrencePeriod('r1', '2026-11');
+    expect(updateDocMock).not.toHaveBeenCalled();
+
+    auditedMock.mockImplementationOnce(() => Promise.resolve(undefined));
+    await createRecurrenceFromTransaction(tx);
+    expect(setDocMock).not.toHaveBeenCalled();
   });
 
   it('modification et pause : patch comparé à l’état précédent', async () => {
@@ -127,7 +137,6 @@ describe('journal des récurrences', () => {
     await approveRecurrenceMatch('r1', '2026-11', tx);
     await unlinkRecurrenceTx('r1', 'autre');
     await addRecurrenceAlias('r1', 'Netflix');
-    expect(recordAuditMock).not.toHaveBeenCalled();
     expect(auditedMock).not.toHaveBeenCalled();
   });
 });

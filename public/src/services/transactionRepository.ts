@@ -8,6 +8,7 @@ import {
   updateDoc,
   deleteDoc,
   addDoc,
+  setDoc,
   serverTimestamp,
   writeBatch,
   DocumentData,
@@ -17,7 +18,7 @@ import {
 import { z } from 'zod';
 import { db, auth } from './firebase';
 import { withRetry } from '../utils/withRetry';
-import { audited, recordAudit, type AuditSpec } from './auditLog';
+import { audited, type AuditSpec } from './auditLog';
 import { Transaction } from '../types/banking.types';
 import { toCalendarKey } from '../utils/date';
 
@@ -183,24 +184,28 @@ export async function persistTransaction(
     );
     return;
   }
-  const ref = await withRetry(() =>
-    addDoc(collection(db, 'transactions'), {
-      ...data,
-      importedAt: serverTimestamp(),
-      source: data.source || 'manuel',
-      pointe: data.pointe ?? false,
-    }),
+  const ref = doc(collection(db, 'transactions'));
+  await audited(
+    {
+      domain: 'transaction',
+      ref,
+      action: 'create',
+      label: data.libelle ?? '',
+      changes: [
+        { field: 'date', to: data.date ?? null },
+        { field: 'montant', to: data.montant ?? null },
+      ],
+    },
+    () =>
+      withRetry(() =>
+        setDoc(ref, {
+          ...data,
+          importedAt: serverTimestamp(),
+          source: data.source || 'manuel',
+          pointe: data.pointe ?? false,
+        }),
+      ),
   );
-  await recordAudit({
-    domain: 'transaction',
-    ref,
-    action: 'create',
-    label: data.libelle ?? '',
-    changes: [
-      { field: 'date', to: data.date ?? null },
-      { field: 'montant', to: data.montant ?? null },
-    ],
-  });
 }
 
 // ── Couplage recharge Tronity ↔ crédit EDF ──────────────────────────────────

@@ -24,7 +24,7 @@ vi.mock('../firebase', () => ({
   },
 }));
 
-import { audited, auditedMerge, recordAudit } from '../auditLog';
+import { audited, auditedMerge } from '../auditLog';
 import type { DocumentReference } from 'firebase/firestore';
 
 const txRef = { id: 't1', path: 'transactions/t1' } as unknown as DocumentReference;
@@ -78,14 +78,48 @@ describe('audited', () => {
     expect(batch.set).not.toHaveBeenCalled();
   });
 
-  it("n'enregistre rien si l'écriture métier échoue", async () => {
+  it("n'enregistre rien si l'écriture métier lève avant d'être mise en file", async () => {
+    cached({ libelle: 'CB CARREFOUR' });
+    await expect(
+      audited({ domain: 'transaction', ref: txRef, patch: { pointe: true } }, () => {
+        throw new Error('invalide');
+      }),
+    ).rejects.toThrow('invalide');
+    expect(batch.set).not.toHaveBeenCalled();
+  });
+
+  it("refus serveur de l'écriture métier : l'erreur remonte, la ligne déjà en file reste", async () => {
     cached({ libelle: 'CB CARREFOUR' });
     await expect(
       audited({ domain: 'transaction', ref: txRef, patch: { pointe: true } }, async () => {
         throw new Error('refusé');
       }),
     ).rejects.toThrow('refusé');
-    expect(batch.set).not.toHaveBeenCalled();
+    expect(batch.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it("la ligne est mise en file sans attendre l'accusé de réception", async () => {
+    cached({ libelle: 'CB CARREFOUR' });
+    let acknowledge: (value: string) => void = () => {};
+    const write = () => new Promise<string>((resolve) => (acknowledge = resolve));
+
+    const pending = audited({ domain: 'transaction', ref: txRef, patch: { pointe: true } }, write);
+    await vi.waitFor(() => expect(batch.commit).toHaveBeenCalledTimes(1));
+
+    acknowledge('ok');
+    await expect(pending).resolves.toBe('ok');
+  });
+
+  it('borne la ligne : libellé de 300 caractères, 50 changements au plus', async () => {
+    cached(undefined);
+    const patch = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`f${i}`, i]));
+    await audited(
+      { domain: 'transaction', ref: txRef, patch, label: 'x'.repeat(400) },
+      async () => {},
+    );
+    const line = batch.set.mock.calls[0]![1];
+    expect(line.label).toHaveLength(300);
+    expect(line.changes).toHaveLength(50);
   });
 
   it('document absent du cache : seule la nouvelle valeur est notée', async () => {
@@ -129,14 +163,17 @@ describe('audited', () => {
   });
 });
 
-describe('recordAudit', () => {
+describe('audited : changements explicites', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authState.currentUser = { email: 'invite@example.com', uid: 'uid-1' };
   });
 
   it('enregistre une création avec son libellé, sans lire le cache', async () => {
-    await recordAudit({ domain: 'transaction', ref: txRef, action: 'create', label: 'Marché' });
+    await audited(
+      { domain: 'transaction', ref: txRef, action: 'create', label: 'Marché' },
+      async () => {},
+    );
     expect(getDocFromCacheMock).not.toHaveBeenCalled();
     expect(batch.set.mock.calls[0]![1]).toMatchObject({
       action: 'create',
@@ -145,14 +182,34 @@ describe('recordAudit', () => {
     });
   });
 
+  it('création avec patch : les nouvelles valeurs, sans comparer au cache', async () => {
+    cached({ libelle: 'ancien', montant: 1 });
+    await audited(
+      {
+        domain: 'budget',
+        ref: txRef,
+        action: 'create',
+        patch: { categorie: 'Courses', montant: 300, createdAt: '__ts__' },
+      },
+      async () => {},
+    );
+    expect(batch.set.mock.calls[0]![1]).toMatchObject({
+      action: 'create',
+      label: 'Courses',
+      changes: [
+        { field: 'categorie', to: 'Courses' },
+        { field: 'montant', to: 300 },
+      ],
+    });
+  });
+
   it('enregistre des changements explicites en lisant le libellé dans le cache', async () => {
     cached({ label: 'Netflix' });
     const ref = { id: 'r1', path: 'recurrences/r1' } as unknown as DocumentReference;
-    await recordAudit({
-      domain: 'recurrence',
-      ref,
-      changes: [{ field: 'skippedPeriod', to: '2026-11' }],
-    });
+    await audited(
+      { domain: 'recurrence', ref, changes: [{ field: 'skippedPeriod', to: '2026-11' }] },
+      async () => {},
+    );
     expect(batch.set.mock.calls[0]![1]).toMatchObject({
       domain: 'recurrence',
       action: 'update',
@@ -168,7 +225,7 @@ describe('recordAudit', () => {
       ref: txRef,
       patch: { pointe: true },
     }));
-    await recordAudit(specs);
+    await audited(specs, async () => {});
     expect(batch.set).toHaveBeenCalledTimes(600);
     expect(batch.commit).toHaveBeenCalledTimes(2);
   });

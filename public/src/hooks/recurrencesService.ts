@@ -14,14 +14,14 @@ import { db } from '../services/firebase';
 import { Recurrence, RecurrenceApproval, Transaction } from '../types/banking.types';
 import { getApprovalEntries, normalizeLabel } from '../utils/recurrenceEngine';
 import { withRetry } from '../utils/withRetry';
-import { audited, recordAudit } from '../services/auditLog';
+import { audited } from '../services/auditLog';
 import type { AuditChange } from '../types/banking.types';
 
 const COLLECTION_NAME = 'recurrences';
 
-/** Consigne dans le journal une action faite sur une récurrence. */
-const logChange = (id: string, change: AuditChange) =>
-  recordAudit({ domain: 'recurrence', ref: doc(db, COLLECTION_NAME, id), changes: [change] });
+/** Exécute une écriture sur une récurrence en la consignant dans le journal. */
+const logChange = (id: string, change: AuditChange, write: () => Promise<void>) =>
+  audited({ domain: 'recurrence', ref: doc(db, COLLECTION_NAME, id), changes: [change] }, write);
 
 /**
  * Crée une nouvelle récurrence déterministe à partir d'une transaction existante.
@@ -62,14 +62,16 @@ export async function createRecurrenceFromTransaction(tx: Transaction) {
         : {},
     };
 
-    await withRetry(() => setDoc(recRef, newRecurrence));
-    await recordAudit({
-      domain: 'recurrence',
-      ref: recRef,
-      action: 'create',
-      label,
-      changes: [{ field: 'expectedAmount', to: amount }],
-    });
+    await audited(
+      {
+        domain: 'recurrence',
+        ref: recRef,
+        action: 'create',
+        label,
+        changes: [{ field: 'expectedAmount', to: amount }],
+      },
+      () => withRetry(() => setDoc(recRef, newRecurrence)),
+    );
     return recRef.id;
   } catch (error) {
     console.error('Erreur lors de la création de la récurrence:', error);
@@ -104,8 +106,9 @@ export async function updateRecurrence(
 export async function skipRecurrencePeriod(id: string, periodKey: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await withRetry(() => updateDoc(docRef, { skippedPeriods: arrayUnion(periodKey) }));
-    await logChange(id, { field: 'skippedPeriod', to: periodKey });
+    await logChange(id, { field: 'skippedPeriod', to: periodKey }, () =>
+      withRetry(() => updateDoc(docRef, { skippedPeriods: arrayUnion(periodKey) })),
+    );
   } catch (error) {
     console.error("Erreur lors de l'ignorance de la récurrence pour la période:", error);
     throw error;
@@ -119,8 +122,9 @@ export async function skipRecurrencePeriod(id: string, periodKey: string) {
 export async function rejectRecurrenceMatch(id: string, txId: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await withRetry(() => updateDoc(docRef, { rejectedTxIds: arrayUnion(txId) }));
-    await logChange(id, { field: 'rejectedTx', to: txId });
+    await logChange(id, { field: 'rejectedTx', to: txId }, () =>
+      withRetry(() => updateDoc(docRef, { rejectedTxIds: arrayUnion(txId) })),
+    );
   } catch (error) {
     console.error('Erreur lors du refus du rattachement suggéré:', error);
     throw error;
@@ -133,8 +137,9 @@ export async function rejectRecurrenceMatch(id: string, txId: string) {
 export async function unskipRecurrencePeriod(id: string, periodKey: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await withRetry(() => updateDoc(docRef, { skippedPeriods: arrayRemove(periodKey) }));
-    await logChange(id, { field: 'skippedPeriod', from: periodKey });
+    await logChange(id, { field: 'skippedPeriod', from: periodKey }, () =>
+      withRetry(() => updateDoc(docRef, { skippedPeriods: arrayRemove(periodKey) })),
+    );
   } catch (error) {
     console.error('Erreur lors du rétablissement de la récurrence pour la période:', error);
     throw error;
@@ -181,8 +186,9 @@ export async function approveRecurrenceMatch(id: string, monthKey: string, tx: T
       entries,
     };
 
-    await withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: approval }));
-    await logChange(id, { field: 'linkedTx', to: `${monthKey} · ${tx.libelle}` });
+    await logChange(id, { field: 'linkedTx', to: `${monthKey} · ${tx.libelle}` }, () =>
+      withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: approval })),
+    );
   } catch (error) {
     console.error('Erreur lors de l’approbation de la récurrence:', error);
     throw error;
@@ -208,8 +214,9 @@ export async function unlinkRecurrenceTx(id: string, txId: string) {
     const remaining = getApprovalEntries(approval).filter((e) => e.txId !== txId);
 
     if (remaining.length === 0) {
-      await withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: deleteField() }));
-      await logChange(id, { field: 'linkedTx', from: monthKey });
+      await logChange(id, { field: 'linkedTx', from: monthKey }, () =>
+        withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: deleteField() })),
+      );
       return;
     }
 
@@ -221,8 +228,9 @@ export async function unlinkRecurrenceTx(id: string, txId: string) {
       approvedAt: approval.approvedAt,
       entries: remaining,
     };
-    await withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: next }));
-    await logChange(id, { field: 'linkedTx', from: monthKey });
+    await logChange(id, { field: 'linkedTx', from: monthKey }, () =>
+      withRetry(() => updateDoc(docRef, { [`approvedMonths.${monthKey}`]: next })),
+    );
   } catch (error) {
     console.error('Erreur lors du déliage de la transaction de la récurrence:', error);
     throw error;
@@ -235,12 +243,13 @@ export async function unlinkRecurrenceTx(id: string, txId: string) {
 export async function unapproveRecurrenceMonth(id: string, monthKey: string) {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
-    await withRetry(() =>
-      updateDoc(docRef, {
-        [`approvedMonths.${monthKey}`]: deleteField(),
-      }),
+    await logChange(id, { field: 'linkedTx', from: monthKey }, () =>
+      withRetry(() =>
+        updateDoc(docRef, {
+          [`approvedMonths.${monthKey}`]: deleteField(),
+        }),
+      ),
     );
-    await logChange(id, { field: 'linkedTx', from: monthKey });
   } catch (error) {
     console.error('Erreur lors de la désapprobation de la récurrence:', error);
     throw error;

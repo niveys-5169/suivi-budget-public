@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './useAuth';
+import { auditedMerge } from '../services/auditLog';
 
 export interface GitHubSettings {
   github_owner: string;
@@ -105,7 +106,7 @@ export function useAdvancedSettings() {
   };
 
   const updateRavConfig = async (config: Partial<RAVConfig>) => {
-    await withRetry(() => setDoc(doc(db, 'metadata', 'rav_config'), config, { merge: true }));
+    await auditedMerge('budget', doc(db, 'metadata', 'rav_config'), config, 'Reste-à-vivre');
   };
 
   const updateOwnerMapping = async (mapping: Partial<OwnerMapping>) => {

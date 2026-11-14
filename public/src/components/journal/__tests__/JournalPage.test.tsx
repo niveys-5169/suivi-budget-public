@@ -20,7 +20,12 @@ const entry = (overrides: Partial<AuditEntry>): AuditEntry => ({
 
 let mockEntries: AuditEntry[] = [];
 let mockLoading = false;
-const useAuditLogMock = vi.fn((_max: number) => ({ entries: mockEntries, loading: mockLoading }));
+let mockError = false;
+const useAuditLogMock = vi.fn((_max: number) => ({
+  entries: mockEntries,
+  loading: mockLoading,
+  error: mockError,
+}));
 let mockDocEntries: AuditEntry[] = [];
 vi.mock('../../../hooks/useAuditLog', () => ({
   PAGE_SIZE: 200,
@@ -32,6 +37,7 @@ describe('JournalPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLoading = false;
+    mockError = false;
     mockEntries = [
       entry({}),
       entry({
@@ -79,6 +85,25 @@ describe('JournalPage', () => {
     render(<JournalPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Voir plus' }));
     expect(useAuditLogMock).toHaveBeenLastCalledWith(400);
+  });
+
+  it('« Voir plus » reste disponible quand les filtres ne gardent rien d’une page pleine', () => {
+    mockEntries = Array.from({ length: 200 }, (_, i) => entry({ id: `e${i}` }));
+    render(<JournalPage />);
+    fireEvent.change(screen.getByLabelText('Filtrer par domaine'), {
+      target: { value: 'recurrence' },
+    });
+    expect(screen.getByText('Aucune modification pour ces filtres')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Voir plus' }));
+    expect(useAuditLogMock).toHaveBeenLastCalledWith(400);
+  });
+
+  it('erreur de lecture : journal indisponible, pas journal vide', () => {
+    mockEntries = [];
+    mockError = true;
+    render(<JournalPage />);
+    expect(screen.getByText('Journal indisponible')).toBeInTheDocument();
+    expect(screen.queryByText('Aucune modification enregistrée')).not.toBeInTheDocument();
   });
 
   it('pas de « Voir plus » quand tout est affiché', () => {

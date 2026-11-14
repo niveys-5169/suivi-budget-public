@@ -18,7 +18,6 @@ vi.mock('../../public/src/utils/withRetry', () => ({
 // Le journal a ses propres tests : ici il laisse passer l'écriture métier.
 vi.mock('../../public/src/services/auditLog', () => ({
   audited: (_specs: unknown, write: () => Promise<unknown>) => write(),
-  recordAudit: vi.fn(),
 }));
 
 vi.mock('firebase/firestore', () => ({
