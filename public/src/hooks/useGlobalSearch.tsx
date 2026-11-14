@@ -13,6 +13,7 @@ export const NAVIGABLE_PAGES = [
   { label: 'Projections', tab: '/projections' },
   { label: 'Assistant', tab: '/qa' },
   { label: 'Ma semaine', tab: '/semaine' },
+  { label: 'Journal', tab: '/journal' },
   { label: 'Notifications', tab: '/notifications' },
   { label: 'Connexions bancaires', tab: '/connexions' },
   { label: 'Paramètres', tab: '/settings' },

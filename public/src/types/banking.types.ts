@@ -1425,3 +1425,29 @@ export interface ProjectionScenarioCalcule {
   debutsRetraite: Record<string, ProjectionMonth>;
   fiscal: ProjectionFiscalAnnee[];
 }
+
+// ─── Journal des modifications (collection `audit_log`) ───
+export type AuditDomain = 'transaction' | 'budget' | 'recurrence';
+export type AuditAction = 'create' | 'update' | 'delete';
+export type AuditValue = string | number | boolean | null;
+
+/** Un champ modifié : `from` absent si l'ancienne valeur est inconnue. */
+export interface AuditChange {
+  field: string;
+  from?: AuditValue;
+  to?: AuditValue;
+}
+
+export interface AuditEntry {
+  id: string;
+  /** `null` tant que l'horodatage serveur n'est pas connu. */
+  at: Date | null;
+  byEmail: string;
+  domain: AuditDomain;
+  action: AuditAction;
+  /** Chemin Firestore du document modifié, ex. `transactions/abc`. */
+  path: string;
+  docId: string;
+  label: string;
+  changes: AuditChange[];
+}

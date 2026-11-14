@@ -1,5 +1,23 @@
 # 🏗 Current Architectural State (mise à jour octobre 2026)
 
+## Accès multi-comptes et journal des modifications (novembre 2026)
+
+- **Accès** : `isOwner()` (`firestore.rules`) accepte le propriétaire ou un compte dont
+  l'email vérifié est l'identifiant d'un document de `access_allowlist` (gérée dans la
+  console Firebase, aucun accès client). Les Cloud Functions `on_call` restent réservées
+  au propriétaire (`require_owner`, par UID).
+- **Journal** : collection `audit_log` (qui, quand, document, champs modifiés). Les règles
+  imposent l'email du jeton et l'heure serveur à la création ; ni modification ni suppression.
+- **Écriture** : `services/auditLog.ts` (`audited`, `auditedMerge`, `recordAudit`) et
+  `utils/auditLog.ts` (écarts, libellés). Instrumentés : `transactionRepository`,
+  `recurrencesService`, `BudgetContext`, `api/budgets`, `useBudgetExclusions`, `RAVEditor`.
+  Toute nouvelle écriture sur ces trois domaines doit passer par ces fonctions. La ligne est
+  écrite juste après l'écriture métier (non atomique) ; un échec du journal ne bloque rien.
+- **Lecture** : route `/journal` commune desktop et PWA (`components/journal/JournalPage.tsx`,
+  `hooks/useAuditLog.ts`), entrée dans la sidebar et dans les réglages mobiles ;
+  `TransactionAuditTrail` dans `TransactionFormModal`.
+- Conception : `docs/superpowers/specs/2026-11-14-journal-modifications-design.md`.
+
 ## Shell : palette globale, titre d'onglet, retour avec repli (novembre 2026)
 
 - **Palette Ctrl/Cmd+K** : `components/shared/GlobalCommandPalette.tsx`, montée dans `MainApp`

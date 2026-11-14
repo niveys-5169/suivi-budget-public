@@ -13,9 +13,13 @@ rules_version = '2';
 // collections utilisées par le front et la suppression de transactions.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Accès complet : le propriétaire, ou un compte dont l'email (vérifié) est
+    // l'identifiant d'un document de `access_allowlist`. Cette liste se gère
+    // uniquement depuis la console Firebase : aucun accès client.
     function isOwner() {
-      return request.auth != null && request.auth.token.email == "niveys@gmail.com"
-             && request.auth.token.email_verified == true;
+      return request.auth != null && request.auth.token.email_verified == true
+             && (request.auth.token.email == "niveys@gmail.com"
+                 || exists(/databases/$(database)/documents/access_allowlist/$(request.auth.token.email)));
     }
     function isBankingCollection(name) {
       return name in ['eb_sessions', 'eb_pending_auth', 'bank_observations',
@@ -27,10 +31,20 @@ service cloud.firestore {
     match /bank_sync_runs/{document} { allow read: if isOwner(); }
     match /bank_runtime/{document} { allow read: if isOwner(); }
     match /recurring_expense_settings/{document=**} { allow read: if isOwner(); }
+    // Journal des modifications : chaque ligne est signée de l'email du compte
+    // connecté et datée par le serveur ; ni modification ni suppression.
+    match /audit_log/{entry} {
+      allow read: if isOwner();
+      allow create: if isOwner()
+                    && request.resource.data.byEmail == request.auth.token.email
+                    && request.resource.data.at == request.time;
+    }
     match /{collection}/{document=**} {
 
       // Propriétaire uniquement : lecture + écriture (recurring_expense_settings gelé en lecture seule)
-      allow read, write: if !isBankingCollection(collection) && collection != 'recurring_expense_settings' && isOwner();
+      allow read, write: if !isBankingCollection(collection) && collection != 'recurring_expense_settings'
+                         && collection != 'access_allowlist' && collection != 'audit_log'
+                         && isOwner();
     }
   }
 }

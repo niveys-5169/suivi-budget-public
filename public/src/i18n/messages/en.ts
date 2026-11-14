@@ -12,6 +12,7 @@ const en: Record<MessageId, string> = {
   'nav.budgets': 'Budgets',
   'nav.patrimoine': 'Wealth',
   'nav.projections': 'Projections',
+  'nav.journal': 'Activity log',
   'nav.analyse': 'Analytics',
   'nav.recurring': 'Recurring',
   'nav.settings': 'Settings',

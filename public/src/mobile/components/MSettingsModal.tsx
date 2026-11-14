@@ -181,6 +181,14 @@ export const MSettingsModal: React.FC<MSettingsModalProps> = ({ isOpen, onClose 
                 navigate('/connexions');
               }}
             />
+            <ListItem
+              title="Journal des modifications"
+              subtitle="Qui a changé quoi"
+              onClick={() => {
+                onClose();
+                navigate('/journal');
+              }}
+            />
             <Card>
               <GitHubSettingsForm />
             </Card>

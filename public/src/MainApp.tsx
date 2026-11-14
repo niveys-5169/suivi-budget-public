@@ -54,6 +54,9 @@ const FinanceQASection = lazy(() =>
 const WeeklyRecapPage = lazy(() =>
   import('./components/weekly/WeeklyRecapPage').then((m) => ({ default: m.WeeklyRecapPage })),
 );
+const JournalPage = lazy(() =>
+  import('./components/journal/JournalPage').then((m) => ({ default: m.JournalPage })),
+);
 const SettingsPage = lazy(() =>
   import('./components/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
@@ -219,6 +222,7 @@ export const MainApp: React.FC = () => {
                   <Route path="/semaine/:weekId?" element={<WeeklyRecapPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/connexions" element={<BankConnectionsPage />} />
+                  <Route path="/journal" element={<JournalPage />} />
                   <Route
                     path="/notifications"
                     element={<AurumNotificationPage onBack={goBack} />}

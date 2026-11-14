@@ -11,6 +11,7 @@ const fr = {
   'nav.budgets': 'Budgets',
   'nav.patrimoine': 'Patrimoine',
   'nav.projections': 'Projections',
+  'nav.journal': 'Journal',
   'nav.analyse': 'Analyse',
   'nav.recurring': 'Récurrences',
   'nav.settings': 'Paramètres',

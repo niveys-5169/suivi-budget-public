@@ -11,6 +11,7 @@ import {
   MessageSquare,
   RefreshCw,
   LineChart,
+  History,
 } from 'lucide-react';
 import { FLAGS } from '../../lib/featureFlags';
 import { LogoutButton } from '../AuthButtons';
@@ -55,6 +56,7 @@ export const Sidebar: React.FC = () => {
     { to: '/recurring', icon: RefreshCw, labelId: 'nav.recurring' },
     { to: '/patrimoine', icon: TrendingUp, labelId: 'nav.patrimoine' },
     { to: '/projections', icon: LineChart, labelId: 'nav.projections' },
+    { to: '/journal', icon: History, labelId: 'nav.journal' },
   ];
 
   if (FLAGS.ANALYSE_PAGE) {
